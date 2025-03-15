@@ -10,4 +10,3 @@ scipy
 termcolor
 thop
 mmcv
-opencv-python-headless
