@@ -11,7 +11,7 @@ import numpy as np
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from utils.custom_collate import collate_mil
-
+from argparse import Namespace
 from .helpers import get_dist_info
 from torch.utils.data import DataLoader
 from .sampler import (
@@ -296,7 +296,8 @@ def get_head(p, backbone_channels, task):
 
 def get_model(p,args=None):
     """ Return the model """
-
+    if args is None:
+        args = Namespace()
     backbone, backbone_channels = get_backbone(p,args=args)
     
     if p['setup'] == 'single_task':
