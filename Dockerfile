@@ -20,6 +20,9 @@ ENV TORCH_CUDA_ARCH_LIST="7.0;7.5;8.0;8.6"
 ENV CUDA_HOME=/usr/local/cuda
 ENV PATH="$CUDA_HOME/bin:$PATH"
 
+# copy the requirements file
+COPY requirements.txt .
+
 # Clone FastMoE, checkout specific commit, and install
 RUN git clone https://github.com/laekov/fastmoe.git && \
     cd fastmoe && \
