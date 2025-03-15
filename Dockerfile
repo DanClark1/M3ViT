@@ -24,7 +24,6 @@ ENV PATH="$CUDA_HOME/bin:$PATH"
 RUN git clone https://github.com/laekov/fastmoe.git && \
     cd fastmoe && \
     python setup.py install
-RUN pip install opencv-python-headless
 
 RUN apt-get update && apt-get install -y libgl1
 RUN pip install easydict
@@ -35,3 +34,6 @@ RUN pip install imageio
 RUN pip install scipy
 RUN pip install termcolor
 RUN pip install thop
+RUN pip install mmcv
+
+RUN pip install opencv-python-headless
