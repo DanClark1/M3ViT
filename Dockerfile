@@ -30,3 +30,5 @@ RUN git clone https://github.com/laekov/fastmoe.git && \
 
 RUN apt-get update && apt-get install -y libgl1
 RUN pip install -r requirements.txt
+
+RUN pip install opencv-python-headless
