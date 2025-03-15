@@ -213,7 +213,7 @@ def get_backbone(p, args=None):
                     checkpoint = torch.load(args.pretrained, map_location="cpu")
                     moe_dir_read = False
                 elif os.path.isdir(args.pretrained):
-                    checkpoint = torch.load(os.path.join(args.pretrained, "0.pth".format(torch.distributed.get_rank())), map_location="cpu")
+                    checkpoint = torch.load(os.path.join(args.pretrained, "0.pth".format(0)), map_location="cpu")
                     # len_save = min(len([f for f in os.listdir(args.pretrained) if "pth" in f]),int(args.moe_experts * torch.distributed.get_world_size()))
                     len_save = len([f for f in os.listdir(args.pretrained) if "pth" in f])
                     print('===========number of moe loaded from pretrain======',len_save)
