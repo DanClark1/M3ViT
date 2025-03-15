@@ -169,13 +169,14 @@ def get_backbone(p, args=None):
         from models.vision_transformer_moe import VisionTransformerMoE
         norm_cfg = dict(type='SyncBN', requires_grad=True)
         bn_args = p['backbone_kwargs']
-        if args.moe_data_distributed:
-            moe_world_size = 1
-        else:
-            moe_world_size = torch.distributed.get_world_size()
-            if args.moe_experts % moe_world_size != 0:
-                print("experts number of {} is not divisible by world size of {}".format(args.moe_experts, moe_world_size))
-            args.moe_experts = args.moe_experts // moe_world_size
+        moe_world_size = 1
+        # if args.moe_data_distributed:
+        #     moe_world_size = 1
+        # else:
+        #     moe_world_size = torch.distributed.get_world_size()
+            # if args.moe_experts % moe_world_size != 0:
+            #     print("experts number of {} is not divisible by world size of {}".format(args.moe_experts, moe_world_size))
+            # args.moe_experts = args.moe_experts // moe_world_size
         if args.moe_use_gate:
             gate_model = vits_gate.__dict__[args.moe_gate_arch](num_classes=0)
             backbone = VisionTransformerMoE(model_name=bn_args['model_name'],\
@@ -216,9 +217,9 @@ def get_backbone(p, args=None):
                     # len_save = min(len([f for f in os.listdir(args.pretrained) if "pth" in f]),int(args.moe_experts * torch.distributed.get_world_size()))
                     len_save = len([f for f in os.listdir(args.pretrained) if "pth" in f])
                     print('===========number of moe loaded from pretrain======',len_save)
-                    assert len_save % torch.distributed.get_world_size() == 0
-                    response_cnt = [i for i in range(torch.distributed.get_rank() * (len_save // torch.distributed.get_world_size()),
-                                                    (torch.distributed.get_rank() + 1) * (len_save // torch.distributed.get_world_size()))]
+                    # assert len_save % torch.distributed.get_world_size() == 0
+                    response_cnt = [i for i in range((len_save),
+                                                    (2) * (len_save))]
                     # merge all ckpts
                     for cnt, cnt_model in enumerate(response_cnt):
                         if cnt_model != 0:
