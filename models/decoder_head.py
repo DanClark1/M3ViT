@@ -3,7 +3,8 @@ from abc import ABCMeta, abstractmethod
 import torch
 import torch.nn as nn
 from mmengine.model import normal_init
-from mmcv.runner import auto_fp16, force_fp32
+from mmengine.runner import auto_fp16, force_fp32
+
 
 # from mmseg.core import build_pixel_sampler
 # from mmseg.ops import resize

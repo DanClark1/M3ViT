@@ -1,5 +1,13 @@
-opencv-python
 torch
 pyyaml
 easydict
 timm
+mmengine
+ninja
+dm-tree
+imageio
+scipy
+termcolor
+thop
+mmcv
+opencv-python-headless
