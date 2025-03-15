@@ -172,8 +172,6 @@ def get_backbone(p, args=None):
         if args.moe_data_distributed:
             moe_world_size = 1
         else:
-            if not torch.distributed.is_initialized():
-                torch.distributed.init_process_group(backend="nccl", init_method="env://")
             moe_world_size = torch.distributed.get_world_size()
             if args.moe_experts % moe_world_size != 0:
                 print("experts number of {} is not divisible by world size of {}".format(args.moe_experts, moe_world_size))
@@ -298,12 +296,7 @@ def get_head(p, backbone_channels, task):
 
 def get_model(p,args=None):
     """ Return the model """
-    if args is None:
-        args = Namespace(
-            moe_data_distributed=True,  # Default value
-            moe_experts=8,  # Default value, modify if needed
-            pretrained=None  # Add other attributes as required
-        )
+
     backbone, backbone_channels = get_backbone(p,args=args)
     
     if p['setup'] == 'single_task':
