@@ -300,7 +300,7 @@ def get_model(p,args=None):
     """ Return the model """
     if args is None:
         args = Namespace(
-            moe_data_distributed=False,  # Default value
+            moe_data_distributed=True,  # Default value
             moe_experts=8,  # Default value, modify if needed
             pretrained=None  # Add other attributes as required
         )
