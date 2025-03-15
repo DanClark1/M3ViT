@@ -475,7 +475,7 @@ def get_train_dataset(p, transforms):
 
     elif db_name == 'NYUD':
         from data.nyud import NYUD_MT
-        database = NYUD_MT(split='train', transform=transforms,download=False, do_edge='edge' in p.ALL_TASKS.NAMES, 
+        database = NYUD_MT(split='train', transform=transforms,download=True, do_edge='edge' in p.ALL_TASKS.NAMES, 
                                     do_semseg='semseg' in p.ALL_TASKS.NAMES, 
                                     do_normals='normals' in p.ALL_TASKS.NAMES, 
                                     do_depth='depth' in p.ALL_TASKS.NAMES, overfit=p['overfit'])
@@ -517,7 +517,7 @@ def get_val_dataset(p, transforms):
     
     elif db_name == 'NYUD':
         from data.nyud import NYUD_MT
-        database = NYUD_MT(split='val', transform=transforms, download=False, do_edge='edge' in p.TASKS.NAMES, 
+        database = NYUD_MT(split='val', transform=transforms, download=True, do_edge='edge' in p.TASKS.NAMES, 
                                 do_semseg='semseg' in p.TASKS.NAMES, 
                                 do_normals='normals' in p.TASKS.NAMES, 
                                 do_depth='depth' in p.TASKS.NAMES, overfit=p['overfit'])
