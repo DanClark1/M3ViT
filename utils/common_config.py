@@ -297,7 +297,11 @@ def get_head(p, backbone_channels, task):
 def get_model(p,args=None):
     """ Return the model """
     if args is None:
-        args = Namespace()
+        args = Namespace(
+            moe_data_distributed=False,  # Default value
+            moe_experts=8,  # Default value, modify if needed
+            pretrained=None  # Add other attributes as required
+        )
     backbone, backbone_channels = get_backbone(p,args=args)
     
     if p['setup'] == 'single_task':
