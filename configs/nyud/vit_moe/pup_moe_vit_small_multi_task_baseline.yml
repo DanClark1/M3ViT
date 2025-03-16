@@ -6,7 +6,7 @@ train_db_name: NYUD
 val_db_name: NYUD 
 trBatch: 8
 valBatch: 8
-nworkers: 4
+nworkers: 1
 
 # Optimizer and scheduler
 epochs: 100
