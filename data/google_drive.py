@@ -2,25 +2,29 @@ import requests
 
 CHUNK_SIZE = 32768
 
-def download_file_from_google_drive(id, destination):
-    URL = "https://drive.google.com/u/1/uc?export=download"
-
+def download_file_from_google_drive(file_id, destination):
+    URL = "https://docs.google.com/uc?export=download"
     session = requests.Session()
-    print('id',id)
-    response = session.get(URL, params = { 'id' : id }, stream = True)
 
-    for key, value in response.cookies.items():
-        print('key', key)
-        print('value', value)
-        token = value
-        if key.startswith('download_warning'):
-            token = value
+    # Initial request to get the confirm token (if required)
+    response = session.get(URL, params={'id': file_id}, stream=True)
+    token = get_confirm_token(response)
 
     if token:
-        params = { 'id' : id, 'confirm' : token }
-        response = session.get(URL, params = params, stream = True)
+        params = {'id': file_id, 'confirm': token}
+        response = session.get(URL, params=params, stream=True)
 
+    save_response_content(response, destination)
+
+def get_confirm_token(response):
+    # Look for a cookie key that starts with 'download_warning'
+    for key, value in response.cookies.items():
+        if key.startswith('download_warning'):
+            return value
+    return None
+
+def save_response_content(response, destination):
     with open(destination, "wb") as f:
         for chunk in response.iter_content(CHUNK_SIZE):
-            if chunk: # filter out keep-alive new chunks
+            if chunk:  # filter out keep-alive new chunks
                 f.write(chunk)
