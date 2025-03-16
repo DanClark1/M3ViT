@@ -205,8 +205,8 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
     
     for i, batch in enumerate(train_loader):
         # Forward pass
-        images = batch['image'].cuda(args.local_rank, non_blocking=True)
-        targets = {task: batch[task].cuda(args.local_rank, non_blocking=True) for task in p.ALL_TASKS.NAMES}
+        images = batch['image'].cuda(0, non_blocking=True)
+        targets = {task: batch[task].cuda(0, non_blocking=True) for task in p.ALL_TASKS.NAMES}
         
         if args.one_by_one:
             optimizer.zero_grad()
