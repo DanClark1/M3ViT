@@ -258,7 +258,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             # Backward
             optimizer.zero_grad()
             loss_dict['total'].backward()
-            if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
+            if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed) and False:
                 model.allreduce_params()
             optimizer.step()
             
