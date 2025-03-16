@@ -10,3 +10,4 @@ scipy
 termcolor
 thop
 mmcv
+scikit-image
