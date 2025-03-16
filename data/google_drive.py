@@ -11,6 +11,7 @@ def download_file_from_google_drive(id, destination):
 
     for key, value in response.cookies.items():
         print('key', key)
+        print('value', value)
         if key.startswith('download_warning'):
             token = value
 
