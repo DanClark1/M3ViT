@@ -10,7 +10,7 @@ def download_file_from_google_drive(id, destination):
     response = session.get(URL, params = { 'id' : id }, stream = True)
 
     for key, value in response.cookies.items():
-        print(key)
+        print('key', key)
         if key.startswith('download_warning'):
             token = value
 
