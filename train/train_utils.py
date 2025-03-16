@@ -228,7 +228,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                     loss_dict['total'] += collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 # Backward
                 loss_dict['total'].backward()
-            if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
+            if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed) and False:
                     model.allreduce_params()
 
             optimizer.step()
