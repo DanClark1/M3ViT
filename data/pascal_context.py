@@ -284,14 +284,14 @@ class PASCALContext(data.Dataset):
         return len(self.images)
 
     def _load_img(self, index):
-        _img = np.array(Image.open(self.images[index]).convert('RGB')).astype(np.float32)
+        _img = np.array(Image.open(self.images[index]).convert('RGB')).astype(float)
         return _img
 
     def _load_edge(self, index):
         # Read Target object
         _tmp = sio.loadmat(self.edges[index])
         _edge = cv2.Laplacian(_tmp['LabelMap'], cv2.CV_64F)
-        _edge = thin(np.abs(_edge) > 0).astype(np.float32)
+        _edge = thin(np.abs(_edge) > 0).astype(float)
         return _edge
 
     def _load_human_parts(self, index):
@@ -309,10 +309,10 @@ class PASCALContext(data.Dataset):
 
                 if has_human and has_parts:
                     if _inst_mask is None:
-                        _inst_mask = _part_mat[_obj_ii][2].astype(np.float32)
+                        _inst_mask = _part_mat[_obj_ii][2].astype(float)
                         _target = np.zeros(_inst_mask.shape)
                     else:
-                        _inst_mask = np.maximum(_inst_mask, _part_mat[_obj_ii][2].astype(np.float32))
+                        _inst_mask = np.maximum(_inst_mask, _part_mat[_obj_ii][2].astype(float))
 
                     n_parts = len(_part_mat[_obj_ii][3][0])
                     for part_i in range(n_parts):
@@ -322,22 +322,22 @@ class PASCALContext(data.Dataset):
                         _target[mask] = mask_id
 
             if _target is not None:
-                _target, _inst_mask = _target.astype(np.float32), _inst_mask.astype(np.float32)
+                _target, _inst_mask = _target.astype(float), _inst_mask.astype(float)
             else:
-                _target, _inst_mask = np.zeros((512, 512), dtype=np.float32), np.zeros((512, 512), dtype=np.float32)
+                _target, _inst_mask = np.zeros((512, 512), dtype=float), np.zeros((512, 512), dtype=float)
 
             return _target, _inst_mask
 
         else:
-            return np.zeros((512, 512), dtype=np.float32), np.zeros((512, 512), dtype=np.float32)
+            return np.zeros((512, 512), dtype=float), np.zeros((512, 512), dtype=float)
 
     def _load_semseg(self, index):
-        _semseg = np.array(Image.open(self.semsegs[index])).astype(np.float32)
+        _semseg = np.array(Image.open(self.semsegs[index])).astype(float)
 
         return _semseg
 
     def _load_normals_distilled(self, index):
-        _tmp = np.array(Image.open(self.normals[index])).astype(np.float32)
+        _tmp = np.array(Image.open(self.normals[index])).astype(float)
         _tmp = 2.0 * _tmp / 255.0 - 1.0
 
         labels = sio.loadmat(os.path.join(self.root, 'pascal-context', 'trainval', self.im_ids[index] + '.mat'))
@@ -352,8 +352,8 @@ class PASCALContext(data.Dataset):
         return _normals
 
     def _load_sal_distilled(self, index):
-        _sal = np.array(Image.open(self.sals[index])).astype(np.float32) / 255.
-        _sal = (_sal > 0.5).astype(np.float32)
+        _sal = np.array(Image.open(self.sals[index])).astype(float) / 255.
+        _sal = (_sal > 0.5).astype(float)
 
         return _sal
 
