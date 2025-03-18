@@ -4,8 +4,8 @@ setup: multi_task
 # Database
 train_db_name: PASCALContext
 val_db_name: PASCALContext
-trBatch: 4
-valBatch: 4
+trBatch: 3
+valBatch: 3
 nworkers: 1
 
 # Optimizer and scheduler
