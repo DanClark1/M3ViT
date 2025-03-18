@@ -29,7 +29,7 @@ def eval_depth(loader, folder):
 
         # Load result
         filename = os.path.join(folder, sample['meta']['image'] + '.mat')
-        pred = sio.loadmat(filename)['depth'].astype(np.float32)
+        pred = sio.loadmat(filename)['depth'].astype(float)
         label = sample['depth']
         
         if pred.shape != label.shape:

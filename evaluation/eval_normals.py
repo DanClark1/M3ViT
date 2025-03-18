@@ -36,7 +36,7 @@ def eval_normals(loader, folder):
 
         # Load result
         filename = os.path.join(folder, sample['meta']['image'] + '.png')
-        pred = 2. * cv2.imread(filename).astype(np.float32)[..., ::-1] / 255. - 1
+        pred = 2. * cv2.imread(filename).astype(float)[..., ::-1] / 255. - 1
         pred = normal_ize(pred)
 
         if pred.shape != label.shape:

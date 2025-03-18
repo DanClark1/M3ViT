@@ -49,7 +49,7 @@ def eval_semseg(loader, folder, n_classes=20, has_bg=True):
 
         # Load result
         filename = os.path.join(folder, sample['meta']['image'] + '.png')
-        mask = np.array(Image.open(filename)).astype(np.float32)
+        mask = np.array(Image.open(filename)).astype(float)
 
         gt = sample['semseg']
         valid = (gt != 255)

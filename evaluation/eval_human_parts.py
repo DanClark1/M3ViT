@@ -41,11 +41,11 @@ def eval_human_parts(loader, folder, n_parts=6):
 
         # Load result
         filename = os.path.join(folder, sample['meta']['image'] + '.png')
-        mask = np.array(Image.open(filename)).astype(np.float32)
+        mask = np.array(Image.open(filename)).astype(float)
 
         # Case of a binary (probability) result
         if n_parts == 1:
-            mask = (mask > 0.5 * 255).astype(np.float32)
+            mask = (mask > 0.5 * 255).astype(float)
 
         counter += 1
         valid = (gt != 255)

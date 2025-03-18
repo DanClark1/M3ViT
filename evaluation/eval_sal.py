@@ -34,7 +34,7 @@ def eval_sal(loader, folder, mask_thres=None):
 
         # Load result
         filename = os.path.join(folder, sample["meta"]["image"] + '.png')
-        mask = np.array(Image.open(filename)).astype(np.float32) / 255.
+        mask = np.array(Image.open(filename)).astype(float) / 255.
 
         gt = sample["sal"]
 
@@ -43,8 +43,8 @@ def eval_sal(loader, folder, mask_thres=None):
             mask = cv2.resize(mask, gt.shape[::-1], interpolation=cv2.INTER_NEAREST)
         
         for j, thres in enumerate(mask_thres):
-            #gt = (gt > thres).astype(np.float32) # Removed this from ASTMT code. GT is already binarized. 
-            mask_eval = (mask > thres).astype(np.float32)
+            #gt = (gt > thres).astype(float) # Removed this from ASTMT code. GT is already binarized. 
+            mask_eval = (mask > thres).astype(float)
             eval_result['all_jaccards'][i, j] = evaluation.jaccard(gt, mask_eval)
             eval_result['prec'][i, j], eval_result['rec'][i, j] = evaluation.precision_recall(gt, mask_eval)
 
