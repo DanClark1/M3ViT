@@ -82,7 +82,8 @@ parser.add_argument("--launcher",
         default="pytorch",
         help="job launcher",
     )
-parser.add_argument("--local_rank", type=int, default=-1)
+parser.add_argument("--local_rank", "--local-rank", type=int, default=-1)
+
 parser.add_argument('--seed', type=int, default=0, help='random seed')
 parser.add_argument(
         '--deterministic',
