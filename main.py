@@ -8,6 +8,9 @@ import os
 import numpy as np
 import sys
 import torch
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel
+from torch.utils.data.distributed import DistributedSampler
 
 from utils.config import create_config
 from utils.common_config import get_train_dataset, get_transformations,\
@@ -22,6 +25,7 @@ from termcolor import colored
 import time
 from thop import clever_format
 from thop import profile
+
 # Parser
 parser = argparse.ArgumentParser(description='Vanilla Training')
 parser.add_argument('--config_env',
@@ -32,6 +36,10 @@ parser.add_argument('--flops', action='store_true',
         help='whether to set deterministic options for CUDNN backend.')
 parser.add_argument('--time', action='store_true',
         help='whether to set deterministic options for CUDNN backend.')
+parser.add_argument('--local_rank', type=int, default=-1,
+                    help='Local rank for distributed training')
+parser.add_argument('--world_size', type=int, default=1,
+                    help='World size for distributed training')
 args = parser.parse_args()
 
 def main():

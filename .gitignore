@@ -1,0 +1,8 @@
+venv
+# regular stuff youd ignore
+*.pth
+__pycache__
+*.pyc
+*.pyo
+
+fastmoe
