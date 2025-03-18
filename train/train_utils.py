@@ -103,7 +103,7 @@ def logits_aug(logits, low=0.01, high=9.99):
 def adjust_epsilon_greedy(p, epoch):
     return 0.5 * max((1 - epoch/(p['epochs'] - p['left'])), 0)
 
-def train_vanilla(p, train_loader, model, criterion, optimizer, epoch):
+def train_vanilla(args, p, train_loader, model, criterion, optimizer, epoch):
     """ Vanilla training with fixed loss weights """
     losses = get_loss_meters(p)
     performance_meter = PerformanceMeter(p)
@@ -114,8 +114,9 @@ def train_vanilla(p, train_loader, model, criterion, optimizer, epoch):
     
     for i, batch in enumerate(train_loader):
         # Forward pass
-        images = batch['image'].cuda(non_blocking=True)
-        targets = {task: batch[task].cuda(non_blocking=True) for task in p.ALL_TASKS.NAMES}
+        images = batch['image'].cuda(args.local_rank, non_blocking=True)
+        targets = {task: batch[task].cuda(args.local_rank, non_blocking=True) for task in p.ALL_TASKS.NAMES}
+
         output = model(images)
         
         # Measure loss and performance
