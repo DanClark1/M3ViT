@@ -456,7 +456,7 @@ def main():
             
             # print output matricies from experts
             if p['backbone'] == 'VisionTransformer_moe':
-                model.print_matricies()
+                model.module.print_matricies()
         if args.distributed:
             torch.distributed.barrier()
 
