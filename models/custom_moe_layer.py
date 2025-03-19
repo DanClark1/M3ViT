@@ -53,7 +53,7 @@ class _Expert(nn.Module):
             if self.record_output:
                 self.outputs.append(x)
             return x
-        else:
+        # else:
 
     
     # def get_components(self, num_global=2, num_local=2):
