@@ -432,6 +432,8 @@ def main():
         else:
             eval_bool = True
 
+        model.module.dump_output_matricies()
+
         # Perform evaluation
         if eval_bool:
             print('Evaluate ...')
