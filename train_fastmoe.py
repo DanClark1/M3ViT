@@ -31,6 +31,8 @@ from utils.moe_utils import sync_weights,save_checkpoint
 import time
 import fmoe
 from thop import clever_format
+from utils.model_utils import save_model
+
 from thop import profile
 def set_random_seed(seed, deterministic=False):
     """Set random seed.
@@ -405,6 +407,9 @@ def main():
     # Main loop
     print(colored('Starting main loop', 'blue'))
 
+    if p['backbone'] == 'VisionTransformer_moe':
+        using_vision_transformer = True
+
     for epoch in range(start_epoch, p['epochs']):
         print(colored('Epoch %d/%d' %(epoch+1, p['epochs']), 'yellow'))
         print(colored('-'*10, 'yellow'))
@@ -448,6 +453,10 @@ def main():
                 'best_result': best_result,
                 'optimizer' : optimizer.state_dict(),
                 }, improves, p, moe_save=moe_save)
+            
+            # print output matricies from experts
+            if p['backbone'] == 'VisionTransformer_moe':
+                model.print_matricies()
         if args.distributed:
             torch.distributed.barrier()
 

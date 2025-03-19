@@ -27,6 +27,7 @@ from utils.custom_collate import collate_mil
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from utils.common_config import build_train_dataloader,build_val_dataloader
+from utils.model_utils import save_model
 
 def str2bool(v):
     """

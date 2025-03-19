@@ -272,14 +272,14 @@ class Block(nn.Module):
         else:
             self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
     
-    def forward(self, x, gate_inp=None, task_id=None, task_specific_feature=None, sem=None):
+    def forward(self, x, gate_inp=None, task_id=None, task_specific_feature=None, sem=None, record_expert_outputs=False):
         if self.gate_input_ahead:
             gate_inp = x
         x = x + self.drop_path(self.attn(self.norm1(x)))
         if not self.moe:
             x = x + self.drop_path(self.mlp(self.norm2(x)))
         else:
-            x = x + self.drop_path(self.mlp_drop(self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem)))
+            x = x + self.drop_path(self.mlp_drop(self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem, record_expert_outputs=record_expert_outputs)))
         return x
 
 class PatchEmbed(nn.Module):
@@ -468,6 +468,12 @@ class VisionTransformerMoE(nn.Module):
 
         self.init_weights()
         self.idx = 0
+
+    def dump_ouput(self):
+        for block in self.blocks:
+            if block.moe:
+                block.mlp.dump_output()
+ 
     def init_weights(self, pretrained=None):
         for n, m in self.named_modules():
             if isinstance(m, nn.Linear):
@@ -534,7 +540,7 @@ class VisionTransformerMoE(nn.Module):
         np.save(filename, hint)
         return torch.tensor(hint, device=sem.device) 
 
-    def forward_features(self, x, gate_inp, task_id,sem):
+    def forward_features(self, x, gate_inp, task_id,sem, isval=False):
         B = x.shape[0]
         x = self.patch_embed(x)
         x = x.flatten(2).transpose(1, 2)
@@ -552,17 +558,17 @@ class VisionTransformerMoE(nn.Module):
         
         for i, blk in enumerate(self.blocks):
             if blk.moe:
-                x=blk(x, gate_inp, task_id, task_specific_feature,sem=sem)
+                x=blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs = isval)
             else:
                 x = blk(x)
             if i in self.out_indices:
                 outs.append(x)
         return tuple(outs)
 
-    def forward(self, x, gate_inp=None, task_id=None,sem=None):
+    def forward(self, x, gate_inp=None, task_id=None,sem=None, isval=False):
         if sem is not None and (self.regu_sem or self.sem_force):
             sem = self.get_groundtruth_sem(sem)
-        out = self.forward_features(x, gate_inp, task_id = task_id,sem=sem)
+        out = self.forward_features(x, gate_inp, task_id = task_id,sem=sem, isval=isval)
         return out
 
 

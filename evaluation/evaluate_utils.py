@@ -298,9 +298,15 @@ def save_model_predictions(p, val_loader, model, args=None):
                     else:
                         output.update(model(inputs,single_task=single_task))
             else:
-                output = model(inputs)
+                if p['backbone']=='VisionTransformer':
+                    output = model(inputs, isval=True)
+                else:
+                    output = model(inputs)
         else:
-            output = model(inputs)
+            if p['backbone']=='VisionTransformer':
+                    output = model(inputs, isval=True)
+            else:
+                output = model(inputs)
         if ii%50==0:
             print('has saved samples',ii,len(val_loader))
         for task in p.TASKS.NAMES:

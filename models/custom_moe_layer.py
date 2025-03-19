@@ -18,6 +18,8 @@ from fmoe.gates import NaiveGate
 from models.gate_funs.noisy_gate import NoisyGate
 from models.gate_funs.noisy_gate_vmoe import NoisyGate_VMoE
 
+from utils.perpca import PerPCA
+
 from pdb import set_trace
 import numpy as np
 
@@ -32,6 +34,11 @@ class _Expert(nn.Module):
         self.htoh4 = FMoELinear(num_expert, d_model, d_hidden, bias=True, rank=rank)
         self.h4toh = FMoELinear(num_expert, d_hidden, d_model, bias=True, rank=rank)
         self.activation = activation
+        self.outputs = []
+        self.record_output = False
+
+    def reset_outputs(self):
+        self.outputs = []
 
     def forward(self, inp, fwd_expert_count):
         r"""
@@ -41,6 +48,8 @@ class _Expert(nn.Module):
         x = self.htoh4(inp, fwd_expert_count)
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
+        if self.record_output:
+            self.outputs.append(x)
         return x
 
 class Mlp(nn.Module):
@@ -109,6 +118,7 @@ class FMoETransformerMLP(FMoE):
         self.regu_subimage = regu_subimage
         self.expert_prune = expert_prune
         self.prune_threshold = prune_threshold
+
         if self.sem_force:
             self.force_id=[[0],[1,17,18,19,20],[2,12,13,14,15,16],[3,9,10,11],[4,5],[6,7,8,38],[21,22,23,24,25,26,39],[27,28,29,30,31,32,33,34,35,36,37]]
         if self.regu_experts_fromtask:
@@ -158,7 +168,12 @@ class FMoETransformerMLP(FMoE):
             raise ValueError("No such gating type")
         self.mark_parallel_comm(expert_dp_comm)
 
-    def forward(self, inp: torch.Tensor, gate_inp=None, task_id = None, task_specific_feature = None, sem=None):
+    def dump_output(self):
+        '''get each expert to print out the shape of its output matrix'''
+        print(f'Experts output shape: {np.array(self.experts.output).shape}')
+
+
+    def forward(self, inp: torch.Tensor, gate_inp=None, task_id = None, task_specific_feature = None, sem=None, record_expert_outputs=False):
         r"""
         This module wraps up the FMoE module with reshape, residual and layer
         normalization.
@@ -177,11 +192,14 @@ class FMoETransformerMLP(FMoE):
             assert self.multi_gate is False
             size = gate_inp.shape[0]
             gate_inp = torch.cat((gate_inp,task_specific_feature.repeat(size,1)),dim=-1)
-        output = self.forward_moe(gate_inp=gate_inp, moe_inp=inp, task_id=task_id, sem=sem)
+        output = self.forward_moe(gate_inp=gate_inp, moe_inp=inp, task_id=task_id, sem=sem, record_outputs=record_expert_outputs)
         return output.reshape(original_shape)
+    
+    def get_output_matrix(self):
+        return torch.cat(self.experts.outputs, dim=0).T
 
 
-    def forward_moe(self, gate_inp, moe_inp, task_id=None, sem=None):
+    def forward_moe(self, gate_inp, moe_inp, task_id=None, sem=None, record_outputs=False):
         r"""
         The FMoE module first computes gate output, and then conduct MoE forward
         according to the gate.  The score of the selected gate given by the
@@ -252,9 +270,13 @@ class FMoETransformerMLP(FMoE):
             moe_inp = tree.map_structure(delete_mask_func, moe_inp)
             gate_top_k_idx = gate_top_k_idx[mask == 0, :]
 
+        # no idea how to actually pass this into the experts
+        if record_outputs:
+            self.experts.record_output = True
         fwd = _fmoe_general_global_forward(
             moe_inp, gate_top_k_idx, self.expert_fn, self.num_expert, self.world_size
         )
+        self.experts.record_output = False
 
         # recover deleted tensors
         if self.mask is not None and self.mask_dict is not None:

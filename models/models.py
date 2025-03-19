@@ -120,6 +120,8 @@ class MultiTaskModel(nn.Module):
     def __init__(self, backbone: nn.Module, decoders: nn.ModuleDict, tasks: list,p=None):
         super(MultiTaskModel, self).__init__()
         assert(set(decoders.keys()) == set(tasks))
+        if p['backbone'] == 'VisionTransformer_moe':
+            self.vision_transformer = True
         self.backbone = backbone
         self.decoders = decoders
         self.tasks = tasks
@@ -166,8 +168,13 @@ class MultiTaskModel(nn.Module):
                 self.tam_model1 = TamModule(p,self.tasks, 256,norm_cfg = dict(type='SyncBN', requires_grad=True))
             if self.tam_level2:
                 self.tam_model2 = TamModule(p,self.tasks, 256,norm_cfg = dict(type='SyncBN', requires_grad=True))
+
+    def dump_output_matricies(self):
+        '''printing the output - for debugging purposes'''
+        if self.vision_transformer:
+            self.backbone.dump_output()
         
-    def forward(self, x, single_task=None, task_id = None, sem=None):
+    def forward(self, x, single_task=None, task_id = None, sem=None, isval=False):
         if task_id is not None:
             assert self.tasks_id[single_task]==task_id
         # print('input shape',x.shape)
@@ -175,14 +182,26 @@ class MultiTaskModel(nn.Module):
         if not self.multi_gate:
             if task_id is None:
                 if sem is None:
-                    shared_representation = self.backbone(x)
+                    if self.vision_transformer:
+                        shared_representation = self.backbone(x, isval=isval)
+                    else:
+                        shared_representation = self.backbone(x)
                 else:
-                    shared_representation = self.backbone(x, sem=sem)
+                    if self.vision_transformer:
+                        shared_representation = self.backbone(x, sem=sem, isval=isval)
+                    else:
+                        shared_representation = self.backbone(x, sem=sem)
             else:
                 if sem is None:
-                    shared_representation = self.backbone(x, task_id=task_id)
+                    if self.vision_transformer:
+                        shared_representation = self.backbone(x, task_id=task_id, isval=isval)
+                    else:
+                        shared_representation = self.backbone(x, task_id=task_id)
                 else:
-                    shared_representation = self.backbone(x, task_id=task_id, sem=sem)
+                    if self.vision_transformer:
+                        shared_representation = self.backbone(x, task_id=task_id, isval=isval, sem=sem)
+                    else:
+                        shared_representation = self.backbone(x, task_id=task_id, sem=sem)
             # print('shared_representation',shared_representation.shape,out_size)
             if self.tam and self.training:
                 if self.tam_level0:

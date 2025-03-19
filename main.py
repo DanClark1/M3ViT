@@ -26,6 +26,8 @@ import time
 from thop import clever_format
 from thop import profile
 
+from utils.model_utils import save_model
+
 # Parser
 parser = argparse.ArgumentParser(description='Vanilla Training')
 parser.add_argument('--config_env',
