@@ -469,7 +469,7 @@ class VisionTransformerMoE(nn.Module):
         self.init_weights()
         self.idx = 0
 
-    def dump_ouput(self):
+    def dump_output(self):
         for block in self.blocks:
             if block.moe:
                 block.mlp.dump_output()
