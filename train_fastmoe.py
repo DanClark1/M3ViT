@@ -420,7 +420,7 @@ def main():
 
         # Train 
         print('Train ...')
-        eval_train = train_vanilla_distributed(args, p, train_dataloader, model, criterion, optimizer, epoch)
+        # eval_train = train_vanilla_distributed(args, p, train_dataloader, model, criterion, optimizer, epoch)
 
         # Evaluate
             # Check if need to perform eval first
