@@ -36,6 +36,7 @@ class _Expert(nn.Module):
         self.activation = activation
         self.outputs = []
         self.record_output = False
+        self.stage = 0 # set this to 1 once components are calculated
 
     def reset_outputs(self):
         self.outputs = []
@@ -45,12 +46,34 @@ class _Expert(nn.Module):
         First expand input to 4h (the hidden size is variable, but is called h4
         for convenience). Then perform activation. Finally shirink back to h.
         """
-        x = self.htoh4(inp, fwd_expert_count)
-        x = self.activation(x)
-        x = self.h4toh(x, fwd_expert_count)
-        if self.record_output:
-            self.outputs.append(x)
-        return x
+        if self.stage == 0:
+            x = self.htoh4(inp, fwd_expert_count)
+            x = self.activation(x)
+            x = self.h4toh(x, fwd_expert_count)
+            if self.record_output:
+                self.outputs.append(x)
+            return x
+        else:
+
+    
+    # def get_components(self, num_global=2, num_local=2):
+    #     r'''
+    #     Assuming the output matrix is non-empty, calculates the global
+    #     and local components for each expert
+
+    #     num_local is per expert
+    #     '''
+    #     ppca = PerPCA(num_global, num_local)
+    #     if self.outputs != []:
+    #         return ppca.fit(np.array(self.outputs))
+    #     else:
+    #         raise ValueError('No outputs to calculate components')
+        
+    # def stage_2(self):
+    #     '''
+    #     Calculates components of the expert's outputs,
+    #     then creates a new global expert'''
+    #     global_
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., norm_layer= partial(nn.LayerNorm, eps=1e-6)):
@@ -170,7 +193,7 @@ class FMoETransformerMLP(FMoE):
 
     def dump_output(self):
         '''get each expert to print out the shape of its output matrix'''
-        print(f'Experts output shape: {np.array(self.experts.output).shape}')
+        print(f'Experts output shape: {np.array(self.experts.outputs).shape}')
 
 
     def forward(self, inp: torch.Tensor, gate_inp=None, task_id = None, task_specific_feature = None, sem=None, record_expert_outputs=False):
