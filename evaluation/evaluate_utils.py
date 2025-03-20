@@ -278,6 +278,7 @@ def save_model_predictions(p, val_loader, model, args=None):
 
     print('Save model predictions to {}'.format(p['save_dir']))
     model.eval()
+    print(p['backbone'])
     tasks = p.TASKS.NAMES
     save_dirs = {task: os.path.join(p['save_dir'], task) for task in tasks}
     for save_dir in save_dirs.values():
