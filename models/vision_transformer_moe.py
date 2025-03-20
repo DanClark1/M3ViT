@@ -472,7 +472,7 @@ class VisionTransformerMoE(nn.Module):
     def factorise_model(self):
         for block in self.blocks:
             if block.moe:
-                block.factorise_block()
+                block.mlp.factorise_block()
 
     def dump_output(self):
         for block in self.blocks:
