@@ -300,13 +300,13 @@ def save_model_predictions(p, val_loader, model, args=None):
                         output.update(model(inputs,single_task=single_task))
             else:
                 if p['backbone']=='VisionTransformer_moe':
-                    # uhh yeah
+                    print('uhh yeah')
                     output = model(inputs, isval=True)
                 else:
                     output = model(inputs)
         else:
             if p['backbone']=='VisionTransformer_moe':
-                    # uhh yeah
+                    print('uhh yeah')
                     output = model(inputs, isval=True)
             else:
                 output = model(inputs)
