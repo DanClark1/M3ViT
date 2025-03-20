@@ -52,6 +52,7 @@ class _Expert(nn.Module):
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
         if self.record_output:
+            print('checknig')
             self.outputs.append(x)
         return x
     
