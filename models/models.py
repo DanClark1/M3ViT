@@ -189,32 +189,24 @@ class MultiTaskModel(nn.Module):
             if task_id is None:
                 if sem is None:
                     if self.vision_transformer:
-                        print('yes')
                         shared_representation = self.backbone(x, isval=isval)
                     else:
-                        print('no')
                         shared_representation = self.backbone(x)
                 else:
                     if self.vision_transformer:
-                        print('yes')
                         shared_representation = self.backbone(x, sem=sem, isval=isval)
                     else:
-                        print('no')
                         shared_representation = self.backbone(x, sem=sem)
             else:
                 if sem is None:
                     if self.vision_transformer:
-                        print('yes')
                         shared_representation = self.backbone(x, task_id=task_id, isval=isval)
                     else:
-                        print('no')
                         shared_representation = self.backbone(x, task_id=task_id)
                 else:
                     if self.vision_transformer:
-                        print('yes')
                         shared_representation = self.backbone(x, task_id=task_id, isval=isval, sem=sem)
                     else:
-                        print('no')
                         shared_representation = self.backbone(x, task_id=task_id, sem=sem)
             # print('shared_representation',shared_representation.shape,out_size)
             if self.tam and self.training:
@@ -266,7 +258,10 @@ class MultiTaskModel(nn.Module):
                     deepfeature2 = {}
             
             for task in self.tasks:
-                pertask_representation = self.backbone(x,task_id=self.tasks_id[task])
+                if self.vision_transformer:
+                    shared_representation = self.backbone(x,task_id=self.tasks_id[task], isval=isval)
+                else:
+                    pertask_representation = self.backbone(x,task_id=self.tasks_id[task])
                 if self.tam and self.training:
                     out[task], feature0, feature1, feature2 = self.decoders[task](pertask_representation)
                     if self.tam_level0:
