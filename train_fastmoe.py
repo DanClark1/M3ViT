@@ -307,9 +307,11 @@ def main():
     true_val_dataset = get_val_dataset(p, None) # True validation dataset without reshape 
 
     # Subset the validation dataset (e.g., use 10% of the data)
-    subset_ratio = 0.01  # Adjust this ratio as needed
+    subset_ratio = 0.0001  # Adjust this ratio as needed
     val_indices = random.sample(range(len(val_dataset)), int(len(val_dataset) * subset_ratio))
     val_dataset = Subset(val_dataset, val_indices)
+
+    print('val dataset: ', val_dataset.shape)
 
     train_dataloader = build_train_dataloader(
         train_dataset, p['trBatch'], p['nworkers'], dist=args.distributed, shuffle=True)
