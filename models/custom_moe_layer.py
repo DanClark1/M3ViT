@@ -18,7 +18,7 @@ from fmoe.linear_proj import FMoELinearProj
 
 from models.gate_funs.noisy_gate import NoisyGate
 from models.gate_funs.noisy_gate_vmoe import NoisyGate_VMoE
-from models.gate_funs.noise_gate_vmoe_global import NoisyGlobalGate_VMoE
+from models.gate_funs.noisy_gate_vmoe_global import NoisyGlobalGate_VMoE
 
 from utils.perpca import PerPCA
 

@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.distributions.normal import Normal
 from fmoe.gates.base_gate import BaseGate
 from collections import Counter
-from models.gate_funs.noise_gate_vmoe import NoisyGate_VMoE
+from models.gate_funs.noisy_gate_vmoe import NoisyGate_VMoE
 
 ###############################################################################
 # Modified NoisyGlobalGate_VMoE that extends the above noisy gate VMoE object
