@@ -179,6 +179,8 @@ class MultiTaskModel(nn.Module):
             self.backbone.factorise_model()
         
     def forward(self, x, single_task=None, task_id = None, sem=None, isval=False):
+
+        print('result: ', self.vision_transformer, isval)
         if task_id is not None:
             assert self.tasks_id[single_task]==task_id
         # print('input shape',x.shape)
