@@ -173,6 +173,10 @@ class MultiTaskModel(nn.Module):
         '''printing the output - for debugging purposes'''
         if self.vision_transformer:
             self.backbone.dump_output()
+
+    def factorise_model(self):
+        if self.vision_transformer:
+            self.backbone.factorise_model()
         
     def forward(self, x, single_task=None, task_id = None, sem=None, isval=False):
         if task_id is not None:
