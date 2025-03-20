@@ -259,7 +259,7 @@ class MultiTaskModel(nn.Module):
             
             for task in self.tasks:
                 if self.vision_transformer:
-                    shared_representation = self.backbone(x,task_id=self.tasks_id[task], isval=isval)
+                    pertask_representation = self.backbone(x,task_id=self.tasks_id[task], isval=isval)
                 else:
                     pertask_representation = self.backbone(x,task_id=self.tasks_id[task])
                 if self.tam and self.training:
