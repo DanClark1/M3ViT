@@ -179,6 +179,7 @@ class MultiTaskModel(nn.Module):
             self.backbone.factorise_model()
         
     def forward(self, x, single_task=None, task_id = None, sem=None, isval=False):
+        print('models ', isval, self.vision_transformer)
 
         if task_id is not None:
             assert self.tasks_id[single_task]==task_id
@@ -188,24 +189,32 @@ class MultiTaskModel(nn.Module):
             if task_id is None:
                 if sem is None:
                     if self.vision_transformer:
+                        print('yes')
                         shared_representation = self.backbone(x, isval=isval)
                     else:
+                        print('no')
                         shared_representation = self.backbone(x)
                 else:
                     if self.vision_transformer:
+                        print('yes')
                         shared_representation = self.backbone(x, sem=sem, isval=isval)
                     else:
+                        print('no')
                         shared_representation = self.backbone(x, sem=sem)
             else:
                 if sem is None:
                     if self.vision_transformer:
+                        print('yes')
                         shared_representation = self.backbone(x, task_id=task_id, isval=isval)
                     else:
+                        print('no')
                         shared_representation = self.backbone(x, task_id=task_id)
                 else:
                     if self.vision_transformer:
+                        print('yes')
                         shared_representation = self.backbone(x, task_id=task_id, isval=isval, sem=sem)
                     else:
+                        print('no')
                         shared_representation = self.backbone(x, task_id=task_id, sem=sem)
             # print('shared_representation',shared_representation.shape,out_size)
             if self.tam and self.training:

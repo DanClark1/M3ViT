@@ -279,7 +279,6 @@ class Block(nn.Module):
         if not self.moe:
             x = x + self.drop_path(self.mlp(self.norm2(x)))
         else:
-            print('block')
             x = x + self.drop_path(self.mlp_drop(self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem, record_expert_outputs=record_expert_outputs)))
         return x
 
