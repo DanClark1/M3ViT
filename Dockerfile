@@ -23,8 +23,8 @@ ENV PATH="$CUDA_HOME/bin:$PATH"
 # copy the requirements file
 COPY requirements.txt .
 
-# Clone FastMoE, checkout specific commit, and install
-RUN git clone https://github.com/laekov/fastmoe.git && \
+# Clone custom FastMoE, checkout specific commit, and install
+RUN git clone https://github.com/DanClark1/fastmoe.git && \
     cd fastmoe && \
     python setup.py install
 

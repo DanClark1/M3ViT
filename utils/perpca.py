@@ -65,12 +65,12 @@ class PerPCA:
 if __name__ == "__main__":
     # Example usage: 5 clients each with a d x n matrix (e.g., d=50, n=200)
     num_clients = 5
-    d = 50
-    n = 200
+    d = 500
+    n = 2500
     clients = [np.random.randn(d, n) for _ in range(num_clients)]
     
-    r1 = 3  # number of global PCs
-    r2 = 2  # number of local PCs per client
+    r1 = 200  # number of global PCs
+    r2 = 100  # number of local PCs per client
     model = PerPCA(r1, r2, num_iter=100, eta=0.01, tol=1e-5)
     U, V_list = model.fit(clients)
     
