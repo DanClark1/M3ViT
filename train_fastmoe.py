@@ -34,6 +34,9 @@ from thop import clever_format
 from utils.model_utils import save_model
 
 from thop import profile
+from torch.utils.data import Subset
+import random
+
 def set_random_seed(seed, deterministic=False):
     """Set random seed.
 
@@ -302,6 +305,11 @@ def main():
     train_dataset = get_train_dataset(p, train_transforms)
     val_dataset = get_val_dataset(p, val_transforms)
     true_val_dataset = get_val_dataset(p, None) # True validation dataset without reshape 
+
+    # Subset the validation dataset (e.g., use 10% of the data)
+    subset_ratio = 0.01  # Adjust this ratio as needed
+    val_indices = random.sample(range(len(val_dataset)), int(len(val_dataset) * subset_ratio))
+    val_dataset = Subset(val_dataset, val_indices)
 
     train_dataloader = build_train_dataloader(
         train_dataset, p['trBatch'], p['nworkers'], dist=args.distributed, shuffle=True)
