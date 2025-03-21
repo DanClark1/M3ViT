@@ -14,6 +14,7 @@ from utils.common_config import get_train_dataset, get_transformations,\
                                 get_val_dataset, get_train_dataloader, get_val_dataloader,\
                                 get_optimizer, get_model, adjust_learning_rate,\
                                 get_criterion
+from utils.factorise_model import factorise_model
 from utils.logger import Logger
 from train.train_utils import train_vanilla,train_vanilla_distributed
 from evaluation.evaluate_utils import eval_model, validate_results, save_model_predictions,\
@@ -306,14 +307,6 @@ def main():
     val_dataset = get_val_dataset(p, val_transforms)
     true_val_dataset = get_val_dataset(p, None) # True validation dataset without reshape 
 
-    # subset
-    n = 50
-    subset_ratio = n / len(val_dataset)
-    val_indices = random.sample(range(len(val_dataset)), int(len(val_dataset) * subset_ratio))
-    val_dataset = Subset(val_dataset, val_indices)
-
-    print('size of val dataset:', len(val_dataset))
-
     train_dataloader = build_train_dataloader(
         train_dataset, p['trBatch'], p['nworkers'], dist=args.distributed, shuffle=True)
     val_dataloader = build_val_dataloader(
@@ -444,32 +437,32 @@ def main():
             eval_bool = True
 
         model.module.dump_output_matricies()
+        factorise_model(p, val_dataset, model, n=50, distributed=args.distributed)
+        # # Perform evaluation
+        # if eval_bool:
+        #     print('Evaluate ...')
+        #     save_model_predictions(p, val_dataloader, model, args)
+        #     if args.distributed:
+        #         torch.distributed.barrier()
+        #     curr_result = eval_all_results(p)
+        #     # improves, best_result = validate_results_v2(p, curr_result, best_result)
+        #     improves, best_result = validate_results(p, curr_result, best_result)
+        #     print('Checkpoint ...')
 
-        # Perform evaluation
-        if eval_bool:
-            print('Evaluate ...')
-            save_model_predictions(p, val_dataloader, model, args)
-            if args.distributed:
-                torch.distributed.barrier()
-            # curr_result = eval_all_results(p)
-            # improves, best_result = validate_results_v2(p, curr_result, best_result)
-            # improves, best_result = validate_results(p, curr_result, best_result)
-            print('Checkpoint ...')
+        #     save_state_dict = model.state_dict()
 
-            save_state_dict = model.state_dict()
-
-            moe_save = p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed)
-            # save_checkpoint({
-            #     'epoch': epoch + 1,
-            #     'backbone': p['backbone'],
-            #     'state_dict': save_state_dict,
-            #     'best_result': best_result,
-            #     'optimizer' : optimizer.state_dict(),
-            #     }, improves, p, moe_save=moe_save)
+        #     moe_save = p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed)
+        #     save_checkpoint({
+        #         'epoch': epoch + 1,
+        #         'backbone': p['backbone'],
+        #         'state_dict': save_state_dict,
+        #         'best_result': best_result,
+        #         'optimizer' : optimizer.state_dict(),
+        #         }, improves, p, moe_save=moe_save)
             
-            # print output matricies from experts
-            if p['backbone'] == 'VisionTransformer_moe':
-                model.module.factorise_model()
+        #     # print output matricies from experts
+        #     if p['backbone'] == 'VisionTransformer_moe':
+        #         model.module.factorise_model()
         if args.distributed:
             torch.distributed.barrier()
 
