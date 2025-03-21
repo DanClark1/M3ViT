@@ -466,14 +466,6 @@ def main():
             #     'best_result': best_result,
             #     'optimizer' : optimizer.state_dict(),
             #     }, improves, p, moe_save=moe_save)
-
-            save_checkpoint({
-                'epoch': epoch + 1,
-                'backbone': p['backbone'],
-                'state_dict': save_state_dict,
-                'best_result': best_result,
-                'optimizer' : optimizer.state_dict(),
-                }, False, p, moe_save=moe_save)
             
             # print output matricies from experts
             if p['backbone'] == 'VisionTransformer_moe':
