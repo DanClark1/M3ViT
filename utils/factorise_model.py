@@ -22,7 +22,7 @@ def factorise_model(p, val_dataset, model, n=50, distributed=False):
         # Forward pass
         images = batch['image'].cuda(non_blocking=True)
         targets = {task: batch[task].cuda(non_blocking=True) for task in tasks}
-        output = model(images)
+        output = model(images, isval=True)
 
     print('factorising model...')
     model.module.factorise_model()
