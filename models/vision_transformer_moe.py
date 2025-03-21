@@ -563,7 +563,6 @@ class VisionTransformerMoE(nn.Module):
         
         for i, blk in enumerate(self.blocks):
             if blk.moe:
-                print('vt: ', isval)
                 x=blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs = isval)
             else:
                 x = blk(x)
