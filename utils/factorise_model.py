@@ -24,5 +24,6 @@ def factorise_model(p, val_dataset, model, n=50, distributed=False):
         targets = {task: batch[task].cuda(non_blocking=True) for task in tasks}
         output = model(images, isval=True)
 
+    model.module.dump_output_matricies()
     print('factorising model...')
     model.module.factorise_model()
