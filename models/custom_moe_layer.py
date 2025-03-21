@@ -73,11 +73,11 @@ class _Expert(nn.Module):
         Calculates components of the expert's outputs,
         then creates a new global expert'''
         global_comp, local_comp = self.get_components()
-        global_comp = torch.tensor(global_comp)
-        local_comp = torch.tensor(local_comp)
+        global_comp = torch.tensor(np.array(global_comp), device='cuda')
+        local_comp = torch.tensor(np.array(local_comp), device='cuda')
         print('shapes: ', global_comp.shape, local_comp.shape)
         # creating an array of component matricies
-        components = torch.cat((global_comp.T, local_comp.transpose(-2, -1)), dim=0)
+        components = torch.cat((global_comp.T.unsqueeze(0), local_comp.transpose(-2, -1)), dim=0)
         self.htoh4 = FMoELinearProj(components, prev_experts=self.htoh4)
         self.h4toh = FMoELinearProj(components, prev_experts=self.h4toh)
         self.stage = 1
