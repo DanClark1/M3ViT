@@ -75,6 +75,7 @@ class _Expert(nn.Module):
         global_comp, local_comp = self.get_components()
         global_comp = torch.tensor(global_comp)
         local_comp = torch.tensor(local_comp)
+        print('shapes: ', global_comp.shape, local_comp.shape)
         # creating an array of component matricies
         components = torch.cat((global_comp.T, local_comp.transpose(-2, -1)), dim=0)
         self.htoh4 = FMoELinearProj(components, prev_experts=self.htoh4)
