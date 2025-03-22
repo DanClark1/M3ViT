@@ -55,7 +55,7 @@ class _Expert(nn.Module):
         if self.record_output:
             splits = torch.split(x, fwd_expert_count.tolist(), dim=0)
             min_count = int(fwd_expert_count.min().item())
-            out = torch.stack([chunk[:min_count] for chunk in splits], dim=0).to('cpu').detach().numpy()
+            out = torch.stack([chunk[:min_count] for chunk in splits], dim=0).to('cpu').detach()
             if self.outputs is None:
                 self.outputs = out
             else:
