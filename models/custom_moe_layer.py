@@ -74,7 +74,9 @@ class _Expert(nn.Module):
         if self.outputs is not None:
             print('expert outputs shape:', self.outputs.shape)
             output = ppca.fit(np.array(self.outputs))
-            print('components shape:', torch.Tensor(output).shape)
+            print('components shape: ')
+            for thing in output:
+                print(thing.shape)
             return output
         else:
             raise ValueError('No outputs to calculate components')
