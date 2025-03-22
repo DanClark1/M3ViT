@@ -217,6 +217,7 @@ class FMoETransformerMLP(FMoE):
                 self.gate = nn.ModuleList([NoisyGlobalGate_VMoE(g) for g in self.gate])
             else:
                 self.gate = NoisyGlobalGate_VMoE(self.gate)
+        self.gate.to('cuda')
 
     def dump_output(self):
         '''get each expert to print out the shape of its output matrix'''

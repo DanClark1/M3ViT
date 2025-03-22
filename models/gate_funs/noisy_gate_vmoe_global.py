@@ -73,8 +73,6 @@ class NoisyGlobalGate_VMoE(NoisyGate_VMoE):
             raw_noise_stddev = self.noise_std / (self.num_experts_pertask)
         else:
             # device debugging
-            print('input device:', inp.device)
-            print('w_gate device:', self.w_gate.device)
             clean_logits = inp @ self.w_gate
             raw_noise_stddev = self.noise_std / self.tot_expert
 
