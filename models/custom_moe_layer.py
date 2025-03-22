@@ -74,12 +74,7 @@ class _Expert(nn.Module):
         ppca = PerPCA(num_components, num_components)
         if self.outputs is not None:
             components = torch.zeros((self.num_experts, num_components, self.outputs.shape[-1]))
-            print('expert outputs shape:', self.outputs.shape)
-            output = ppca.fit(np.array(self.outputs))
-            print('components shape: ')
-            for thing in output:
-                print(torch.Tensor(thing).shape)
-            return output
+            return ppca.fit(np.array(self.outputs))
         else:
             raise ValueError('No outputs to calculate components')
         
@@ -225,6 +220,7 @@ class FMoETransformerMLP(FMoE):
             else:
                 self.gate = NoisyGlobalGate_VMoE(self.gate)
         self.gate.to('cuda')
+        self.num_expert += 1
 
     def dump_output(self):
         '''get each expert to print out the shape of its output matrix'''
