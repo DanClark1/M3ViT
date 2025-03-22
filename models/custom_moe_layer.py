@@ -207,7 +207,10 @@ class FMoETransformerMLP(FMoE):
         self.experts.factorise()
         # change the gate to route to the new global expert too
         if self.gate is not None:
-            self.gate = NoisyGlobalGate_VMoE(self.gate)
+            if self.multi_gate:
+                self.gate = nn.ModuleList([NoisyGlobalGate_VMoE(g) for g in self.gate])
+            else:
+                self.gate = NoisyGlobalGate_VMoE(self.gate)
 
     def dump_output(self):
         '''get each expert to print out the shape of its output matrix'''
