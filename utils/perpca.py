@@ -28,6 +28,8 @@ class PerPCA:
         return (Y @ Y.T) / n
 
     def fit(self, clients):
+        # swap the last two columns of clients
+        clients = [np.swapaxes(client, -1, -2) for client in clients]
         # clients: list of numpy arrays, each of shape (d, n)
         num_clients = len(clients)
         d = clients[0].shape[0]

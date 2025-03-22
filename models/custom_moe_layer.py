@@ -38,6 +38,7 @@ class _Expert(nn.Module):
         self.activation = activation
         self.outputs = None
         self.record_output = False
+        self.num_experts = num_expert
         self.stage = 0 # set this to 1 once components are calculated
 
     def reset_outputs(self):
@@ -63,15 +64,16 @@ class _Expert(nn.Module):
         print('outputs shape:', self.outputs.shape)
         return x
     
-    def get_components(self, num_global=2, num_local=2):
+    def get_components(self, num_components=50):
         r'''
         Assuming the output matrix is non-empty, calculates the global
         and local components for each expert
 
         num_local is per expert
         '''
-        ppca = PerPCA(num_global, num_local)
+        ppca = PerPCA(num_components, num_components)
         if self.outputs is not None:
+            components = torch.zeros((self.num_experts, num_components, self.outputs.shape[-1]))
             print('expert outputs shape:', self.outputs.shape)
             output = ppca.fit(np.array(self.outputs))
             print('components shape: ')
