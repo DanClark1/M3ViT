@@ -36,12 +36,12 @@ class _Expert(nn.Module):
         self.htoh4 = FMoELinear(num_expert, d_model, d_hidden, bias=True, rank=rank)
         self.h4toh = FMoELinear(num_expert, d_hidden, d_model, bias=True, rank=rank)
         self.activation = activation
-        self.outputs = []
+        self.outputs = None
         self.record_output = False
         self.stage = 0 # set this to 1 once components are calculated
 
     def reset_outputs(self):
-        self.outputs = []
+        self.outputs = None
 
     def forward(self, inp, fwd_expert_count):
         r"""
@@ -53,7 +53,14 @@ class _Expert(nn.Module):
         x = self.h4toh(x, fwd_expert_count)
         print('x shape:', x.shape, '(num experts: ', fwd_expert_count.shape[0], ')')
         if self.record_output:
-            self.outputs.append(x.to('cpu').detach().numpy())
+            splits = torch.split(x, fwd_expert_count.tolist(), dim=0)
+            min_count = int(fwd_expert_count.min().item())
+            out = torch.stack([chunk[:min_count] for chunk in splits], dim=0).to('cpu').detach().numpy()
+            if self.outputs is None:
+                self.outputs = out
+            else:
+                self.outputs = torch.cat((self.outputs, out), dim=1)
+        print('outputs shape:', self.outputs.shape)
         return x
     
     def get_components(self, num_global=2, num_local=2):
