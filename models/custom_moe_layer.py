@@ -49,6 +49,21 @@ class _Expert(nn.Module):
         First expand input to 4h (the hidden size is variable, but is called h4
         for convenience). Then perform activation. Finally shirink back to h.
         """
+        # make sure everything is on cuda
+        if inp.device != 'cuda' or fwd_expert_count.device != 'cuda':
+            inp = inp.to('cuda')
+            fwd_expert_count = fwd_expert_count.to('cuda')
+        inp_flat = inp.view(-1, inp.size(-1))
+
+        # sanity checks
+        assert inp_flat.ndim == 2, "Input must be 2‑D"
+        assert fwd_expert_count.ndim == 1, "fwd_expert_count must be 1‑D"
+        assert fwd_expert_count.shape[0] == self.num_expert, (
+            f"Expected {self.num_expert} experts, got {fwd_expert_count.shape[0]}"
+        )
+        assert fwd_expert_count.sum().item() == inp_flat.shape[0], (
+            f"Sum of counts ({fwd_expert_count.sum().item()}) != rows ({inp_flat.shape[0]})"
+        )
         x = self.htoh4(inp, fwd_expert_count)
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
