@@ -21,6 +21,7 @@ def factorise_model(p, val_dataset, model, n=50, distributed=False):
     for i, batch in enumerate(val_dataloader):
         # Forward pass
         images = batch['image'].cuda(non_blocking=True)
+        print('images shape:', images.shape)
         targets = {task: batch[task].cuda(non_blocking=True) for task in tasks}
         output = model(images, isval=True)
 
