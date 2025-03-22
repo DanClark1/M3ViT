@@ -58,8 +58,8 @@ class _Expert(nn.Module):
         # sanity checks
         assert inp_flat.ndim == 2, "Input must be 2‑D"
         assert fwd_expert_count.ndim == 1, "fwd_expert_count must be 1‑D"
-        assert fwd_expert_count.shape[0] == self.num_expert, (
-            f"Expected {self.num_expert} experts, got {fwd_expert_count.shape[0]}"
+        assert fwd_expert_count.shape[0] == self.num_experts, (
+            f"Expected {self.num_experts} experts, got {fwd_expert_count.shape[0]}"
         )
         assert fwd_expert_count.sum().item() == inp_flat.shape[0], (
             f"Sum of counts ({fwd_expert_count.sum().item()}) != rows ({inp_flat.shape[0]})"
