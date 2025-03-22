@@ -52,6 +52,7 @@ class _Expert(nn.Module):
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
         print('x shape:', x.shape)
+        print('fwd_expert_count:', fwd_expert_count)
         if self.record_output:
             self.outputs.append(x.to('cpu').detach().numpy())
         return x
