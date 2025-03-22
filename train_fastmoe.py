@@ -436,8 +436,8 @@ def main():
         else:
             eval_bool = True
 
-        model.module.dump_output_matricies()
-        factorise_model(p, val_dataset, model, n=50, distributed=args.distributed)
+        
+        factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
         # # Perform evaluation
         # if eval_bool:
         #     print('Evaluate ...')
