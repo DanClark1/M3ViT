@@ -71,8 +71,11 @@ class _Expert(nn.Module):
         num_local is per expert
         '''
         ppca = PerPCA(num_global, num_local)
-        if self.outputs != []:
-            return ppca.fit(np.array(self.outputs))
+        if self.outputs is not None:
+            print('expert outputs shape:', self.outputs.shape)
+            output = ppca.fit(np.array(self.outputs))
+            print('components shape:', output.shape)
+            return output
         else:
             raise ValueError('No outputs to calculate components')
         
