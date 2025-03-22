@@ -438,6 +438,7 @@ def main():
 
         
         factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
+        save_model_predictions(p, val_dataloader, model, args)
         # # Perform evaluation
         # if eval_bool:
         #     print('Evaluate ...')
@@ -478,13 +479,13 @@ def main():
     #     # if args.local_rank==0:
     #     print(colored('Evaluating best model at the end', 'blue'))
     #     state_dict = torch.load(p['best_model'])['state_dict']
-    if args.distributed:
-        torch.distributed.barrier()
-    model.load_state_dict(state_dict)
-    save_model_predictions(p, val_dataloader, model, args)
-    if args.distributed:
-        torch.distributed.barrier()
-    eval_stats = eval_all_results(p)
+    # if args.distributed:
+    #     torch.distributed.barrier()
+    # model.load_state_dict(state_dict)
+    # save_model_predictions(p, val_dataloader, model, args)
+    # if args.distributed:
+    #     torch.distributed.barrier()
+    # eval_stats = eval_all_results(p)
 
 
 def sanity_check(state_dict, pretrained_weights, linear_keyword):
