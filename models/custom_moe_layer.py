@@ -51,9 +51,8 @@ class _Expert(nn.Module):
         """
         print('devices', inp.device, fwd_expert_count.device)
         # make sure everything is on cuda
-        if inp.device != 'cuda' or fwd_expert_count.device != 'cuda':
+        if inp.device != 'cuda':
             inp = inp.to('cuda')
-            fwd_expert_count = fwd_expert_count.to('cuda')
         inp_flat = inp.view(-1, inp.size(-1))
 
         # sanity checks
