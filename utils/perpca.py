@@ -62,6 +62,10 @@ class PerPCA:
             U_old = U.copy()
 
             it += 1
+        
+        # swap the dimensions back around
+        V_list = [np.swapaxes(V, -1, -2) for V in V_list]
+        U = U.T
         return U, V_list
 
 if __name__ == "__main__":
