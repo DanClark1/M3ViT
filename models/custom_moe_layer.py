@@ -49,6 +49,10 @@ class _Expert(nn.Module):
         First expand input to 4h (the hidden size is variable, but is called h4
         for convenience). Then perform activation. Finally shirink back to h.
         """
+        # make sure everything is on cuda
+        if inp.device != 'cuda' or fwd_expert_count.device != 'cuda':
+            inp = inp.to('cuda')
+            fwd_expert_count = fwd_expert_count.to('cuda')
         x = self.htoh4(inp, fwd_expert_count)
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
