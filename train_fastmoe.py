@@ -468,16 +468,16 @@ def main():
 
     torch.cuda.empty_cache()   
     # Evaluate best model at the end
-    if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
-        # state_dict = read_specific_group_experts(checkpoint['state_dict'], args.local_rank, args.moe_experts)
-        checkpoint_specific = torch.load(os.path.join(p['best_model'], "{}.pth".format(torch.distributed.get_rank())), map_location="cpu")
-        checkpoint = torch.load(os.path.join(p['best_model'], "0.pth".format(torch.distributed.get_rank())), map_location="cpu")
-        checkpoint["state_dict"].update(checkpoint_specific["state_dict"])
-        state_dict = checkpoint["state_dict"]
-    else:
-        # if args.local_rank==0:
-        print(colored('Evaluating best model at the end', 'blue'))
-        state_dict = torch.load(p['best_model'])['state_dict']
+    # if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
+    #     # state_dict = read_specific_group_experts(checkpoint['state_dict'], args.local_rank, args.moe_experts)
+    #     checkpoint_specific = torch.load(os.path.join(p['best_model'], "{}.pth".format(torch.distributed.get_rank())), map_location="cpu")
+    #     checkpoint = torch.load(os.path.join(p['best_model'], "0.pth".format(torch.distributed.get_rank())), map_location="cpu")
+    #     checkpoint["state_dict"].update(checkpoint_specific["state_dict"])
+    #     state_dict = checkpoint["state_dict"]
+    # else:
+    #     # if args.local_rank==0:
+    #     print(colored('Evaluating best model at the end', 'blue'))
+    #     state_dict = torch.load(p['best_model'])['state_dict']
     if args.distributed:
         torch.distributed.barrier()
     model.load_state_dict(state_dict)
