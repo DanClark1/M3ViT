@@ -165,7 +165,7 @@ class FMoETransformerMLP(FMoE):
         super().__init__(num_expert=num_expert, d_model=d_model, gate=gate, world_size=world_size, top_k=top_k, **kwargs)
         self.our_d_gate = d_gate
         self.our_d_model = d_model
-
+        self.factorised = False
         self.num_expert = num_expert
         self.regu_experts_fromtask = regu_experts_fromtask
         self.num_experts_pertask = num_experts_pertask
@@ -238,6 +238,7 @@ class FMoETransformerMLP(FMoE):
                 self.gate = NoisyGlobalGate_VMoE(self.gate)
         self.gate.to('cuda')
         self.num_expert += 1
+        self.factorised = True
 
     def dump_output(self):
         '''get each expert to print out the shape of its output matrix'''
@@ -375,15 +376,15 @@ class FMoETransformerMLP(FMoE):
             def view_func(tensor):
                 dim = tensor.shape[-1]
                 total = tensor.numel()
-                group_size = (self.top_k + 1) * dim
 
-                if total % group_size != 0:
-                    raise RuntimeError(
-                        f"Invalid reshape: {total} elements not divisible by {group_size}"
-                    )
-
-                batch_positions = total // group_size
-                return tensor.view(batch_positions, self.top_k + 1, dim)
+                if not self.factorised:
+                    group_size = self.top_k * dim
+                    batch_positions = total // group_size
+                    return tensor.view(batch_positions, self.top_k, dim)
+                else:
+                    group_size = (1 + self.top_k) * dim
+                    batch_positions = total // group_size
+                    return tensor.view(batch_positions, self.top_k + 1, dim)
 
 
             moe_outp = tree.map_structure(view_func, fwd)
