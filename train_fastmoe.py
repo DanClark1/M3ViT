@@ -440,16 +440,16 @@ def main():
         
         # Perform evaluation
         if eval_bool:
-            print('Evaluate ...')
+            # print('Evaluate ...')
             save_model_predictions(p, val_dataloader, model, args)
             if args.distributed:
                 torch.distributed.barrier()
             curr_result = eval_all_results(p)
-            # improves, best_result = validate_results_v2(p, curr_result, best_result)
-            improves, best_result = validate_results(p, curr_result, best_result)
+            improves, best_result = validate_results_v2(p, curr_result, best_result)
+            # improves, best_result = validate_results(p, curr_result, best_result)
             print('Checkpoint ...')
 
-            save_state_dict = model.state_dict()
+            # save_state_dict = model.state_dict()
 
             # moe_save = p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed)
             # save_checkpoint({
