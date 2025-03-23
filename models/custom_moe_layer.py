@@ -389,7 +389,10 @@ class FMoETransformerMLP(FMoE):
 
             moe_outp = tree.map_structure(view_func, fwd)
 
-        gate_score = gate_score.view(-1, 1, self.top_k)
+        if self.factorised:
+            gate_score = gate_score.view(-1, 1, self.top_k)
+        else:
+            gate_score = gate_score.view(-1, 1, self.top_k)
 
         def bmm_func(tensor):
             dim = tensor.shape[-1]
