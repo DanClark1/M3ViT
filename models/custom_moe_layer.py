@@ -373,6 +373,7 @@ class FMoETransformerMLP(FMoE):
         else:
 
             def view_func(tensor):
+                print('view shape ', tensor.shape)
                 dim = tensor.shape[-1]
                 tensor = tensor.view(-1, self.top_k, dim)
                 return tensor
