@@ -390,7 +390,7 @@ class FMoETransformerMLP(FMoE):
             moe_outp = tree.map_structure(view_func, fwd)
 
         if self.factorised:
-            gate_score = gate_score.view(-1, 1, self.top_k)
+            gate_score = gate_score.view(-1, 1, self.top_k + 1)
         else:
             gate_score = gate_score.view(-1, 1, self.top_k)
 
