@@ -68,7 +68,7 @@ class _Expert(nn.Module):
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
         print('x shape:', x.shape, '(num experts: ', fwd_expert_count.shape[0], ')')
-        if self.record_output:
+        if self.record_output and self.stage == 0:
             splits = torch.split(x, fwd_expert_count.tolist(), dim=0)
             min_count = int(fwd_expert_count.min().item())
             out = torch.stack([chunk[:min_count] for chunk in splits], dim=0).to('cpu').detach()
