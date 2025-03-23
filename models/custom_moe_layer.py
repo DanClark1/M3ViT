@@ -88,7 +88,6 @@ class _Expert(nn.Module):
         '''
         ppca = PerPCA(num_components, num_components)
         if self.outputs is not None:
-            components = torch.zeros((self.num_experts, num_components, self.outputs.shape[-1]))
             return ppca.fit(np.array(self.outputs))
         else:
             raise ValueError('No outputs to calculate components')
@@ -100,9 +99,9 @@ class _Expert(nn.Module):
         global_comp, local_comp = self.get_components()
         global_comp = torch.tensor(np.array(global_comp), device='cuda')
         local_comp = torch.tensor(np.array(local_comp), device='cuda')
-        print('shapes: ', global_comp.shape, local_comp.shape)
         # creating an array of component matricies
         components = torch.cat((global_comp.T.unsqueeze(0), local_comp.transpose(-2, -1)), dim=0)
+        print(f'shape of components: {components.shape}')
         self.htoh4 = FMoELinearProj(components, prev_experts=self.htoh4)
         self.h4toh = FMoELinearProj(components, prev_experts=self.h4toh)
         self.stage = 1
