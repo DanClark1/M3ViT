@@ -49,7 +49,6 @@ class _Expert(nn.Module):
         First expand input to 4h (the hidden size is variable, but is called h4
         for convenience). Then perform activation. Finally shirink back to h.
         """
-        print('devices', inp.device, fwd_expert_count.device)
         # make sure everything is on cuda
         if inp.device != 'cuda':
             inp = inp.to('cuda')
@@ -67,7 +66,6 @@ class _Expert(nn.Module):
         x = self.htoh4(inp, fwd_expert_count)
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
-        print('x shape:', x.shape, '(num experts: ', fwd_expert_count.shape[0], ')')
         if self.record_output and self.stage == 0:
             splits = torch.split(x, fwd_expert_count.tolist(), dim=0)
             min_count = int(fwd_expert_count.min().item())
@@ -76,7 +74,6 @@ class _Expert(nn.Module):
                 self.outputs = out
             else:
                 self.outputs = torch.cat((self.outputs, out), dim=1)
-        print('outputs shape:', self.outputs.shape)
         return x
     
     def get_components(self, num_components=50):
@@ -103,7 +100,6 @@ class _Expert(nn.Module):
         components = torch.cat((global_comp.unsqueeze(0), local_comp), dim=0)
         # make sure components are float
         components = components.float()
-        print(f'shape of components: {components.shape}')
         self.htoh4 = FMoELinearProj(components, prev_experts=self.htoh4)
         self.h4toh = FMoELinearProj(components, prev_experts=self.h4toh)
         self.stage = 1
@@ -264,7 +260,6 @@ class FMoETransformerMLP(FMoE):
             size = gate_inp.shape[0]
             gate_inp = torch.cat((gate_inp,task_specific_feature.repeat(size,1)),dim=-1)
         output = self.forward_moe(gate_inp=gate_inp, moe_inp=inp, task_id=task_id, sem=sem, record_outputs=record_expert_outputs)
-        print('output shape:', output.shape)
         return output.reshape(original_shape)
     
     def get_output_matrix(self):
@@ -348,7 +343,6 @@ class FMoETransformerMLP(FMoE):
         fwd = _fmoe_general_global_forward(
             moe_inp, gate_top_k_idx, self.expert_fn, self.num_expert, self.world_size
         )
-        print('forward shape:', fwd.shape)
         self.experts.record_output = False
 
         # recover deleted tensors
