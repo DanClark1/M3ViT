@@ -451,16 +451,16 @@ def main():
 
             save_state_dict = model.state_dict()
 
-            moe_save = p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed)
-            save_checkpoint({
-                'epoch': epoch + 1,
-                'backbone': p['backbone'],
-                'state_dict': save_state_dict,
-                'best_result': best_result,
-                'optimizer' : optimizer.state_dict(),
-                }, improves, p, moe_save=moe_save)
+            # moe_save = p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed)
+            # save_checkpoint({
+            #     'epoch': epoch + 1,
+            #     'backbone': p['backbone'],
+            #     'state_dict': save_state_dict,
+            #     'best_result': best_result,
+            #     'optimizer' : optimizer.state_dict(),
+            #     }, improves, p, moe_save=moe_save)
             
-            factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
+        factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
             
         if args.distributed:
             torch.distributed.barrier()
