@@ -264,6 +264,7 @@ class FMoETransformerMLP(FMoE):
             size = gate_inp.shape[0]
             gate_inp = torch.cat((gate_inp,task_specific_feature.repeat(size,1)),dim=-1)
         output = self.forward_moe(gate_inp=gate_inp, moe_inp=inp, task_id=task_id, sem=sem, record_outputs=record_expert_outputs)
+        print(output.shape)
         return output.reshape(original_shape)
     
     def get_output_matrix(self):
