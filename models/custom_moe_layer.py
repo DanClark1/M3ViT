@@ -375,7 +375,7 @@ class FMoETransformerMLP(FMoE):
             def view_func(tensor):
                 dim = tensor.shape[-1]
                 total = tensor.numel()
-                group_size = self.top_k * dim
+                group_size = (self.top_k + 1) * dim
 
                 if total % group_size != 0:
                     raise RuntimeError(
@@ -383,7 +383,7 @@ class FMoETransformerMLP(FMoE):
                     )
 
                 batch_positions = total // group_size
-                return tensor.view(batch_positions, self.top_k, dim)
+                return tensor.view(batch_positions, self.top_k + 1, dim)
 
 
             moe_outp = tree.map_structure(view_func, fwd)
