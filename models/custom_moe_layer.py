@@ -100,7 +100,7 @@ class _Expert(nn.Module):
         global_comp = torch.tensor(np.array(global_comp), device='cuda')
         local_comp = torch.tensor(np.array(local_comp), device='cuda')
         # creating an array of component matricies
-        components = torch.cat((global_comp.T.unsqueeze(0), local_comp.transpose(-2, -1)), dim=0)
+        components = torch.cat((global_comp.unsqueeze(0), local_comp), dim=0)
         print(f'shape of components: {components.shape}')
         self.htoh4 = FMoELinearProj(components, prev_experts=self.htoh4)
         self.h4toh = FMoELinearProj(components, prev_experts=self.h4toh)
