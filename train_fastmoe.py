@@ -424,7 +424,7 @@ def main():
 
         # Train 
         print('Train ...')
-        # eval_train = train_vanilla_distributed(args, p, train_dataloader, model, criterion, optimizer, epoch)
+        eval_train = train_vanilla_distributed(args, p, train_dataloader, model, criterion, optimizer, epoch)
 
         # Evaluate
             # Check if need to perform eval first
@@ -437,33 +437,31 @@ def main():
             eval_bool = True
 
         
-        factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
-        save_model_predictions(p, val_dataloader, model, args)
-        # # Perform evaluation
-        # if eval_bool:
-        #     print('Evaluate ...')
-        #     save_model_predictions(p, val_dataloader, model, args)
-        #     if args.distributed:
-        #         torch.distributed.barrier()
-        #     curr_result = eval_all_results(p)
-        #     # improves, best_result = validate_results_v2(p, curr_result, best_result)
-        #     improves, best_result = validate_results(p, curr_result, best_result)
-        #     print('Checkpoint ...')
+        
+        # Perform evaluation
+        if eval_bool:
+            print('Evaluate ...')
+            save_model_predictions(p, val_dataloader, model, args)
+            if args.distributed:
+                torch.distributed.barrier()
+            curr_result = eval_all_results(p)
+            # improves, best_result = validate_results_v2(p, curr_result, best_result)
+            improves, best_result = validate_results(p, curr_result, best_result)
+            print('Checkpoint ...')
 
-        #     save_state_dict = model.state_dict()
+            save_state_dict = model.state_dict()
 
-        #     moe_save = p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed)
-        #     save_checkpoint({
-        #         'epoch': epoch + 1,
-        #         'backbone': p['backbone'],
-        #         'state_dict': save_state_dict,
-        #         'best_result': best_result,
-        #         'optimizer' : optimizer.state_dict(),
-        #         }, improves, p, moe_save=moe_save)
+            moe_save = p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed)
+            save_checkpoint({
+                'epoch': epoch + 1,
+                'backbone': p['backbone'],
+                'state_dict': save_state_dict,
+                'best_result': best_result,
+                'optimizer' : optimizer.state_dict(),
+                }, improves, p, moe_save=moe_save)
             
-        #     # print output matricies from experts
-        #     if p['backbone'] == 'VisionTransformer_moe':
-        #         model.module.factorise_model()
+            factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
+            
         if args.distributed:
             torch.distributed.barrier()
 
