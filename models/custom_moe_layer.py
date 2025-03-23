@@ -264,7 +264,7 @@ class FMoETransformerMLP(FMoE):
             size = gate_inp.shape[0]
             gate_inp = torch.cat((gate_inp,task_specific_feature.repeat(size,1)),dim=-1)
         output = self.forward_moe(gate_inp=gate_inp, moe_inp=inp, task_id=task_id, sem=sem, record_outputs=record_expert_outputs)
-        print(output.shape)
+        print('output shape:', output.shape)
         return output.reshape(original_shape)
     
     def get_output_matrix(self):
@@ -348,6 +348,7 @@ class FMoETransformerMLP(FMoE):
         fwd = _fmoe_general_global_forward(
             moe_inp, gate_top_k_idx, self.expert_fn, self.num_expert, self.world_size
         )
+        print('forward shape:', fwd.shape)
         self.experts.record_output = False
 
         # recover deleted tensors
