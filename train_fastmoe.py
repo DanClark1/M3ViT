@@ -441,7 +441,7 @@ def main():
         # Perform evaluation
         if eval_bool:
             # print('Evaluate ...')
-            # save_model_predictions(p, val_dataloader, model, args)
+            save_model_predictions(p, val_dataloader, model, args)
             if args.distributed:
                 torch.distributed.barrier()
             curr_result = eval_all_results(p)
