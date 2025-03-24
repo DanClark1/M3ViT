@@ -460,7 +460,7 @@ def main():
             #     'optimizer' : optimizer.state_dict(),
             #     }, improves, p, moe_save=moe_save)
             
-        factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
+        # factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
             
         if args.distributed:
             torch.distributed.barrier()
