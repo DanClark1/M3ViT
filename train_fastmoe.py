@@ -427,20 +427,24 @@ def main():
     }, True, p, moe_save=(True))
     
 
-    # Assume args.local_rank has been set by torchrun/torch.distributed
-    device = torch.device(f"cuda:{args.local_rank}")
+    def align_state_dict_keys(model, ckpt_state):
+        model_keys = next(iter(model.state_dict().keys()))
+        ckpt_keys  = next(iter(ckpt_state.keys()))
+        
+        # If model expects “module.” but ckpt keys do NOT start with it → add it
+        if model_keys.startswith("module.") and not ckpt_keys.startswith("module."):
+            return {f"module.{k}": v for k, v in ckpt_state.items()}
+        
+        # If ckpt has “module.” but model does NOT → strip it
+        if ckpt_keys.startswith("module.") and not model_keys.startswith("module."):
+            return {k.replace("module.", "", 1): v for k, v in ckpt_state.items()}
+        
+        return ckpt_state
 
-    # Load the checkpoint straight onto the correct GPU
-    checkpoint = torch.load(test_ckpt_path, map_location=device)
-
-    # Instantiate your model and move it to that GPU
-    model = get_model(p, args).to(device)
-
-    # Wrap in DDP (so state_dict keys already include “module.”)
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank])
-
-    # Load weights (strict=False if you expect mismatches)
-    msg = model.load_state_dict(checkpoint["state_dict"])
+    # Load + align
+    raw = checkpoint["state_dict"]
+    aligned = align_state_dict_keys(model, raw)
+    msg = model.load_state_dict(aligned, strict=False)
     print("Model re-loaded successfully.")
 
 
