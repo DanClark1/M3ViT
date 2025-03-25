@@ -44,21 +44,20 @@ def save_consolidated_checkpoint(state, dirname):
 
 def load_consolidated_checkpoint(model, path, device):
     rank = torch.distributed.get_rank()
-    if rank == 0:
-        ckpt = torch.load(path, map_location="cpu")["state_dict"]
-    else:
-        ckpt = None
+    # Rank0 loads from disk, others start with None
+    ckpt = torch.load(path, map_location="cpu")["state_dict"] if rank == 0 else None
 
-    # Broadcast full state_dict from rank0 to all
-    ckpt = torch.distributed.broadcast_object_list([ckpt], src=0)[0]
+    obj = [ckpt]
+    torch.distributed.broadcast_object_list(obj, src=0)
+    ckpt = obj[0]  # now every rank has the full dict
 
-    # Align and load
     aligned = align_state_dict_keys(model, ckpt)
     msg = model.load_state_dict(aligned, strict=False)
     if rank == 0:
         print("Loaded checkpoint:", len(msg.missing_keys), "missing,", len(msg.unexpected_keys), "unexpected")
     torch.distributed.barrier()
     return model
+
 
 
 def align_state_dict_keys(model, ckpt_state):
