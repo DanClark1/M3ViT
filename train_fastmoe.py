@@ -428,9 +428,19 @@ def main():
         "epoch": 0,
     }, "/app/saved_stuff")
 
+    # Only rank0 reads from disk, then broadcast
+    full_ckpt = torch.load("/app/saved_stuff/model.pth", map_location="cpu")
+    p = full_ckpt["config"]
+
+    # Recreate model from identical config
     model = get_model(p, args).cuda(args.local_rank)
     model = DistributedDataParallel(model, device_ids=[args.local_rank])
-    model = load_consolidated_checkpoint(model, "/app/saved_stuff/model.pth", device)
+
+    # Load weights
+    state_dict = full_ckpt["state_dict"]
+    msg = model.load_state_dict(state_dict, strict=False)
+    print("Loaded ✓ missing:", len(msg.missing_keys), "unexpected:", len(msg.unexpected_keys))
+
 
 
     # Build + wrap model
