@@ -446,12 +446,12 @@ def main():
 
         return model, optimizer, start_epoch
 
-    # SAVE
-    save_checkpoint(model, optimizer, 0, "checkpoint.pt")
+    # # SAVE
+    # save_checkpoint(model, optimizer, 0, "checkpoint.pt")
 
-    model = get_model(p,args)
-    # LOAD for training
-    ddp_model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
+    # model = get_model(p,args)
+    # # LOAD for training
+    # ddp_model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
 
     for epoch in range(start_epoch, p['epochs']):
         print(colored('Epoch %d/%d' %(epoch+1, p['epochs']), 'yellow'))
