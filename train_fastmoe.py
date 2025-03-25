@@ -419,7 +419,7 @@ def main():
 
     test_ckpt_path = os.path.join("/app/saved_stuff", "{}.pth".format(rank))
 
-    device = torch.device(f"cuda:{args.local_rank}")
+    device = torch.device(f"{args.local_rank}")
     local_rank = torch.distributed.get_rank()
 
     def save_checkpoint(model, optimizer, epoch, path):
