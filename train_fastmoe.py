@@ -414,9 +414,10 @@ def main():
     if p['backbone'] == 'VisionTransformer_moe':
         using_vision_transformer = True
 
+    rank = torch.distributed.get_rank()
 
-    test_ckpt_path = os.path.join("/app/saved_stuff", "test_checkpoint.pth")
-    
+    test_ckpt_path = os.path.join("/app/saved_stuff", "{}.pth".format(rank))
+
     save_checkpoint({
         'epoch': p['epochs'],
         'backbone': p['backbone'],
@@ -424,7 +425,7 @@ def main():
         'best_result': best_result,
         'optimizer': optimizer.state_dict(),
     }, True, p, moe_save=(True))
-    print(f"Model saved to {test_ckpt_path}")
+    
 
     new_model = get_model(p, args)
     checkpoint = torch.load(test_ckpt_path, map_location='cpu')
