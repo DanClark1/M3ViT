@@ -461,8 +461,11 @@ def main():
     model = get_model(p, args).to(device)
     model = DistributedDataParallel(model, device_ids=[args.local_rank])
 
-    # Merge shards into one state_dict
     state_dict = load_sharded_checkpoint(test_ckpt_path, device)
+    print(f">>> Loaded {len(state_dict)} keys from {test_ckpt_path}")
+    if not state_dict:
+        raise RuntimeError(f"❌ Empty checkpoint — check path: {test_ckpt_path}")
+
 
     # Align “module.” prefixes if needed
     aligned = align_state_dict_keys(model, state_dict)
