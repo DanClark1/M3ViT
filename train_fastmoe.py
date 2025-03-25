@@ -429,7 +429,7 @@ def main():
 
     model = get_model(p, args)
     model = torch.nn.parallel.DistributedDataParallel(model)  # or DataParallel
-    checkpoint = torch.load(args.ckp, map_location="cpu")
+    checkpoint = torch.load(args.ckp, map_location="cuda:{}".format(args.local_rank))
     msg = model.load_state_dict(checkpoint["state_dict"])
     print("Load mismatches:", msg)
     print("Model re-loaded successfully.")
