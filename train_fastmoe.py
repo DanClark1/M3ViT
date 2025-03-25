@@ -431,7 +431,7 @@ def main():
     device = torch.device(f"cuda:{args.local_rank}")
 
     # Load the checkpoint straight onto the correct GPU
-    checkpoint = torch.load(args.ckp, map_location=device)
+    checkpoint = torch.load(test_ckpt_path, map_location=device)
 
     # Instantiate your model and move it to that GPU
     model = get_model(p, args).to(device)
