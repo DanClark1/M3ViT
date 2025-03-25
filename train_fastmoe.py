@@ -414,6 +414,23 @@ def main():
     if p['backbone'] == 'VisionTransformer_moe':
         using_vision_transformer = True
 
+
+    test_ckpt_path = os.path.join(p['output_dir'], "test_checkpoint.pth")
+    save_checkpoint({
+        'epoch': p['epochs'],
+        'backbone': p['backbone'],
+        'state_dict': model.state_dict(),
+        'best_result': best_result,
+        'optimizer': optimizer.state_dict(),
+    }, True, p, moe_save=(p['backbone'] == 'VisionTransformer_moe' and not args.moe_data_distributed))
+    print(f"Model saved to {test_ckpt_path}")
+
+    new_model = get_model(p, args)
+    checkpoint = torch.load(test_ckpt_path, map_location='cpu')
+    new_model.load_state_dict(checkpoint['state_dict'])
+    print("Model re-loaded successfully.")
+
+
     for epoch in range(start_epoch, p['epochs']):
         print(colored('Epoch %d/%d' %(epoch+1, p['epochs']), 'yellow'))
         print(colored('-'*10, 'yellow'))
