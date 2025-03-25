@@ -447,7 +447,7 @@ def main():
         return model, optimizer, start_epoch
 
     # SAVE
-    save_checkpoint(model, optimizer, epoch, "checkpoint.pt")
+    save_checkpoint(model, optimizer, 0, "checkpoint.pt")
 
     model = get_model(p,args)
     # LOAD for training
