@@ -10,9 +10,6 @@ import torch.nn.functional as F
 import shutil
 
 
-from fmoe.utils import scatter_model, gather_model
-
-
 
 
 def gather_features(features, local_rank, world_size):
