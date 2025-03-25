@@ -12,26 +12,6 @@ import shutil
 
 from fmoe.utils import scatter_model, gather_model
 
-def save_full_checkpoint(model, path):
-    # model is DistributedGroupedDataParallel
-    full_state = gather_model(model)                # merges all expert shards
-    if torch.distributed.get_rank() == 0:
-        torch.save(full_state, path)
-    torch.distributed.barrier()
-
-
-def load_full_checkpoint(model, path, device):
-    # Only rank0 loads full weights
-    full_state = torch.load(path, map_location="cpu") if torch.distributed.get_rank()==0 else None
-
-    # Broadcast full dict to every rank
-    obj = [full_state]
-    torch.distributed.broadcast_object_list(obj, src=0)
-    full_state = obj[0]
-
-    # model is DistributedGroupedDataParallel
-    scatter_model(model, full_state)                # splits weights back onto each GPU
-    torch.distributed.barrier()
 
 
 
@@ -41,49 +21,6 @@ def gather_features(features, local_rank, world_size):
     features_list[local_rank] = features
     features = torch.cat(features_list)
     return features
-
-
-def save_consolidated_checkpoint(state, dirname):
-    os.makedirs(dirname, exist_ok=True)
-    rank = torch.distributed.get_rank()
-
-    local_ckpt = {k: v.detach().cpu() for k, v in state["state_dict"].items()}
-    gathered = [None] * torch.distributed.get_world_size()
-    torch.distributed.all_gather_object(gathered, local_ckpt)
-
-    if rank == 0:
-        merged = {}
-        for shard in gathered:
-            for k, v in shard.items():
-                if k not in merged:
-                    merged[k] = v
-                elif v.ndim >= 1 and merged[k].ndim >= 1:
-                    merged[k] = torch.cat([merged[k], v], dim=0)
-                # else: skip scalar stats
-        torch.save(
-            {"state_dict": merged, **{k: v for k, v in state.items() if k != "state_dict"}},
-            os.path.join(dirname, "model.pth")
-        )
-        print(f"✅ Saved consolidated checkpoint to {dirname}/model.pth")
-
-    torch.distributed.barrier()
-
-def load_consolidated_checkpoint(model, path, device):
-    rank = torch.distributed.get_rank()
-    # Rank0 loads from disk, others start with None
-    ckpt = torch.load(path, map_location="cpu")["state_dict"] if rank == 0 else None
-
-    obj = [ckpt]
-    torch.distributed.broadcast_object_list(obj, src=0)
-    ckpt = obj[0]  # now every rank has the full dict
-
-    aligned = align_state_dict_keys(model, ckpt)
-    msg = model.load_state_dict(aligned, strict=False)
-    if rank == 0:
-        print("Loaded checkpoint:", len(msg.missing_keys), "missing,", len(msg.unexpected_keys), "unexpected")
-    torch.distributed.barrier()
-    return model
-
 
 
 def align_state_dict_keys(model, ckpt_state):

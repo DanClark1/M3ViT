@@ -422,14 +422,39 @@ def main():
     device = torch.device(f"cuda:{args.local_rank}")
     local_rank = torch.distributed.get_rank()
 
-    # Save
-    save_full_checkpoint(model, "/app/saved_stuff/model.pth")
+    def save_checkpoint(model, optimizer, epoch, path):
+        # Only save from process with global rank 0
+        if dist.get_rank() == 0:
+            checkpoint = {
+                "epoch": epoch,
+                "model_state": model.module.state_dict(),  # unwrap DDP
+                "optimizer_state": optimizer.state_dict(),
+            }
+            torch.save(checkpoint, path)
+        dist.barrier()  # sync all ranks
 
-    # Later, rebuild model identically (32 experts!)
-    model = get_model(p, args).cuda(local_rank)
-    model = fmoe.DistributedGroupedDataParallel(model, device_ids=[local_rank])
-    load_full_checkpoint(model, "/app/saved_stuff/model.pth", device)
 
+    def load_for_training(model, optimizer, path, device):
+        # Wrap model first
+        model = torch.nn.parallel.DistributedDataParallel(model.to(device), device_ids=[device])
+        dist.barrier()  # wait for rank 0 to write file
+
+        checkpoint = torch.load(path, map_location=f"cuda:{device}")
+        model.module.load_state_dict(checkpoint["model_state"])
+        optimizer.load_state_dict(checkpoint["optimizer_state"])
+        start_epoch = checkpoint["epoch"] + 1
+
+        return model, optimizer, start_epoch
+
+    # SAVE
+    save_checkpoint(model, optimizer, epoch, "checkpoint.pt")
+
+    model = get_model(p,args)
+    # LOAD for training
+    ddp_model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
+
+    # LOAD for inference
+    model = load_for_training(model, "checkpoint.pt", device)
 
     for epoch in range(start_epoch, p['epochs']):
         print(colored('Epoch %d/%d' %(epoch+1, p['epochs']), 'yellow'))
