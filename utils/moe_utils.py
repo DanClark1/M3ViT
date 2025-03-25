@@ -66,6 +66,7 @@ def filter_state(state):
 #             shutil.copyfile(os.path.join(save_dir, filename), os.path.join(save_dir, 'model_best.pth.tar'))
 
 def save_moe_model_to_dir(state, dirname):
+    dirname = "/app/saved_stuff"
     rank = torch.distributed.get_rank()
     if rank == 0:
         if os.path.isfile(dirname):

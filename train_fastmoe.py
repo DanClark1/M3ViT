@@ -416,13 +416,14 @@ def main():
 
 
     test_ckpt_path = os.path.join("/app/saved_stuff", "test_checkpoint.pth")
+    
     save_checkpoint({
         'epoch': p['epochs'],
         'backbone': p['backbone'],
         'state_dict': model.state_dict(),
         'best_result': best_result,
         'optimizer': optimizer.state_dict(),
-    }, True, p, moe_save=(p['backbone'] == 'VisionTransformer_moe' and not args.moe_data_distributed))
+    }, True, p, moe_save=(True))
     print(f"Model saved to {test_ckpt_path}")
 
     new_model = get_model(p, args)
