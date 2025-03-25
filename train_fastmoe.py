@@ -29,7 +29,7 @@ from utils.custom_collate import collate_mil
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from utils.common_config import build_train_dataloader,build_val_dataloader
-from utils.moe_utils import sync_weights,save_checkpoint, save_consolidated_checkpoint, load_consolidated_checkpoint
+from utils.moe_utils import sync_weights,save_checkpoint, save_full_checkpoint, load_full_checkpoint
 import time
 import fmoe
 from thop import clever_format
@@ -420,27 +420,15 @@ def main():
     test_ckpt_path = os.path.join("/app/saved_stuff", "{}.pth".format(rank))
 
     device = torch.device(f"cuda:{args.local_rank}")
+    local_rank = torch.distributed.get_rank()
 
+    # Save
+    save_full_checkpoint(model, "/app/saved_stuff/model.pth")
 
-    save_consolidated_checkpoint({
-        "config": p,
-        "state_dict": model.state_dict(),
-        "optimizer": optimizer.state_dict(),
-        "epoch": 0,
-    }, "/app/saved_stuff")
-
-    # Only rank0 reads from disk, then broadcast
-    full_ckpt = torch.load("/app/saved_stuff/model.pth", map_location="cpu")
-    p = full_ckpt["config"]
-
-    # Recreate model from identical config
-    model = get_model(p, args).cuda(args.local_rank)
-    model = DistributedDataParallel(model, device_ids=[args.local_rank])
-
-    # Load weights
-    state_dict = full_ckpt["state_dict"]
-    msg = model.load_state_dict(state_dict, strict=False)
-    print("Loaded ✓ missing:", len(msg.missing_keys), "unexpected:", len(msg.unexpected_keys))
+    # Later, rebuild model identically (32 experts!)
+    model = get_model(p, args).cuda(local_rank)
+    model = fmoe.DistributedGroupedDataParallel(model, device_ids=[local_rank])
+    load_full_checkpoint(model, "/app/saved_stuff/model.pth", device)
 
 
     for epoch in range(start_epoch, p['epochs']):
