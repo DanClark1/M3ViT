@@ -78,6 +78,7 @@ def save_moe_model_to_dir(state, dirname):
     if rank != 0:
         state["state_dict"] = filter_state(state["state_dict"])
     torch.save(state, save_name) 
+    print(f"Model saved to {test_ckpt_path}")
 
 def save_checkpoint(state, is_best, p, moe_save=False, only_best=False):
     if moe_save:
