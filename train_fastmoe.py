@@ -7,6 +7,7 @@ import cv2
 import os
 import numpy as np
 import sys
+import glob
 import torch
 from torch.nn.parallel import DistributedDataParallel
 from utils.config import create_config
@@ -440,23 +441,36 @@ def main():
         
         return ckpt_state
     
-
-    # Assume args.local_rank has been set by torchrun/torch.distributed
+    def load_sharded_checkpoint(dirname, device):
+        paths = sorted(glob.glob(os.path.join(dirname, "*.pth")),
+                    key=lambda p: int(os.path.basename(p).split(".")[0]))
+        merged = {}
+        for p in paths:
+            ckpt = torch.load(p, map_location=device)["state_dict"]
+            for k, v in ckpt.items():
+                if k in merged:
+                    merged[k] = torch.cat([merged[k], v], dim=0)
+                else:
+                    merged[k] = v
+        return merged
+    
     device = torch.device(f"cuda:{args.local_rank}")
 
-    # Load the checkpoint straight onto the correct GPU
-    checkpoint = torch.load(test_ckpt_path, map_location=device)
-    # Instantiate your model and move it to that GPU
+
+    # Build + wrap model
     model = get_model(p, args).to(device)
+    model = DistributedDataParallel(model, device_ids=[args.local_rank])
 
-    # Wrap in DDP (so state_dict keys already include “module.”)
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank])
+    # Merge shards into one state_dict
+    state_dict = load_sharded_checkpoint(args.ckp, device)
 
-    # Load + align
-    raw = checkpoint["state_dict"]
-    aligned = align_state_dict_keys(model, raw)
-    msg = model.load_state_dict(aligned)
-    print("Model re-loaded successfully.")
+    # Align “module.” prefixes if needed
+    aligned = align_state_dict_keys(model, state_dict)
+
+    # Load (allow mismatches)
+    msg = model.load_state_dict(aligned, strict=False)
+    print("Missing keys:", len(msg.missing_keys))
+    print("Unexpected keys:", len(msg.unexpected_keys))
 
     for epoch in range(start_epoch, p['epochs']):
         print(colored('Epoch %d/%d' %(epoch+1, p['epochs']), 'yellow'))
