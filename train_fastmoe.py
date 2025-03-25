@@ -419,7 +419,7 @@ def main():
 
     test_ckpt_path = os.path.join("/app/saved_stuff", "{}.pth".format(rank))
 
-    device = torch.device(f"{args.local_rank}")
+    device = torch.device(f"cuda:{args.local_rank}")
     local_rank = torch.distributed.get_rank()
 
     def save_checkpoint(model, optimizer, epoch, path):
@@ -439,7 +439,7 @@ def main():
         model = torch.nn.parallel.DistributedDataParallel(model.to(device), device_ids=[device])
         dist.barrier()  # wait for rank 0 to write file
 
-        checkpoint = torch.load(path, map_location=f"cuda:{device}")
+        checkpoint = torch.load(path, map_location=f"{device}")
         model.module.load_state_dict(checkpoint["model_state"])
         optimizer.load_state_dict(checkpoint["optimizer_state"])
         start_epoch = checkpoint["epoch"] + 1
