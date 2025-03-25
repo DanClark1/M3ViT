@@ -21,10 +21,7 @@ def save_consolidated_checkpoint(state, dirname):
     os.makedirs(dirname, exist_ok=True)
     rank = torch.distributed.get_rank()
 
-    # Move all weights to CPU
     local_ckpt = {k: v.detach().cpu() for k, v in state["state_dict"].items()}
-
-    # Gather all shards into a list on every rank
     gathered = [None] * torch.distributed.get_world_size()
     torch.distributed.all_gather_object(gathered, local_ckpt)
 
@@ -32,16 +29,18 @@ def save_consolidated_checkpoint(state, dirname):
         merged = {}
         for shard in gathered:
             for k, v in shard.items():
-                if k in merged:
-                    merged[k] = torch.cat([merged[k], v], dim=0)
-                else:
+                if k not in merged:
                     merged[k] = v
-        torch.save({"state_dict": merged, **{k:v for k,v in state.items() if k!="state_dict"}},
-                   os.path.join(dirname, "model.pth"))
+                elif v.ndim >= 1 and merged[k].ndim >= 1:
+                    merged[k] = torch.cat([merged[k], v], dim=0)
+                # else: skip scalar stats
+        torch.save(
+            {"state_dict": merged, **{k: v for k, v in state.items() if k != "state_dict"}},
+            os.path.join(dirname, "model.pth")
+        )
         print(f"✅ Saved consolidated checkpoint to {dirname}/model.pth")
 
     torch.distributed.barrier()
-
 
 def load_consolidated_checkpoint(model, path, device):
     rank = torch.distributed.get_rank()
