@@ -9,6 +9,32 @@ from pdb import set_trace
 import torch.nn.functional as F
 import shutil
 
+
+from fmoe.utils import scatter_model, gather_model
+
+def save_full_checkpoint(model, path):
+    # model is DistributedGroupedDataParallel
+    full_state = gather_model(model)                # merges all expert shards
+    if torch.distributed.get_rank() == 0:
+        torch.save(full_state, path)
+    torch.distributed.barrier()
+
+
+def load_full_checkpoint(model, path, device):
+    # Only rank0 loads full weights
+    full_state = torch.load(path, map_location="cpu") if torch.distributed.get_rank()==0 else None
+
+    # Broadcast full dict to every rank
+    obj = [full_state]
+    torch.distributed.broadcast_object_list(obj, src=0)
+    full_state = obj[0]
+
+    # model is DistributedGroupedDataParallel
+    scatter_model(model, full_state)                # splits weights back onto each GPU
+    torch.distributed.barrier()
+
+
+
 def gather_features(features, local_rank, world_size):
     features_list = [torch.zeros_like(features) for _ in range(world_size)]
     torch.distributed.all_gather(features_list, features)
