@@ -29,7 +29,7 @@ from utils.custom_collate import collate_mil
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from utils.common_config import build_train_dataloader,build_val_dataloader
-from utils.moe_utils import sync_weights,save_checkpoint, save_full_checkpoint, load_full_checkpoint
+from utils.moe_utils import sync_weights,save_checkpoint
 import time
 import fmoe
 from thop import clever_format
