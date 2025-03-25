@@ -4,7 +4,6 @@ from models.gate_funs.noisy_gate_vmoe import NoisyGate_VMoE
 from models.custom_moe_layer import FMoETransformerMLP
 import torch.distributed
 import os
-
 from pdb import set_trace
 
 import torch.nn.functional as F
@@ -16,6 +15,59 @@ def gather_features(features, local_rank, world_size):
     features_list[local_rank] = features
     features = torch.cat(features_list)
     return features
+
+
+def save_consolidated_checkpoint(state, dirname):
+    os.makedirs(dirname, exist_ok=True)
+    rank = torch.distributed.get_rank()
+    local_ckpt = state["state_dict"]
+
+    # Gather all shards to rank0
+    all_states = [None] * torch.distributed.get_world_size()
+    torch.distributed.all_gather_object(all_states, local_ckpt)
+
+    if rank == 0:
+        merged = {}
+        for shard in all_states:
+            for k, v in shard.items():
+                merged[k] = torch.cat([merged[k], v], dim=0) if k in merged else v
+        torch.save({"state_dict": merged, **{k:v for k,v in state.items() if k!="state_dict"}},
+                   os.path.join(dirname, "model.pth"))
+        print(f"✅ Saved consolidated checkpoint to {dirname}/model.pth")
+    torch.distributed.barrier()
+
+def load_consolidated_checkpoint(model, path, device):
+    rank = torch.distributed.get_rank()
+    if rank == 0:
+        ckpt = torch.load(path, map_location="cpu")["state_dict"]
+    else:
+        ckpt = None
+
+    # Broadcast full state_dict from rank0 to all
+    ckpt = torch.distributed.broadcast_object_list([ckpt], src=0)[0]
+
+    # Align and load
+    aligned = align_state_dict_keys(model, ckpt)
+    msg = model.load_state_dict(aligned, strict=False)
+    if rank == 0:
+        print("Loaded checkpoint:", len(msg.missing_keys), "missing,", len(msg.unexpected_keys), "unexpected")
+    torch.distributed.barrier()
+    return model
+
+
+def align_state_dict_keys(model, ckpt_state):
+        model_keys = next(iter(model.state_dict().keys()))
+        ckpt_keys  = next(iter(ckpt_state.keys()))
+        
+        # If model expects “module.” but ckpt keys do NOT start with it → add it
+        if model_keys.startswith("module.") and not ckpt_keys.startswith("module."):
+            return {f"module.{k}": v for k, v in ckpt_state.items()}
+        
+        # If ckpt has “module.” but model does NOT → strip it
+        if ckpt_keys.startswith("module.") and not model_keys.startswith("module."):
+            return {k.replace("module.", "", 1): v for k, v in ckpt_state.items()}
+        
+        return ckpt_state
 
 
 def collect_moe_model_state_dict(moe_state_dict):
