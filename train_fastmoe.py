@@ -415,7 +415,7 @@ def main():
         using_vision_transformer = True
 
 
-    test_ckpt_path = os.path.join(p['output_dir'], "test_checkpoint.pth")
+    test_ckpt_path = os.path.join("/app/saved_stuff", "test_checkpoint.pth")
     save_checkpoint({
         'epoch': p['epochs'],
         'backbone': p['backbone'],
