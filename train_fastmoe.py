@@ -29,7 +29,7 @@ from utils.custom_collate import collate_mil
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from utils.common_config import build_train_dataloader,build_val_dataloader
-from utils.moe_utils import sync_weights,save_checkpoint
+from utils.moe_utils import sync_weights,save_checkpoint, save_consolidated_checkpoint, load_consolidated_checkpoint
 import time
 import fmoe
 from thop import clever_format
@@ -419,42 +419,18 @@ def main():
 
     test_ckpt_path = os.path.join("/app/saved_stuff", "{}.pth".format(rank))
 
-    save_checkpoint({
-        'epoch': p['epochs'],
-        'backbone': p['backbone'],
-        'state_dict': model.state_dict(),
-        'best_result': best_result,
-        'optimizer': optimizer.state_dict(),
-    }, True, p, moe_save=(True))
-
-    def align_state_dict_keys(model, ckpt_state):
-        model_keys = next(iter(model.state_dict().keys()))
-        ckpt_keys  = next(iter(ckpt_state.keys()))
-        
-        # If model expects “module.” but ckpt keys do NOT start with it → add it
-        if model_keys.startswith("module.") and not ckpt_keys.startswith("module."):
-            return {f"module.{k}": v for k, v in ckpt_state.items()}
-        
-        # If ckpt has “module.” but model does NOT → strip it
-        if ckpt_keys.startswith("module.") and not model_keys.startswith("module."):
-            return {k.replace("module.", "", 1): v for k, v in ckpt_state.items()}
-        
-        return ckpt_state
-    
-    def load_sharded_checkpoint(dirname, device):
-        paths = sorted(glob.glob(os.path.join(dirname, "*.pth")),
-                    key=lambda p: int(os.path.basename(p).split(".")[0]))
-        merged = {}
-        for p in paths:
-            ckpt = torch.load(p, map_location=device)["state_dict"]
-            for k, v in ckpt.items():
-                if k in merged:
-                    merged[k] = torch.cat([merged[k], v], dim=0)
-                else:
-                    merged[k] = v
-        return merged
-    
     device = torch.device(f"cuda:{args.local_rank}")
+
+
+    save_consolidated_checkpoint({
+        "state_dict": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "epoch": epoch,
+    }, "/app/saved_stuff")
+
+    model = get_model(p, args).cuda(args.local_rank)
+    model = DistributedDataParallel(model, device_ids=[args.local_rank])
+    model = load_consolidated_checkpoint(model, "/app/saved_stuff/model.pth", device)
 
 
     # Build + wrap model
