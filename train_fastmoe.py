@@ -455,7 +455,7 @@ def main():
     # Load + align
     raw = checkpoint["state_dict"]
     aligned = align_state_dict_keys(model, raw)
-    msg = model.load_state_dict(aligned, strict=False)
+    msg = model.load_state_dict(aligned)
     print("Model re-loaded successfully.")
 
     for epoch in range(start_epoch, p['epochs']):
