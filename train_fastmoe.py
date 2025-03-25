@@ -427,11 +427,11 @@ def main():
     }, True, p, moe_save=(True))
     
 
-    new_model = get_model(p, args)
-    checkpoint = torch.load(test_ckpt_path, map_location='cpu')
-    raw_state = checkpoint["state_dict"]
-    state = {k.replace("module.", ""): v for k, v in raw_state.items()}
-    new_model.load_state_dict(state)
+    model = get_model(p, args)
+    model = torch.nn.parallel.DistributedDataParallel(model)  # or DataParallel
+    checkpoint = torch.load(args.ckp, map_location="cpu")
+    msg = model.load_state_dict(checkpoint["state_dict"])
+    print("Load mismatches:", msg)
     print("Model re-loaded successfully.")
 
 
