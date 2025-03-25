@@ -458,22 +458,13 @@ def main():
 
 
     # Build + wrap model
-    model = get_model(p, args).to(device)
-    model = DistributedDataParallel(model, device_ids=[args.local_rank])
-
-    state_dict = load_sharded_checkpoint(test_ckpt_path, device)
-    print(f">>> Loaded {len(state_dict)} keys from {test_ckpt_path}")
+    ckpt_dir = test_ckpt_path if os.path.isdir(test_ckpt_path) else os.path.dirname(test_ckpt_path)
+    state_dict = load_sharded_checkpoint(ckpt_dir, device)
     if not state_dict:
-        raise RuntimeError(f"❌ Empty checkpoint — check path: {test_ckpt_path}")
-
-
-    # Align “module.” prefixes if needed
+        raise RuntimeError(f"No weights found in {ckpt_dir}")
     aligned = align_state_dict_keys(model, state_dict)
+    model.load_state_dict(aligned, strict=False)
 
-    # Load (allow mismatches)
-    msg = model.load_state_dict(aligned, strict=False)
-    print("Missing keys:", len(msg.missing_keys))
-    print("Unexpected keys:", len(msg.unexpected_keys))
 
     for epoch in range(start_epoch, p['epochs']):
         print(colored('Epoch %d/%d' %(epoch+1, p['epochs']), 'yellow'))
