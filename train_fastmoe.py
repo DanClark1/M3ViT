@@ -462,7 +462,7 @@ def main():
     model = DistributedDataParallel(model, device_ids=[args.local_rank])
 
     # Merge shards into one state_dict
-    state_dict = load_sharded_checkpoint(args.ckp, device)
+    state_dict = load_sharded_checkpoint(test_ckpt_path, device)
 
     # Align “module.” prefixes if needed
     aligned = align_state_dict_keys(model, state_dict)
