@@ -425,7 +425,6 @@ def main():
         'best_result': best_result,
         'optimizer': optimizer.state_dict(),
     }, True, p, moe_save=(True))
-    
 
     def align_state_dict_keys(model, ckpt_state):
         model_keys = next(iter(model.state_dict().keys()))
@@ -440,13 +439,24 @@ def main():
             return {k.replace("module.", "", 1): v for k, v in ckpt_state.items()}
         
         return ckpt_state
+    
+
+    # Assume args.local_rank has been set by torchrun/torch.distributed
+    device = torch.device(f"cuda:{args.local_rank}")
+
+    # Load the checkpoint straight onto the correct GPU
+    checkpoint = torch.load(test_ckpt_path, map_location=device)
+    # Instantiate your model and move it to that GPU
+    model = get_model(p, args).to(device)
+
+    # Wrap in DDP (so state_dict keys already include “module.”)
+    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank])
 
     # Load + align
     raw = checkpoint["state_dict"]
     aligned = align_state_dict_keys(model, raw)
     msg = model.load_state_dict(aligned, strict=False)
     print("Model re-loaded successfully.")
-
 
     for epoch in range(start_epoch, p['epochs']):
         print(colored('Epoch %d/%d' %(epoch+1, p['epochs']), 'yellow'))
