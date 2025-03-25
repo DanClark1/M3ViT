@@ -431,7 +431,7 @@ def main():
     checkpoint = torch.load(test_ckpt_path, map_location='cpu')
     raw_state = checkpoint["state_dict"]
     state = {k.replace("module.", ""): v for k, v in raw_state.items()}
-    new_model.load_state_dict(checkpoint['state_dict'])
+    new_model.load_state_dict(state)
     print("Model re-loaded successfully.")
 
 
