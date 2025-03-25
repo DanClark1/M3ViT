@@ -425,7 +425,7 @@ def main():
     save_consolidated_checkpoint({
         "state_dict": model.state_dict(),
         "optimizer": optimizer.state_dict(),
-        "epoch": epoch,
+        "epoch": 0,
     }, "/app/saved_stuff")
 
     model = get_model(p, args).cuda(args.local_rank)
