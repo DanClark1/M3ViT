@@ -453,9 +453,6 @@ def main():
     # LOAD for training
     ddp_model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
 
-    # LOAD for inference
-    model = load_for_training(model, "checkpoint.pt", device)
-
     for epoch in range(start_epoch, p['epochs']):
         print(colored('Epoch %d/%d' %(epoch+1, p['epochs']), 'yellow'))
         print(colored('-'*10, 'yellow'))
