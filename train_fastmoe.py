@@ -423,6 +423,7 @@ def main():
 
 
     save_consolidated_checkpoint({
+        "config": p,
         "state_dict": model.state_dict(),
         "optimizer": optimizer.state_dict(),
         "epoch": 0,
@@ -440,16 +441,6 @@ def main():
     state_dict = full_ckpt["state_dict"]
     msg = model.load_state_dict(state_dict, strict=False)
     print("Loaded ✓ missing:", len(msg.missing_keys), "unexpected:", len(msg.unexpected_keys))
-
-
-
-    # Build + wrap model
-    ckpt_dir = test_ckpt_path if os.path.isdir(test_ckpt_path) else os.path.dirname(test_ckpt_path)
-    state_dict = load_sharded_checkpoint(ckpt_dir, device)
-    if not state_dict:
-        raise RuntimeError(f"No weights found in {ckpt_dir}")
-    aligned = align_state_dict_keys(model, state_dict)
-    model.load_state_dict(aligned, strict=False)
 
 
     for epoch in range(start_epoch, p['epochs']):
