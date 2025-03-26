@@ -444,9 +444,9 @@ def main():
 
         print(checkpoint.keys())
 
-        model.module.load_state_dict(checkpoint["model_state"])
-        optimizer.load_state_dict(checkpoint["optimizer_state"])
-        start_epoch = checkpoint["epoch"] + 1
+        model.module.load_state_dict(checkpoint["module.model_state"])
+        optimizer.load_state_dict(checkpoint["module.optimizer_state"])
+        start_epoch = checkpoint["module.epoch"] + 1
 
         return model, optimizer, start_epoch
 
