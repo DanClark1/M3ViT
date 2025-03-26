@@ -465,6 +465,9 @@ def main():
         print('Train ...')
         eval_train = train_vanilla_distributed(args, p, train_dataloader, model, criterion, optimizer, epoch)
 
+        save_checkpoint(model, optimizer, 0, "app/checkpoint.pt")
+        
+
         # Evaluate
             # Check if need to perform eval first
         if 'eval_final_10_epochs_only' in p.keys() and p['eval_final_10_epochs_only']: # To speed up -> Avoid eval every epoch, and only test during final 10 epochs.
@@ -501,7 +504,7 @@ def main():
             
         # factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
             
-        save_checkpoint(model, optimizer, 0, "checkpoint.pt")
+        
         # if args.distributed:
         #     torch.distributed.barrier()
     print('done!')
