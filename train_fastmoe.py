@@ -434,27 +434,18 @@ def main():
         dist.barrier()  # sync all ranks
 
 
-    def load_for_training(model, optimizer, path, device):
-        # Wrap model first
-        model = torch.nn.parallel.DistributedDataParallel(model.to(device), device_ids=[device])
-        dist.barrier()  # wait for rank 0 to write file
-
-        checkpoint = torch.load(path, map_location=f"{device}")
-        checkpoint = {k: "module." + v for k, v in checkpoint.items()}
-
-        print(checkpoint.keys())
-
-        model.module.load_state_dict(checkpoint["model_state"])
-        optimizer.load_state_dict(checkpoint["optimizer_state"])
-        start_epoch = checkpoint["epoch"] + 1
-
-        return model, optimizer, start_epoch
+    def load_for_inference(model, path, device):
+        checkpoint = torch.load(path, map_location=device)
+        model.load_state_dict(checkpoint["model_state"])
+        model.to(device)
+        model.eval()
+        return model
 
     # SAVE
     # save_checkpoint(model, optimizer, 0, "/app/checkpoint.pt")
 
     # # LOAD for training
-    model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
+    model, optimizer, start_epoch = load_for_inference(model, "checkpoint.pt", device)
 
     for epoch in range(start_epoch, p['epochs']):
         print(colored('Epoch %d/%d' %(epoch+1, p['epochs']), 'yellow'))
