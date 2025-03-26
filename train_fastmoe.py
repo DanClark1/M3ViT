@@ -462,7 +462,8 @@ def main():
 
         # Train 
         print('Train ...')
-        eval_train = train_vanilla_distributed(args, p, train_dataloader, model, criterion, optimizer, epoch)
+        factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
+        # eval_train = train_vanilla_distributed(args, p, train_dataloader, model, criterion, optimizer, epoch)
 
         # save_checkpoint(model, optimizer, 0, "/app/checkpoint.pt")
 
