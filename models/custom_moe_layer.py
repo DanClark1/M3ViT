@@ -89,7 +89,7 @@ class _Expert(nn.Module):
         # send output to CPU and concvert to numpy
         outputs = self.outputs.cpu().detach().numpy()
         # write outputs to a file
-        np.savetxt('outputs.txt', outputs)
+        np.savetxt('outputs.txt', outputs[0])
         get_num_global_components(outputs.T)
         ppca = PerPCA(num_components, num_components)
         if self.outputs is not None:
