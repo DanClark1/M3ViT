@@ -447,7 +447,7 @@ def main():
         return model, optimizer, start_epoch
 
     # SAVE
-    save_checkpoint(model, optimizer, 0, "checkpoint.pt")
+    save_checkpoint(model, optimizer, 0, "/app/checkpoint.pt")
 
     # model = get_model(p,args)
     # # LOAD for training
@@ -465,8 +465,8 @@ def main():
         print('Train ...')
         eval_train = train_vanilla_distributed(args, p, train_dataloader, model, criterion, optimizer, epoch)
 
-        save_checkpoint(model, optimizer, 0, "app/checkpoint.pt")
-        
+        save_checkpoint(model, optimizer, 0, "/app/checkpoint.pt")
+
 
         # Evaluate
             # Check if need to perform eval first
