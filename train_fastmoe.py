@@ -440,13 +440,13 @@ def main():
         dist.barrier()  # wait for rank 0 to write file
 
         checkpoint = torch.load(path, map_location=f"{device}")
-        checkpoint = {"module." + k: v for k, v in checkpoint.items()}
+        checkpoint = {k: "module." + v for k, v in checkpoint.items()}
 
         print(checkpoint.keys())
 
-        model.module.load_state_dict(checkpoint["module.model_state"])
-        optimizer.load_state_dict(checkpoint["module.optimizer_state"])
-        start_epoch = checkpoint["module.epoch"] + 1
+        model.module.load_state_dict(checkpoint["model_state"])
+        optimizer.load_state_dict(checkpoint["optimizer_state"])
+        start_epoch = checkpoint["epoch"] + 1
 
         return model, optimizer, start_epoch
 
