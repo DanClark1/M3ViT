@@ -446,8 +446,8 @@ def main():
 
         return model, optimizer, start_epoch
 
-    # # SAVE
-    # save_checkpoint(model, optimizer, 0, "checkpoint.pt")
+    # SAVE
+    save_checkpoint(model, optimizer, 0, "checkpoint.pt")
 
     # model = get_model(p,args)
     # # LOAD for training
@@ -501,9 +501,10 @@ def main():
             
         # factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
             
-        if args.distributed:
-            torch.distributed.barrier()
-
+        save_checkpoint(model, optimizer, 0, "checkpoint.pt")
+        # if args.distributed:
+        #     torch.distributed.barrier()
+    print('done!')
     torch.cuda.empty_cache()   
     # Evaluate best model at the end
     # if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
