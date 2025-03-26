@@ -100,6 +100,7 @@ def get_num_global_components(clients):
     optimal_r1 = candidate_r1[np.argmax(second_diff) + 1]
 
     print("Elbow (2nd diff) =", optimal_r1)
+    print(gv)
 
 
 
