@@ -87,10 +87,8 @@ class _Expert(nn.Module):
         '''
         print('calculting components')
         # send output to CPU and concvert to numpy
-        outputs = self.outputs.cpu().detach().numpy()
         # write matrix to a file so it can be reloaded
-        np.savetxt('outputs.csv', outputs[0], delimiter=',')
-        get_num_global_components(outputs.T)
+        get_num_global_components(self.outputs.T)
         ppca = PerPCA(num_components, num_components)
         if self.outputs is not None:
             return ppca.fit(np.array(self.outputs))
