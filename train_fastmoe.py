@@ -427,7 +427,7 @@ def main():
         if dist.get_rank() == 0:
             checkpoint = {
                 "epoch": epoch,
-                "model_state": model.module.state_dict(),  # unwrap DDP
+                "model_state": model.state_dict(),  # unwrap DDP
                 "optimizer_state": optimizer.state_dict(),
             }
             torch.save(checkpoint, path)
@@ -440,6 +440,8 @@ def main():
         dist.barrier()  # wait for rank 0 to write file
 
         checkpoint = torch.load(path, map_location=f"{device}")
+        checkpoint = {"module." + k: v for k, v in checkpoint.items()}
+
         model.module.load_state_dict(checkpoint["model_state"])
         optimizer.load_state_dict(checkpoint["optimizer_state"])
         start_epoch = checkpoint["epoch"] + 1
