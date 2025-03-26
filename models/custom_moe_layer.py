@@ -25,6 +25,8 @@ from utils.perpca import PerPCA
 from pdb import set_trace
 import numpy as np
 
+from utils.global_components import get_num_global_components
+
 class _Expert(nn.Module):
     r"""
     An expert using 2 FMoELinear modules to speed up the computation of experts
@@ -83,6 +85,8 @@ class _Expert(nn.Module):
 
         num_local is per expert
         '''
+        print('calculting components')
+        get_num_global_components(self.outputs)
         ppca = PerPCA(num_components, num_components)
         if self.outputs is not None:
             return ppca.fit(np.array(self.outputs))

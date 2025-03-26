@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from tqdm import tqdm
+from sklearn.utils.extmath import randomized_svd
 
 class PerPCA:
     def __init__(self, r1, r2, num_iter=100, eta=0.01, tol=1e-5, device=None):
@@ -56,6 +57,15 @@ class PerPCA:
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
+def pooled_scree(covs, max_components=20):
+    S_avg = sum(covs) / len(covs)
+    U, s, _ = randomized_svd(S_avg, n_components=max_components, random_state=0)
+    total = np.trace(S_avg)
+    explained = np.cumsum(s**2) / total
+    return explained
+
+
 def global_variance_explained(U, covs):
     P = U @ U.T
     num = sum(torch.trace(P @ S) for S in covs)
@@ -72,7 +82,26 @@ def make_synthetic(num_clients=5, d=50, n=500, true_r1=6, true_r2=2, noise_std=0
         Ys.append(shared + local + noise_std * torch.randn(d, n, device=device))
     return Ys
 
+
+def get_num_global_components(clients):
+    covs = [(Y @ Y.T) / Y.shape[1] for Y in clients]
+
+    candidate_r1 = list(range(1, 381))
+    gv = pooled_scree(covs, max_components=380)
+
+    print(gv)
+
+    # 2nd‑difference elbow
+    second_diff = np.abs(np.diff(gv, n=7))
+    elbow_2nd = candidate_r1[np.argmax(second_diff) + 1]
+
+    print("Shared‑variance fractions:", np.round(gv, 3))
+    print("Elbow (2nd diff) =", elbow_2nd)
+
+
 if __name__ == "__main__":
+
+
     clients = make_synthetic(num_clients=5, d=384, n=500, true_r1=50, true_r2=300, noise_std=0.1)
     covs    = [(Y @ Y.T) / Y.shape[1] for Y in clients]
 
