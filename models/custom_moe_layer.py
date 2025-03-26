@@ -86,7 +86,9 @@ class _Expert(nn.Module):
         num_local is per expert
         '''
         print('calculting components')
-        get_num_global_components(self.outputs)
+        # send output to CPU and concvert to numpy
+        outputs = self.outputs.cpu().detach().numpy()
+        get_num_global_components(outputs)
         ppca = PerPCA(num_components, num_components)
         if self.outputs is not None:
             return ppca.fit(np.array(self.outputs))
