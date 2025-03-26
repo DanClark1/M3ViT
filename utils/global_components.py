@@ -84,7 +84,8 @@ def make_synthetic(num_clients=5, d=50, n=500, true_r1=6, true_r2=2, noise_std=1
 
 
 def get_num_global_components(clients):
-    covs = [(Y @ Y.T) / Y.shape[1] for Y in clients]
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    covs = torch.Tensor([(Y @ Y.T) / Y.shape[1] for Y in clients]).to(device)
 
     candidate_r1 = list(range(1, 20))
     gv = []
