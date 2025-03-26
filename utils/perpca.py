@@ -1,89 +1,63 @@
-import numpy as np
+import torch
 
 class PerPCA:
-    def __init__(self, r1, r2, num_iter=100, eta=0.01, tol=1e-5):
+    def __init__(self, r1, r2, num_iter=100, eta=0.01, tol=1e-5, device=None):
         self.r1 = r1
         self.r2 = r2
         self.num_iter = num_iter
         self.eta = eta
         self.tol = tol
+        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def polar(self, W):
-        # Compute the polar projection of matrix W onto the Stiefel manifold.
-        U, _, Vh = np.linalg.svd(W, full_matrices=False)
+        U, _, Vh = torch.linalg.svd(W, full_matrices=False)
         return U @ Vh
 
     def initialize_components(self, d):
-        # Initialize a random orthonormal global matrix U (d x r1)
-        # and a random orthonormal local matrix V (d x r2) that is orthogonal to U.
-        U = np.linalg.qr(np.random.randn(d, self.r1))[0]
-        V = np.linalg.qr(np.random.randn(d, self.r2))[0]
+        U = torch.linalg.qr(torch.randn(d, self.r1, device=self.device))[0]
+        V = torch.linalg.qr(torch.randn(d, self.r2, device=self.device))[0]
         V = V - U @ (U.T @ V)
-        V = np.linalg.qr(V)[0]
-        return U, V
+        return U, torch.linalg.qr(V)[0]
 
     def compute_covariance(self, Y):
-        # Compute the sample covariance matrix for data Y.
-        n = Y.shape[1]
-        return (Y @ Y.T) / n
+        return (Y @ Y.T) / Y.shape[1]
 
     def fit(self, clients):
-        '''
-        clients: list of numpy arrays, each of shape (n, d)
-        '''
-        # swap the last two columns of clients
-        # clients = [np.swapaxes(client, -1, -2) for client in clients]
-        # clients: list of numpy arrays, each of shape (d, n)
-        num_clients = len(clients)
-        d = clients[0].shape[0]
+        clients = [c.to(self.device) for c in clients]
         S_list = [self.compute_covariance(Y) for Y in clients]
+        d = clients[0].shape[0]
+
         U, V0 = self.initialize_components(d)
-        V_list = [V0.copy() for _ in range(num_clients)]
-        U_old = U.copy()
-        it = 0
-        while True:
+        V_list = [V0.clone() for _ in range(len(clients))]
+        U_old = U.clone()
+
+        for _ in range(self.num_iter):
             U_updates = []
-            for i in range(num_clients):
-                S = S_list[i]
-                V = V_list[i]
-                # Ensure local V is orthogonal to current global U.
-                V = self.polar(V - U @ (U.T @ V))
+            for i, S in enumerate(S_list):
+                V = self.polar(V_list[i] - U @ (U.T @ V_list[i]))
                 grad_U = S @ U
                 grad_V = S @ V
+
                 U_local = self.polar(U + self.eta * grad_U)
                 V_local = self.polar(V + self.eta * grad_V)
                 V_local = self.polar(V_local - U_local @ (U_local.T @ V_local))
+
                 U_updates.append(U_local)
                 V_list[i] = V_local
-            U_avg = np.mean(np.stack(U_updates, axis=2), axis=2)
-            U = self.polar(U_avg)
-            
-            # Convergence condition based on change in U
-            diff = np.linalg.norm(U - U_old, 'fro')
-            if diff < self.tol:
-                break
-            U_old = U.copy()
 
-            it += 1
-        
-        # swap the dimensions back around
-        # V_list = [np.swapaxes(V, -1, -2) for V in V_list]
-        # U = U.T
-        return U, V_list
+            U = self.polar(torch.stack(U_updates, dim=2).mean(dim=2))
+            if torch.norm(U - U_old) < self.tol:
+                break
+            U_old = U.clone()
+
+        return U.cpu(), [V.cpu() for V in V_list]
+
 
 if __name__ == "__main__":
-    # Example usage: 5 clients each with a d x n matrix (e.g., d=50, n=200)
-    num_clients = 5
-    d = 500
-    n = 2500
-    clients = [np.random.randn(d, n) for _ in range(num_clients)]
-    
-    r1 = 200  # number of global PCs
-    r2 = 100  # number of local PCs per client
-    model = PerPCA(r1, r2, num_iter=100, eta=0.01, tol=1e-5)
+    num_clients, d, n = 16, 384, 2500
+    clients = [torch.randn(d, n) for _ in range(num_clients)]
+    model = PerPCA(r1=200, r2=100, eta=0.01)
     U, V_list = model.fit(clients)
-    
-    print("Global PCs (U):")
-    print(U.T)
-    print("\nLocal PCs for first client (V[0]):")
-    print(V_list[0].T)
+
+    print("Global PCs (U):", U.T)
+    print("Local PCs for first client (V[0]):", V_list[0].T)
