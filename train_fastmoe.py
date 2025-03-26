@@ -442,6 +442,8 @@ def main():
         checkpoint = torch.load(path, map_location=f"{device}")
         checkpoint = {"module." + k: v for k, v in checkpoint.items()}
 
+        print(checkpoint.keys())
+
         model.module.load_state_dict(checkpoint["model_state"])
         optimizer.load_state_dict(checkpoint["optimizer_state"])
         start_epoch = checkpoint["epoch"] + 1
