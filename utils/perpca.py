@@ -65,7 +65,7 @@ class PerPCA:
         """
         total_var = 0
         explained_var = torch.zeros(U.shape[1], device=self.device)
-        
+        U = U.to(self.device)
         for client in clients:
             client = client.to(self.device)
             # Center the data
