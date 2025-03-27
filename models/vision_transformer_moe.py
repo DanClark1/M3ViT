@@ -641,7 +641,7 @@ class VisionTransformerMoE(nn.Module):
                 plt.close()
             
             # Also save attention pattern if this is an attention block
-            if hasattr(self.blocks[idx], 'attn'):
+            if idx < len(self.blocks) and hasattr(self.blocks[idx], 'attn'):
                 attn = self.blocks[idx].attn.attn if hasattr(self.blocks[idx].attn, 'attn') else None
                 if attn is not None:  # [B, num_heads, N, N]
                     attn = attn.mean(dim=1)  # Average over heads [B, N, N]
@@ -654,7 +654,7 @@ class VisionTransformerMoE(nn.Module):
                         plt.close()
             
             # For MoE layers, visualize expert assignment
-            if hasattr(self.blocks[idx], 'moe') and self.blocks[idx].moe:
+            if idx < len(self.blocks) and hasattr(self.blocks[idx], 'moe') and self.blocks[idx].moe:
                 if hasattr(self.blocks[idx].mlp, 'gate_outputs'):
                     gate_outputs = self.blocks[idx].mlp.gate_outputs  # Get expert assignments
                     if gate_outputs is not None:
