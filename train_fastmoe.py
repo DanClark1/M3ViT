@@ -367,6 +367,7 @@ def main():
         eval_stats = eval_all_results(p)
 
         if args.visualize_features and hasattr(model.module, 'visualize_features'):
+            
             viz_save_dir = os.path.join(args.viz_dir, 'inference')
             viz_batch = next(iter(val_dataloader))
             viz_inputs = viz_batch['image'].cuda(non_blocking=True)
@@ -377,7 +378,7 @@ def main():
                     model.module.visualize_features(save_dir=viz_save_dir)
                     print(f'Saved feature visualizations to {viz_save_dir}')
                 model.module.clear_intermediate_features()
-            
+        print('hello')
         exit()
 
     if args.resume:
