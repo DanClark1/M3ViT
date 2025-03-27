@@ -99,17 +99,18 @@ class _Expert(nn.Module):
         '''
         Calculates components of the expert's outputs,
         then creates a new global expert'''
-        global_comp, local_comp = self.get_components()
-        global_comp = torch.tensor(np.array(global_comp), device='cuda')
-        local_comp = torch.tensor(np.array(local_comp), device='cuda')
-        # creating an array of component matricies
-        components = torch.cat((global_comp.unsqueeze(0), local_comp), dim=0)
-        # make sure components are float
-        components = components.float()
-        self.htoh4 = FMoELinearProj(components, prev_experts=self.htoh4)
-        self.h4toh = FMoELinearProj(components, prev_experts=self.h4toh)
-        self.stage = 1
-        self.num_experts += 1
+        get_num_global_components(self.outputs.T)
+        # global_comp, local_comp = self.get_components()
+        # global_comp = torch.tensor(np.array(global_comp), device='cuda')
+        # local_comp = torch.tensor(np.array(local_comp), device='cuda')
+        # # creating an array of component matricies
+        # components = torch.cat((global_comp.unsqueeze(0), local_comp), dim=0)
+        # # make sure components are float
+        # components = components.float()
+        # self.htoh4 = FMoELinearProj(components, prev_experts=self.htoh4)
+        # self.h4toh = FMoELinearProj(components, prev_experts=self.h4toh)
+        # self.stage = 1
+        # self.num_experts += 1
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., norm_layer= partial(nn.LayerNorm, eps=1e-6)):
