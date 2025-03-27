@@ -639,6 +639,7 @@ class VisionTransformerMoE(nn.Module):
         
         # If expert_indices provided, we'll visualize each expert separately
         if expert_indices is not None:
+            last_features = None
             for expert_idx in expert_indices:
                 # Set forced expert for all MoE layers
                 for block in self.blocks:
@@ -652,6 +653,9 @@ class VisionTransformerMoE(nn.Module):
                 # Visualize features for this expert
                 for idx in layer_indices:
                     features = self.intermediate_features[idx]
+                    if last_features is not None:
+                        print('are the features similar: ', torch.allclose(last_features, features), torch.norm(last_features - features))
+                    last_features = features
                     B, N, D = features.shape
                     
                     patch_features = features[:, 1:, :]
