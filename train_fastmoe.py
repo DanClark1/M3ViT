@@ -406,9 +406,7 @@ def main():
         else:
             print("=> loading checkpoint '{}'".format(args.resume))
             checkpoint = torch.load(args.resume, map_location='cpu')
-        state_dict = checkpoint['state_dict']
-        # model = cvt_state_dict_(state_dict, model,args, linear_keyword, moe_dir_read)
-        msg = model.load_state_dict(state_dict, strict=False)
+        model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
         print('=================model unmatched keys:================',msg)
 
         if 'optimizer' in checkpoint and 'epoch' in checkpoint:
