@@ -81,7 +81,7 @@ def global_variance_explained(V, clients):
     total_variance = 0
     for client, V_sub in zip(clients, V_sub):
         print('CLIENT SHAPE:', client.shape)
-        print('U SHAPE:', V.shape)
+        print('U SHAPE:', V_sub.shape)
         S = (client.T @ client)
         ratio = (torch.trace(V_sub.T @ S @ V_sub) / torch.trace(S)) / clients.shape[0]
         total_variance += ratio
