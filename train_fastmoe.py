@@ -352,12 +352,12 @@ def main():
                             checkpoint["state_dict"][key] = torch.cat([checkpoint["state_dict"][key], item],
                                                                     dim=0)
                     else:
-                        checkpoint["state_dict"].update(checkpoint_specific["state_dict"])
+                        checkpoint["model_state"].update(checkpoint_specific["stmodel_stateate_dict"])
                 moe_dir_read = True
         else:
             print("=> loading checkpoint '{}'".format(args.ckp))
             checkpoint = torch.load(args.ckp, map_location='cpu')
-        state_dict = checkpoint['state_dict']
+        state_dict = checkpoint['model_state']
         # model = cvt_state_dict_(state_dict, model,args, linear_keyword, moe_dir_read)
         msg = model.load_state_dict(state_dict, strict=False)
         print('=================model unmatched keys:================',msg)
