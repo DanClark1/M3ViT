@@ -113,7 +113,7 @@ def get_num_global_components(clients):
     U, V = model.fit(clients)
     for i in tqdm(range(1, U.shape[1])):
         print('V shape', V[0].shape)
-        V_subset = [V[:, i] for V in V]
+        V_subset = [V[:, :i] for V in V]
         print('V_subset shape:', V_subset[0].shape)
 
         gv.append(global_variance_explained(V_subset, clients))
