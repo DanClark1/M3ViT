@@ -693,8 +693,39 @@ class VisionTransformerMoE(nn.Module):
                 # Prepare datasets for PerPCA
                 clients = [expert_datasets[exp_idx][layer_idx] for exp_idx in expert_indices]
                 
-                # Run PerPCA
-                pca_model = PerPCA(r1=50, r2=50)
+                # Create elbow plot for different numbers of global components
+                max_components = min(100, clients[0].shape[0])  # Maximum number of components to try
+                component_nums = list(range(10, max_components + 1, 10))  # Try from 10 to max_components in steps of 10
+                explained_vars = []
+                
+                for n_components in component_nums:
+                    # Run PerPCA with different numbers of global components
+                    pca_model = PerPCA(r1=n_components, r2=50)
+                    U, _ = pca_model.fit(clients)
+                    
+                    # Compute explained variance
+                    explained_var = pca_model.compute_explained_variance(clients, U)
+                    explained_vars.append(explained_var.sum().item())
+                
+                # Plot elbow curve
+                plt.figure(figsize=(10, 6))
+                plt.plot(component_nums, explained_vars, 'bo-')
+                plt.xlabel('Number of Global Components')
+                plt.ylabel('Total Explained Variance Ratio')
+                plt.title(f'Layer {layer_idx} - Elbow Plot for Global Components')
+                plt.grid(True)
+                plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_elbow_plot.png'))
+                plt.close()
+                
+                # Print optimal number of components (using simple elbow detection)
+                diffs = np.diff(explained_vars)
+                elbow_idx = np.argmin(diffs) + 1
+                optimal_components = component_nums[elbow_idx]
+                print(f"\nOptimal number of global components for layer {layer_idx}: {optimal_components}")
+                print(f"Explained variance ratios up to optimal: {explained_vars[elbow_idx]:.3f}")
+                
+                # Run final PerPCA with optimal number of components
+                pca_model = PerPCA(r1=optimal_components, r2=50)
                 U, V_list = pca_model.fit(clients)
                 
                 # Project one example through each expert onto their components

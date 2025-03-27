@@ -52,6 +52,34 @@ class PerPCA:
 
         return U.cpu(), [V.cpu() for V in V_list]
 
+    def compute_explained_variance(self, clients, U):
+        """
+        Compute the explained variance ratio for global components U across all clients.
+        
+        Args:
+            clients: List of client data matrices
+            U: Global components matrix
+        
+        Returns:
+            explained_variance_ratio: Proportion of variance explained by each component
+        """
+        total_var = 0
+        explained_var = torch.zeros(U.shape[1], device=self.device)
+        
+        for client in clients:
+            client = client.to(self.device)
+            # Center the data
+            client = client - client.mean(dim=1, keepdim=True)
+            
+            # Project onto U
+            proj = client.T @ U
+            
+            # Compute variance explained by each component
+            explained_var += torch.sum(proj**2, dim=0)
+            total_var += torch.sum(client**2)
+        
+        return (explained_var / total_var).cpu()
+
 
 if __name__ == "__main__":
     num_clients, d, n = 16, 384, 2500
