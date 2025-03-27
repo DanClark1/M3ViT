@@ -333,30 +333,30 @@ def main():
             exit()
 
     if args.eval:
-        # if os.path.isdir(args.ckp):
-        #     print("=> loading checkpoint '{}'".format(args.ckp))
-        #     checkpoint = torch.load(os.path.join(args.ckp, "0.pth".format(torch.distributed.get_rank())),
-        #                             map_location="cpu")
-        #     len_save = len([f for f in os.listdir(args.ckp) if "pth" in f])
-        #     assert len_save % torch.distributed.get_world_size() == 0
-        #     response_cnt = [i for i in range(
-        #         torch.distributed.get_rank() * (len_save // torch.distributed.get_world_size()),
-        #         (torch.distributed.get_rank() + 1) * (len_save // torch.distributed.get_world_size()))]
-        #     # merge all ckpts
-        #     for cnt, cnt_model in enumerate(response_cnt):
-        #         if cnt_model != 0:
-        #             checkpoint_specific = torch.load(os.path.join(args.ckp, "{}.pth".format(cnt_model)),
-        #                                             map_location="cpu")
-        #             if cnt != 0:
-        #                 for key, item in checkpoint_specific["state_dict"].items():
-        #                     checkpoint["state_dict"][key] = torch.cat([checkpoint["state_dict"][key], item],
-        #                                                             dim=0)
-        #             else:
-        #                 checkpoint["state_dict"].update(checkpoint_specific["state_dict"])
-        #         moe_dir_read = True
-        # else:
-        #     print("=> loading checkpoint '{}'".format(args.ckp))
-        #     checkpoint = torch.load(args.ckp, map_location='cpu')
+        if os.path.isdir(args.ckp):
+            print("=> loading checkpoint '{}'".format(args.ckp))
+            checkpoint = torch.load(os.path.join(args.ckp, "0.pth".format(torch.distributed.get_rank())),
+                                    map_location="cpu")
+            len_save = len([f for f in os.listdir(args.ckp) if "pth" in f])
+            assert len_save % torch.distributed.get_world_size() == 0
+            response_cnt = [i for i in range(
+                torch.distributed.get_rank() * (len_save // torch.distributed.get_world_size()),
+                (torch.distributed.get_rank() + 1) * (len_save // torch.distributed.get_world_size()))]
+            # merge all ckpts
+            for cnt, cnt_model in enumerate(response_cnt):
+                if cnt_model != 0:
+                    checkpoint_specific = torch.load(os.path.join(args.ckp, "{}.pth".format(cnt_model)),
+                                                    map_location="cpu")
+                    if cnt != 0:
+                        for key, item in checkpoint_specific["state_dict"].items():
+                            checkpoint["state_dict"][key] = torch.cat([checkpoint["state_dict"][key], item],
+                                                                    dim=0)
+                    else:
+                        checkpoint["state_dict"].update(checkpoint_specific["state_dict"])
+                moe_dir_read = True
+        else:
+            print("=> loading checkpoint '{}'".format(args.ckp))
+            checkpoint = torch.load(args.ckp, map_location='cpu')
         state_dict = checkpoint['state_dict']
         # model = cvt_state_dict_(state_dict, model,args, linear_keyword, moe_dir_read)
         msg = model.load_state_dict(state_dict, strict=False)
