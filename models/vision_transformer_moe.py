@@ -703,10 +703,10 @@ class VisionTransformerMoE(nn.Module):
                     features = expert_features[exp_idx][layer_idx][example_idx].cpu()
                     
                     # Project onto global components (U)
-                    global_proj = U.T @ features
+                    global_proj = features @ U
                     
                     # Project onto local components (V)
-                    local_proj = V_list[i].T @ features
+                    local_proj =  features @ V_list[i]
                     
                     print(f"\nExpert {exp_idx} projections:")
                     print(f"  Global component magnitudes (top 5): {torch.norm(global_proj[:5], dim=-1).tolist()}")
