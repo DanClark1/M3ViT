@@ -393,19 +393,21 @@ def main():
         model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", 'cuda')
 
 
-        if args.visualize_features and hasattr(model.module, 'visualize_features') or True:
-            
+        if args.visualize_features and hasattr(model.module, 'visualize_features'):
             viz_save_dir = os.path.join(args.viz_dir, 'inference')
             viz_batch = next(iter(val_dataloader))
             viz_inputs = viz_batch['image'].cuda(non_blocking=True)
             
             with torch.no_grad():
                 _ = model(viz_inputs)
-            
-
-                model.module.backbone.visualize_features(save_dir=viz_save_dir)
+                
+                # Pass the input image to the visualization function
+                model.module.backbone.visualize_features(
+                    save_dir=viz_save_dir,
+                    input_image=viz_inputs
+                )
                 print(f'Saved feature visualizations to {viz_save_dir}')
-                model.module.clear_intermediate_features()
+                model.module.backbone.clear_intermediate_features()
         print('hello')
         exit()
 
@@ -516,10 +518,12 @@ def main():
                 with torch.no_grad():
                     _ = model(viz_inputs)
                     
-                    # Only visualize on rank 0 to avoid duplicate visualizations
-                    if args.local_rank == 0:
-                        model.module.visualize_features(save_dir=viz_save_dir)
-                        print(f'Saved feature visualizations to {viz_save_dir}')
+                    # Pass the input image to the visualization function
+                    model.module.backbone.visualize_features(
+                        save_dir=viz_save_dir,
+                        input_image=viz_inputs
+                    )
+                    print(f'Saved feature visualizations to {viz_save_dir}')
                     
                     # Clear features to free memory
                     model.module.clear_intermediate_features()

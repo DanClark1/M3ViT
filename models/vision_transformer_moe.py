@@ -597,7 +597,7 @@ class VisionTransformerMoE(nn.Module):
         out = self.forward_features(x, gate_inp, task_id=task_id, sem=sem, isval=isval)
         return out
 
-    def visualize_features(self, save_dir='feature_viz', layer_indices=None):
+    def visualize_features(self, save_dir='feature_viz', layer_indices=None, input_image=None):
         """
         Visualizes intermediate features as heatmaps and saves them to disk.
         
@@ -605,6 +605,7 @@ class VisionTransformerMoE(nn.Module):
             save_dir (str): Directory to save the visualizations
             layer_indices (list, optional): List of layer indices to visualize. 
                                           If None, visualizes all layers.
+            input_image (tensor, optional): The input image to save alongside features
         """
         import os
         import matplotlib.pyplot as plt
@@ -615,6 +616,24 @@ class VisionTransformerMoE(nn.Module):
         
         # Create save directory if it doesn't exist
         os.makedirs(save_dir, exist_ok=True)
+        
+        # Save input image if provided
+        if input_image is not None:
+            for b in range(input_image.shape[0]):
+                # Convert from tensor to numpy for visualization
+                img = input_image[b].cpu().detach()
+                # Denormalize if needed (adjust these values based on your normalization)
+                mean = torch.tensor([0.485, 0.456, 0.406]).view(-1, 1, 1)
+                std = torch.tensor([0.229, 0.224, 0.225]).view(-1, 1, 1)
+                img = img * std + mean
+                img = img.clamp(0, 1)
+                
+                plt.figure(figsize=(10, 10))
+                plt.imshow(img.permute(1, 2, 0))  # Convert from CxHxW to HxWxC
+                plt.title(f'Input Image - Sample {b}')
+                plt.axis('off')
+                plt.savefig(os.path.join(save_dir, f'input_image_sample_{b}.png'))
+                plt.close()
         
         if layer_indices is None:
             layer_indices = range(len(self.intermediate_features))
