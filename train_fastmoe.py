@@ -390,7 +390,7 @@ def main():
         #     torch.distributed.barrier()
         # eval_stats = eval_all_results(p)
 
-        model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
+        model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", 'cuda')
 
 
         if args.visualize_features and hasattr(model.module, 'visualize_features'):
