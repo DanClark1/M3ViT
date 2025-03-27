@@ -111,9 +111,10 @@ def get_num_global_components(clients):
 
     model = PerPCA(r1=max_r1, r2=383, eta=0.01, tol=1e-3)
     U, V = model.fit(clients)
-    for i in tqdm(range(U.shape[1])):
+    for i in tqdm(range(1, U.shape[1])):
         print('V shape', V[0].shape)
         V_subset = [V[:, i] for V in V]
+        print('V_subset shape:', V_subset[0].shape)
 
         gv.append(global_variance_explained(V_subset, clients))
 
