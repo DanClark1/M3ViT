@@ -77,7 +77,7 @@ def global_variance_explained(V, clients):
 
     clients = clients.swapaxes(-1, -2)
     total_variance = 0
-    for client, V_sub in zip(clients, V_sub):
+    for client, V_sub in zip(clients, V):
         client = client.to(device)
         V_sub = V_sub.to(device)
         print('CLIENT SHAPE:', client.shape)
