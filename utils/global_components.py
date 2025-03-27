@@ -26,6 +26,7 @@ class PerPCA:
         return (Y @ Y.T) / Y.shape[1]
 
     def fit(self, clients):
+        print('CLIENTS SHAPE:', clients.shape)
         clients = [c.to(self.device) for c in clients]
         S_list = [self.compute_covariance(Y) for Y in clients]
         d = clients[0].shape[0]
@@ -53,7 +54,7 @@ class PerPCA:
                 break
             U_old = U.clone()
 
-        return U.cpu(), [V.cpu() for V in V_list]  # PyTorch version
+        return U, [V for V in V_list]  # PyTorch version
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
