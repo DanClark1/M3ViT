@@ -94,7 +94,7 @@ def get_num_global_components(clients):
     model = PerPCA(r1=max_r1, r2=300, eta=0.01, tol=1e-3)
     U, _ = model.fit(clients)
 
-    for i in tqdm(range(U)):
+    for i in tqdm(range(U.shape[1])):
         U_subset = U[:, :i]
         gv.append(global_variance_explained(U_subset.to(device), covs))
 
