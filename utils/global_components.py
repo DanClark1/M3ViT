@@ -66,11 +66,15 @@ def pooled_scree(covs, max_components=20):
     return explained
 
 
-def global_variance_explained(U, covs):
-    P = U @ U.T
-    num = sum(torch.trace(P @ S) for S in covs)
-    den = sum(torch.trace(S) for S in covs)
-    return (num / den).item()
+def global_variance_explained(U, clients):
+    print('clients shape:', clients[0].shape)
+    print('components shape:', U.shape)
+    total_variance = 0
+    for client in clients:
+        S = 1 / client.shape[0] * (client @ client.T)
+        ratio = torch.trace(U.T @ S @ U) / torch.trace(S)
+        total_variance += ratio
+    return total_variance.item()
 
 def make_synthetic(num_clients=5, d=50, n=500, true_r1=6, true_r2=2, noise_std=1.0):
     U_true = torch.linalg.qr(torch.randn(d, true_r1, device=device))[0]
@@ -96,7 +100,7 @@ def get_num_global_components(clients):
 
     for i in tqdm(range(U.shape[1])):
         U_subset = U[:, :i]
-        gv.append(global_variance_explained(U_subset.to(device), covs))
+        gv.append(global_variance_explained(U_subset.to(device), clients))
 
     gv = np.array(gv)
     second_diff = np.abs(np.diff(gv, n=2))
