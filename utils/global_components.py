@@ -87,7 +87,7 @@ def get_num_global_components(clients):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     covs = [torch.Tensor((Y @ Y.T) / Y.shape[1]).to(device) for Y in clients]
 
-    candidate_r1 = list(range(1, 50))
+    candidate_r1 = list(range(1, 300))
     gv = []
 
     for r1 in tqdm(candidate_r1):
