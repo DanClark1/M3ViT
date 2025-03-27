@@ -30,7 +30,7 @@ class PerPCA:
         clients = [c.to(self.device) for c in clients]
         S_list = [self.compute_covariance(Y) for Y in clients]
         d = clients[0].shape[0]
-
+        print('D', d)
         U, V0 = self.initialize_components(d)
         V_list = [V0.clone() for _ in range(len(clients))]
         U_old = U.clone()
