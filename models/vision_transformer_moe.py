@@ -637,9 +637,10 @@ class VisionTransformerMoE(nn.Module):
         if layer_indices is None:
             layer_indices = range(len(self.intermediate_features))
         
-        # If expert_indices provided, we'll visualize each expert separately
         if expert_indices is not None:
-            last_features = None
+            # Dictionary to store features for each expert
+            expert_features = {}
+            
             for expert_idx in expert_indices:
                 # Set forced expert for all MoE layers
                 for block in self.blocks:
@@ -650,12 +651,15 @@ class VisionTransformerMoE(nn.Module):
                 with torch.no_grad():
                     _ = self.forward(input_image)
                 
+                # Store features for this expert
+                expert_features[expert_idx] = {
+                    idx: self.intermediate_features[idx].cpu().detach()
+                    for idx in layer_indices
+                }
+                
                 # Visualize features for this expert
                 for idx in layer_indices:
                     features = self.intermediate_features[idx]
-                    if last_features is not None:
-                        print('are the features similar: ', torch.allclose(last_features, features), torch.norm(last_features - features))
-                    last_features = features
                     B, N, D = features.shape
                     
                     patch_features = features[:, 1:, :]
@@ -671,11 +675,44 @@ class VisionTransformerMoE(nn.Module):
                         plt.title(f'Layer {idx} - Sample {b} - Expert {expert_idx}')
                         plt.savefig(os.path.join(save_dir, f'layer_{idx}_sample_{b}_expert_{expert_idx}.png'))
                         plt.close()
+            
+            # Print difference statistics
+            print("\nChecking differences between expert outputs:")
+            for layer_idx in layer_indices:
+                print(f"\nLayer {layer_idx}:")
                 
-                # Clear forced expert setting
-                for block in self.blocks:
-                    if hasattr(block, 'moe') and block.moe:
-                        block.mlp.clear_forced_expert()
+                # Compare each pair of experts
+                max_diff = 0
+                min_diff = float('inf')
+                total_diff = 0
+                count = 0
+                
+                for i in expert_indices:
+                    for j in expert_indices:
+                        if i < j:  # Only compare each pair once
+                            feat1 = expert_features[i][layer_idx]
+                            feat2 = expert_features[j][layer_idx]
+                            
+                            # Compute mean absolute difference
+                            diff = torch.abs(feat1 - feat2).mean().item()
+                            
+                            max_diff = max(max_diff, diff)
+                            min_diff = min(min_diff, diff)
+                            total_diff += diff
+                            count += 1
+                            
+                            print(f"  Expert {i} vs {j}: Mean abs diff = {diff:.6f}")
+                
+                avg_diff = total_diff / count
+                print(f"\n  Summary for Layer {layer_idx}:")
+                print(f"    Average difference: {avg_diff:.6f}")
+                print(f"    Max difference: {max_diff:.6f}")
+                print(f"    Min difference: {min_diff:.6f}")
+            
+            # Clear forced expert setting
+            for block in self.blocks:
+                if hasattr(block, 'moe') and block.moe:
+                    block.mlp.clear_forced_expert()
         else:
             # Original visualization code for normal routing
             for idx in layer_indices:
