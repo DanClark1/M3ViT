@@ -75,11 +75,11 @@ def global_variance_explained(V, clients):
     clients shape: list of (d, n) tensors'''
     device = 'cuda'
 
-    clients = clients.to(device)
-    V = V.to(device)
     clients = clients.swapaxes(-1, -2)
     total_variance = 0
     for client, V_sub in zip(clients, V_sub):
+        client = client.to(device)
+        V_sub = V_sub.to(device)
         print('CLIENT SHAPE:', client.shape)
         print('U SHAPE:', V_sub.shape)
         S = (client.T @ client)
