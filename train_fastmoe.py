@@ -401,9 +401,10 @@ def main():
             
             with torch.no_grad():
                 _ = model(viz_inputs)
-                if args.local_rank == 0:
-                    model.module.visualize_features(save_dir=viz_save_dir)
-                    print(f'Saved feature visualizations to {viz_save_dir}')
+            
+
+                model.module.visualize_features(save_dir=viz_save_dir)
+                print(f'Saved feature visualizations to {viz_save_dir}')
                 model.module.clear_intermediate_features()
         print('hello')
         exit()
