@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from tqdm import tqdm
-from sklearn.utils.extmath import randomized_svd
+from sklearn.utils.extmath import randomized_svd, PCA
 
 class PerPCA:
     def __init__(self, r1, r2, num_iter=100, eta=0.01, tol=1e-5, device=None):
@@ -78,14 +78,16 @@ def global_variance_explained(V, clients):
     clients = clients.swapaxes(-1, -2)
     total_variance = 0
     for client, V_sub in zip(clients, V):
+        # get principal components of the client
+        cpu_client = client.cpu().numpy()
+        pca = PCA(n_components=cpu_client.shape[1])
+        principal_components = pca.fit_transform(cpu_client)
+        explained_variance = pca.explained_variance_
+        print('EXPLAINED VARIANCE:', explained_variance)
         client = client.to(device)
         V_sub = V_sub.to(device)
-        print('CLIENT SHAPE:', client.shape)
-        print('U SHAPE:', V_sub.shape)
         S = (client.T @ client)
         proj = V_sub.T @ S @ V_sub
-        print('PROJ SHAPE:', proj.shape)
-        print('S SHAPE:', S.shape)
         ratio = (torch.trace(proj) / torch.trace(S)) / clients.shape[0]
         total_variance += ratio
     return total_variance.item()
@@ -112,10 +114,7 @@ def get_num_global_components(clients):
     model = PerPCA(r1=max_r1, r2=383, eta=0.01, tol=1e-3)
     U, V = model.fit(clients)
     for i in tqdm(range(1, U.shape[1])):
-        print('V shape', V[0].shape)
         V_subset = [V[:, :i] for V in V]
-        print('V_subset shape:', V_subset[0].shape)
-
         gv.append(global_variance_explained(V_subset, clients))
 
     gv = np.array(gv)
