@@ -317,8 +317,6 @@ class FMoETransformerMLP(FMoE):
                                       device=gate_inp.device)
             gate_score = torch.ones((batch_size, self.top_k), 
                                   device=gate_inp.device) / self.top_k
-            print('gate score: ', gate_score)
-            print('gate_top_k_idx: ', gate_top_k_idx)
         else:
             if (task_id is not None) and self.multi_gate:
                 # print('in custom moe_layer,task_id',task_id)
