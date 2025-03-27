@@ -99,7 +99,7 @@ class _Expert(nn.Module):
         '''
         Calculates components of the expert's outputs,
         then creates a new global expert'''
-        get_num_global_components(self.outputs.T)
+        get_num_global_components(self.outputs)
         # global_comp, local_comp = self.get_components()
         # global_comp = torch.tensor(np.array(global_comp), device='cuda')
         # local_comp = torch.tensor(np.array(local_comp), device='cuda')
