@@ -154,6 +154,10 @@ parser.add_argument('--tam_level2',default=None, type=str2bool, help='use tamlev
 
 parser.add_argument('--resume', default='', help='resume from checkpoint')
 parser.add_argument('--time', action='store_true', help='if wanna get inference time')
+parser.add_argument('--visualize_features', action='store_true', 
+                   help='whether to visualize intermediate features')
+parser.add_argument('--viz_dir', type=str, default='feature_visualizations',
+                   help='directory to save feature visualizations')
 args = parser.parse_args()
 
 if args.task_one_hot:
@@ -361,6 +365,19 @@ def main():
         if args.distributed:
             torch.distributed.barrier()
         eval_stats = eval_all_results(p)
+
+        if args.visualize_features and hasattr(model.module, 'visualize_features'):
+            viz_save_dir = os.path.join(args.viz_dir, 'inference')
+            viz_batch = next(iter(val_dataloader))
+            viz_inputs = viz_batch['image'].cuda(non_blocking=True)
+            
+            with torch.no_grad():
+                _ = model(viz_inputs)
+                if args.local_rank == 0:
+                    model.module.visualize_features(save_dir=viz_save_dir)
+                    print(f'Saved feature visualizations to {viz_save_dir}')
+                model.module.clear_intermediate_features()
+            
         exit()
 
     if args.resume:
@@ -437,7 +454,7 @@ def main():
     def load_for_training(model, optimizer, path, device):
 
         # Wrap model first
-        dist.barrier()  # wait for rank 0 to write file
+        dist.barrier()  # wait for rank 0 to write file
 
         checkpoint = torch.load(path, map_location=f"{device}")
         model.module.load_state_dict(checkpoint["model_state"])
@@ -480,28 +497,37 @@ def main():
 
         
         
-        # # Perform evaluation
-        # if eval_bool:
-        #     # print('Evaluate ...')
-        #     save_model_predictions(p, val_dataloader, model, args)
-        #     if args.distributed:
-        #         torch.distributed.barrier()
-        #     curr_result = eval_all_results(p)
-        #     improves, best_result = validate_results_v2(p, curr_result, best_result)
-        #     # improves, best_result = validate_results(p, curr_result, best_result)
-        #     print('Checkpoint ...')
-
-            # save_state_dict = model.state_dict()
-
-            # moe_save = p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed)
-            # save_checkpoint({
-            #     'epoch': epoch + 1,
-            #     'backbone': p['backbone'],
-            #     'state_dict': save_state_dict,
-            #     'best_result': best_result,
-            #     'optimizer' : optimizer.state_dict(),
-            #     }, improves, p, moe_save=moe_save)
+        if eval_bool:
+            print('Evaluate ...')
             
+            # If visualization is requested
+            if args.visualize_features and hasattr(model.module, 'visualize_features'):
+                # Create visualization directory with epoch number
+                viz_save_dir = os.path.join(args.viz_dir, f'epoch_{epoch}')
+                
+                # Get one batch for visualization
+                viz_batch = next(iter(val_dataloader))
+                viz_inputs = viz_batch['image'].cuda(non_blocking=True)
+                
+                # Forward pass to get intermediate features
+                with torch.no_grad():
+                    _ = model(viz_inputs)
+                    
+                    # Only visualize on rank 0 to avoid duplicate visualizations
+                    if args.local_rank == 0:
+                        model.module.visualize_features(save_dir=viz_save_dir)
+                        print(f'Saved feature visualizations to {viz_save_dir}')
+                    
+                    # Clear features to free memory
+                    model.module.clear_intermediate_features()
+            
+            # Continue with normal evaluation
+            save_model_predictions(p, val_dataloader, model, args)
+            if args.distributed:
+                torch.distributed.barrier()
+            curr_result = eval_all_results(p)
+            improves, best_result = validate_results_v2(p, curr_result, best_result)
+
         # factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
             
         

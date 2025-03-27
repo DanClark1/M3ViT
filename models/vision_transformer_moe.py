@@ -545,7 +545,7 @@ class VisionTransformerMoE(nn.Module):
         np.save(filename, hint)
         return torch.tensor(hint, device=sem.device) 
 
-    def forward_features(self, x, gate_inp, task_id,sem, isval=False):
+    def forward_features(self, x, gate_inp, task_id, sem, isval=False):
         B = x.shape[0]
         x = self.patch_embed(x)
         x = x.flatten(2).transpose(1, 2)
@@ -559,22 +559,114 @@ class VisionTransformerMoE(nn.Module):
             task_specific = torch.zeros(self.num_tasks,device=x.device)
             task_specific[task_id]=1.0
             task_specific_feature = self.gate_task_represent(task_specific)
-        outs = []
         
+        # Store intermediate features
+        intermediate_features = []
+        intermediate_features.append(x)  # Store input features
+        
+        outs = []
         for i, blk in enumerate(self.blocks):
             if blk.moe:
-                x=blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs = isval)
+                x = blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs=isval)
             else:
                 x = blk(x)
+            intermediate_features.append(x)  # Store features after each block
             if i in self.out_indices:
                 outs.append(x)
+            
+        # Store the intermediate features as a class attribute
+        self.intermediate_features = intermediate_features
+        
         return tuple(outs)
 
-    def forward(self, x, gate_inp=None, task_id=None,sem=None, isval=False):
+    def get_intermediate_features(self):
+        """Returns the stored intermediate features if they exist"""
+        if hasattr(self, 'intermediate_features'):
+            return self.intermediate_features
+        else:
+            raise AttributeError("No intermediate features found. Run a forward pass first.")
+
+    def clear_intermediate_features(self):
+        """Clears stored intermediate features to free memory"""
+        if hasattr(self, 'intermediate_features'):
+            del self.intermediate_features
+
+    def forward(self, x, gate_inp=None, task_id=None, sem=None, isval=False):
         if sem is not None and (self.regu_sem or self.sem_force):
             sem = self.get_groundtruth_sem(sem)
-        out = self.forward_features(x, gate_inp, task_id = task_id,sem=sem, isval=isval)
+        out = self.forward_features(x, gate_inp, task_id=task_id, sem=sem, isval=isval)
         return out
+
+    def visualize_features(self, save_dir='feature_viz', layer_indices=None):
+        """
+        Visualizes intermediate features as heatmaps and saves them to disk.
+        
+        Args:
+            save_dir (str): Directory to save the visualizations
+            layer_indices (list, optional): List of layer indices to visualize. 
+                                          If None, visualizes all layers.
+        """
+        import os
+        import matplotlib.pyplot as plt
+        import torch.nn.functional as F
+        
+        if not hasattr(self, 'intermediate_features'):
+            raise AttributeError("No intermediate features found. Run a forward pass first.")
+        
+        # Create save directory if it doesn't exist
+        os.makedirs(save_dir, exist_ok=True)
+        
+        if layer_indices is None:
+            layer_indices = range(len(self.intermediate_features))
+        
+        for idx in layer_indices:
+            features = self.intermediate_features[idx]  # [B, N, D]
+            B, N, D = features.shape
+            
+            # Remove CLS token and reshape to 2D
+            patch_features = features[:, 1:, :]  # [B, N-1, D]
+            h = w = int(math.sqrt(N - 1))  # -1 for CLS token
+            
+            # Compute feature magnitudes
+            feature_magnitudes = torch.norm(patch_features, dim=-1)  # [B, N-1]
+            feature_magnitudes = feature_magnitudes.reshape(B, h, w)
+            
+            # Save visualization for each sample in batch
+            for b in range(B):
+                plt.figure(figsize=(10, 10))
+                plt.imshow(feature_magnitudes[b].cpu().detach(), cmap='viridis')
+                plt.colorbar()
+                plt.title(f'Layer {idx} - Sample {b}')
+                plt.savefig(os.path.join(save_dir, f'layer_{idx}_sample_{b}.png'))
+                plt.close()
+            
+            # Also save attention pattern if this is an attention block
+            if hasattr(self.blocks[idx], 'attn'):
+                attn = self.blocks[idx].attn.attn if hasattr(self.blocks[idx].attn, 'attn') else None
+                if attn is not None:  # [B, num_heads, N, N]
+                    attn = attn.mean(dim=1)  # Average over heads [B, N, N]
+                    for b in range(B):
+                        plt.figure(figsize=(10, 10))
+                        plt.imshow(attn[b].cpu().detach(), cmap='viridis')
+                        plt.colorbar()
+                        plt.title(f'Layer {idx} Attention - Sample {b}')
+                        plt.savefig(os.path.join(save_dir, f'layer_{idx}_attn_sample_{b}.png'))
+                        plt.close()
+            
+            # For MoE layers, visualize expert assignment
+            if hasattr(self.blocks[idx], 'moe') and self.blocks[idx].moe:
+                if hasattr(self.blocks[idx].mlp, 'gate_outputs'):
+                    gate_outputs = self.blocks[idx].mlp.gate_outputs  # Get expert assignments
+                    if gate_outputs is not None:
+                        for b in range(B):
+                            plt.figure(figsize=(15, 5))
+                            plt.imshow(gate_outputs[b].cpu().detach(), cmap='tab20')
+                            plt.colorbar()
+                            plt.title(f'Layer {idx} Expert Assignment - Sample {b}')
+                            plt.savefig(os.path.join(save_dir, f'layer_{idx}_experts_sample_{b}.png'))
+                            plt.close()
+
+        print(f"Visualizations saved to {save_dir}")
 
 
 def _init_vit_weights(m, n: str = '', head_bias: float = 0., jax_impl: bool = False):
