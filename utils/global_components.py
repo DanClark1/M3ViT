@@ -26,6 +26,8 @@ class PerPCA:
         return (Y @ Y.T) / Y.shape[1]
 
     def fit(self, clients):
+        '''
+        Expected input: list of (d, n) tensors'''
         print('CLIENTS SHAPE:', clients.shape)
         clients = [c.to(self.device) for c in clients]
         S_list = [self.compute_covariance(Y) for Y in clients]
@@ -68,14 +70,19 @@ def pooled_scree(covs, max_components=20):
 
 
 def global_variance_explained(U, clients):
+    '''
+    U shape: (d, r1)
+    clients shape: list of (d, n) tensors'''
     device = 'cuda'
+
     clients = clients.to(device)
     U = U.to(device)
+    clients = clients.swapaxes(-1, -2)
     print('clients shape:', clients.shape)
     print('components shape:', U.shape)
     total_variance = 0
     for client in clients:
-        S = 1 / client.shape[0] * (client @ client.T)
+        S = (client.T @ client)
         ratio = torch.trace(U.T @ S @ U) / torch.trace(S)
         total_variance += ratio
     return total_variance.item()
