@@ -83,7 +83,8 @@ def global_variance_explained(V, clients):
         print('CLIENT SHAPE:', client.shape)
         print('U SHAPE:', V_sub.shape)
         S = (client.T @ client)
-        ratio = (torch.trace(V_sub.T @ S @ V_sub) / torch.trace(S)) / clients.shape[0]
+        proj = V_sub.T @ S @ V_sub
+        ratio = (torch.trace(proj) / torch.trace(S)) / clients.shape[0]
         total_variance += ratio
     return total_variance.item()
 
