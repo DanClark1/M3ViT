@@ -399,12 +399,14 @@ def main():
             viz_inputs = viz_batch['image'].cuda(non_blocking=True)
             
             with torch.no_grad():
+                # First do normal forward pass
                 _ = model(viz_inputs)
                 
-                # Pass the input image to the visualization function
+                # Then visualize with forced experts
                 model.module.backbone.visualize_features(
                     save_dir=viz_save_dir,
-                    input_image=viz_inputs
+                    input_image=viz_inputs,
+                    expert_indices=range(16)  # Visualize all 16 experts
                 )
                 print(f'Saved feature visualizations to {viz_save_dir}')
                 model.module.backbone.clear_intermediate_features()

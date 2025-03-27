@@ -597,15 +597,16 @@ class VisionTransformerMoE(nn.Module):
         out = self.forward_features(x, gate_inp, task_id=task_id, sem=sem, isval=isval)
         return out
 
-    def visualize_features(self, save_dir='feature_viz', layer_indices=None, input_image=None):
+    def visualize_features(self, save_dir='feature_viz', layer_indices=None, input_image=None, expert_indices=None):
         """
         Visualizes intermediate features as heatmaps and saves them to disk.
         
         Args:
             save_dir (str): Directory to save the visualizations
-            layer_indices (list, optional): List of layer indices to visualize. 
-                                          If None, visualizes all layers.
+            layer_indices (list, optional): List of layer indices to visualize
             input_image (tensor, optional): The input image to save alongside features
+            expert_indices (list, optional): List of expert indices to visualize. If None,
+                                           visualizes normal routing behavior
         """
         import os
         import matplotlib.pyplot as plt
@@ -620,16 +621,14 @@ class VisionTransformerMoE(nn.Module):
         # Save input image if provided
         if input_image is not None:
             for b in range(input_image.shape[0]):
-                # Convert from tensor to numpy for visualization
                 img = input_image[b].cpu().detach()
-                # Denormalize if needed (adjust these values based on your normalization)
                 mean = torch.tensor([0.485, 0.456, 0.406]).view(-1, 1, 1)
                 std = torch.tensor([0.229, 0.224, 0.225]).view(-1, 1, 1)
                 img = img * std + mean
                 img = img.clamp(0, 1)
                 
                 plt.figure(figsize=(10, 10))
-                plt.imshow(img.permute(1, 2, 0))  # Convert from CxHxW to HxWxC
+                plt.imshow(img.permute(1, 2, 0))
                 plt.title(f'Input Image - Sample {b}')
                 plt.axis('off')
                 plt.savefig(os.path.join(save_dir, f'input_image_sample_{b}.png'))
@@ -638,52 +637,60 @@ class VisionTransformerMoE(nn.Module):
         if layer_indices is None:
             layer_indices = range(len(self.intermediate_features))
         
-        for idx in layer_indices:
-            features = self.intermediate_features[idx]  # [B, N, D]
-            B, N, D = features.shape
-            
-            # Remove CLS token and reshape to 2D
-            patch_features = features[:, 1:, :]  # [B, N-1, D]
-            h = w = int(math.sqrt(N - 1))  # -1 for CLS token
-            
-            # Compute feature magnitudes
-            feature_magnitudes = torch.norm(patch_features, dim=-1)  # [B, N-1]
-            feature_magnitudes = feature_magnitudes.reshape(B, h, w)
-            
-            # Save visualization for each sample in batch
-            for b in range(B):
-                plt.figure(figsize=(10, 10))
-                plt.imshow(feature_magnitudes[b].cpu().detach(), cmap='viridis')
-                plt.colorbar()
-                plt.title(f'Layer {idx} - Sample {b}')
-                plt.savefig(os.path.join(save_dir, f'layer_{idx}_sample_{b}.png'))
-                plt.close()
-            
-            # Also save attention pattern if this is an attention block
-            if idx < len(self.blocks) and hasattr(self.blocks[idx], 'attn'):
-                attn = self.blocks[idx].attn.attn if hasattr(self.blocks[idx].attn, 'attn') else None
-                if attn is not None:  # [B, num_heads, N, N]
-                    attn = attn.mean(dim=1)  # Average over heads [B, N, N]
+        # If expert_indices provided, we'll visualize each expert separately
+        if expert_indices is not None:
+            for expert_idx in expert_indices:
+                # Set forced expert for all MoE layers
+                for block in self.blocks:
+                    if hasattr(block, 'moe') and block.moe:
+                        block.mlp.set_forced_expert(expert_idx)
+                
+                # Run forward pass with forced expert
+                with torch.no_grad():
+                    _ = self.forward(input_image)
+                
+                # Visualize features for this expert
+                for idx in layer_indices:
+                    features = self.intermediate_features[idx]
+                    B, N, D = features.shape
+                    
+                    patch_features = features[:, 1:, :]
+                    h = w = int(math.sqrt(N - 1))
+                    
+                    feature_magnitudes = torch.norm(patch_features, dim=-1)
+                    feature_magnitudes = feature_magnitudes.reshape(B, h, w)
+                    
                     for b in range(B):
                         plt.figure(figsize=(10, 10))
-                        plt.imshow(attn[b].cpu().detach(), cmap='viridis')
+                        plt.imshow(feature_magnitudes[b].cpu().detach(), cmap='viridis')
                         plt.colorbar()
-                        plt.title(f'Layer {idx} Attention - Sample {b}')
-                        plt.savefig(os.path.join(save_dir, f'layer_{idx}_attn_sample_{b}.png'))
+                        plt.title(f'Layer {idx} - Sample {b} - Expert {expert_idx}')
+                        plt.savefig(os.path.join(save_dir, f'layer_{idx}_sample_{b}_expert_{expert_idx}.png'))
                         plt.close()
-            
-            # For MoE layers, visualize expert assignment
-            if idx < len(self.blocks) and hasattr(self.blocks[idx], 'moe') and self.blocks[idx].moe:
-                if hasattr(self.blocks[idx].mlp, 'gate_outputs'):
-                    gate_outputs = self.blocks[idx].mlp.gate_outputs  # Get expert assignments
-                    if gate_outputs is not None:
-                        for b in range(B):
-                            plt.figure(figsize=(15, 5))
-                            plt.imshow(gate_outputs[b].cpu().detach(), cmap='tab20')
-                            plt.colorbar()
-                            plt.title(f'Layer {idx} Expert Assignment - Sample {b}')
-                            plt.savefig(os.path.join(save_dir, f'layer_{idx}_experts_sample_{b}.png'))
-                            plt.close()
+                
+                # Clear forced expert setting
+                for block in self.blocks:
+                    if hasattr(block, 'moe') and block.moe:
+                        block.mlp.clear_forced_expert()
+        else:
+            # Original visualization code for normal routing
+            for idx in layer_indices:
+                features = self.intermediate_features[idx]
+                B, N, D = features.shape
+                
+                patch_features = features[:, 1:, :]
+                h = w = int(math.sqrt(N - 1))
+                
+                feature_magnitudes = torch.norm(patch_features, dim=-1)
+                feature_magnitudes = feature_magnitudes.reshape(B, h, w)
+                
+                for b in range(B):
+                    plt.figure(figsize=(10, 10))
+                    plt.imshow(feature_magnitudes[b].cpu().detach(), cmap='viridis')
+                    plt.colorbar()
+                    plt.title(f'Layer {idx} - Sample {b}')
+                    plt.savefig(os.path.join(save_dir, f'layer_{idx}_sample_{b}.png'))
+                    plt.close()
 
         print(f"Visualizations saved to {save_dir}")
 

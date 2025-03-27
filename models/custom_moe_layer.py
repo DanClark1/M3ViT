@@ -178,6 +178,7 @@ class FMoETransformerMLP(FMoE):
         self.regu_subimage = regu_subimage
         self.expert_prune = expert_prune
         self.prune_threshold = prune_threshold
+        self.forced_expert = None
 
         if self.sem_force:
             self.force_id=[[0],[1,17,18,19,20],[2,12,13,14,15,16],[3,9,10,11],[4,5],[6,7,8,38],[21,22,23,24,25,26,39],[27,28,29,30,31,32,33,34,35,36,37]]
@@ -272,6 +273,13 @@ class FMoETransformerMLP(FMoE):
     def get_output_matrix(self):
         return torch.cat(self.experts.outputs, dim=0).T
 
+    def set_forced_expert(self, expert_idx):
+        """Force the layer to use a specific expert"""
+        self.forced_expert = expert_idx
+        
+    def clear_forced_expert(self):
+        """Clear the forced expert setting"""
+        self.forced_expert = None
 
     def forward_moe(self, gate_inp, moe_inp, task_id=None, sem=None, record_outputs=False):
         r"""
@@ -302,11 +310,19 @@ class FMoETransformerMLP(FMoE):
 
             moe_inp = tree.map_structure(slice_func, moe_inp)
 
-        if (task_id is not None) and self.multi_gate:
-            # print('in custom moe_layer,task_id',task_id)
-            gate_top_k_idx, gate_score = self.gate[task_id](gate_inp)
+        if self.forced_expert is not None:
+            # Override gate outputs to force specific expert
+            batch_size = gate_inp.shape[0]
+            gate_top_k_idx = torch.full((batch_size, self.top_k), self.forced_expert, 
+                                      device=gate_inp.device)
+            gate_score = torch.ones((batch_size, self.top_k), 
+                                  device=gate_inp.device) / self.top_k
         else:
-            gate_top_k_idx, gate_score = self.gate(gate_inp, task_id=task_id,sem=sem)
+            if (task_id is not None) and self.multi_gate:
+                # print('in custom moe_layer,task_id',task_id)
+                gate_top_k_idx, gate_score = self.gate[task_id](gate_inp)
+            else:
+                gate_top_k_idx, gate_score = self.gate(gate_inp, task_id=task_id,sem=sem)
 
         if self.expert_prune:
             gate_score = torch.where(gate_score>self.prune_threshold,gate_score,0.)
