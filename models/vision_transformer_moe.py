@@ -16,6 +16,7 @@ import numpy as np
 from collections import Counter
 from models.gate_funs.noisy_gate import NoisyGate
 from models.gate_funs.noisy_gate_vmoe import NoisyGate_VMoE
+from utils.perpca import PerPCA
 
 a=[[0],[1,17,18,19,20],[2,12,13,14,15,16],[3,9,10,11],[4,5],[6,7,8,38],[21,22,23,24,25,26,39],[27,28,29,30,31,32,33,34,35,36,37]]
 def _cfg(url='', **kwargs):
@@ -600,13 +601,7 @@ class VisionTransformerMoE(nn.Module):
     def visualize_features(self, save_dir='feature_viz', layer_indices=None, input_image=None, expert_indices=None):
         """
         Visualizes intermediate features as heatmaps and saves them to disk.
-        
-        Args:
-            save_dir (str): Directory to save the visualizations
-            layer_indices (list, optional): List of layer indices to visualize
-            input_image (tensor, optional): The input image to save alongside features
-            expert_indices (list, optional): List of expert indices to visualize. If None,
-                                           visualizes normal routing behavior
+        Also analyzes expert specialization using PerPCA.
         """
         import os
         import matplotlib.pyplot as plt
@@ -640,6 +635,7 @@ class VisionTransformerMoE(nn.Module):
         if expert_indices is not None:
             # Dictionary to store features for each expert
             expert_features = {}
+            expert_datasets = {}  # Store 100xd matrices for each expert
             
             for expert_idx in expert_indices:
                 # Set forced expert for all MoE layers
@@ -647,13 +643,26 @@ class VisionTransformerMoE(nn.Module):
                     if hasattr(block, 'moe') and block.moe:
                         block.mlp.set_forced_expert(expert_idx)
                 
-                # Run forward pass with forced expert
-                with torch.no_grad():
-                    _ = self.forward(input_image)
+                # Run forward pass with forced expert multiple times to build dataset
+                expert_data = []
+                for _ in range(10):  # Run 10 times to get 100 samples (assuming batch_size=10)
+                    with torch.no_grad():
+                        _ = self.forward(input_image)
+                        for idx in layer_indices:
+                            if idx not in expert_data:
+                                expert_data.append([])
+                            features = self.intermediate_features[idx]
+                            # Flatten features for each sample
+                            flat_features = features.reshape(-1, features.shape[-1])
+                            expert_data[idx].append(flat_features)
                 
-                # Store features for this expert
+                # Store features and datasets
                 expert_features[expert_idx] = {
                     idx: self.intermediate_features[idx].cpu().detach()
+                    for idx in layer_indices
+                }
+                expert_datasets[expert_idx] = {
+                    idx: torch.cat(expert_data[idx], dim=0)[:100].T  # Take first 100 samples, transpose to dxn
                     for idx in layer_indices
                 }
                 
@@ -676,38 +685,41 @@ class VisionTransformerMoE(nn.Module):
                         plt.savefig(os.path.join(save_dir, f'layer_{idx}_sample_{b}_expert_{expert_idx}.png'))
                         plt.close()
             
-            # Print difference statistics
-            print("\nChecking differences between expert outputs:")
+            # Analyze expert specialization using PerPCA
+            print("\nAnalyzing expert specialization using PerPCA:")
             for layer_idx in layer_indices:
                 print(f"\nLayer {layer_idx}:")
                 
-                # Compare each pair of experts
-                max_diff = 0
-                min_diff = float('inf')
-                total_diff = 0
-                count = 0
+                # Prepare datasets for PerPCA
+                clients = [expert_datasets[exp_idx][layer_idx] for exp_idx in expert_indices]
                 
-                for i in expert_indices:
-                    for j in expert_indices:
-                        if i < j:  # Only compare each pair once
-                            feat1 = expert_features[i][layer_idx]
-                            feat2 = expert_features[j][layer_idx]
-                            
-                            # Compute mean absolute difference
-                            diff = torch.abs(feat1 - feat2).mean().item()
-                            
-                            max_diff = max(max_diff, diff)
-                            min_diff = min(min_diff, diff)
-                            total_diff += diff
-                            count += 1
-                            
-                            print(f"  Expert {i} vs {j}: Mean abs diff = {diff:.6f}")
+                # Run PerPCA
+                pca_model = PerPCA(r1=50, r2=50)
+                U, V_list = pca_model.fit(clients)
                 
-                avg_diff = total_diff / count
-                print(f"\n  Summary for Layer {layer_idx}:")
-                print(f"    Average difference: {avg_diff:.6f}")
-                print(f"    Max difference: {max_diff:.6f}")
-                print(f"    Min difference: {min_diff:.6f}")
+                # Project one example through each expert onto their components
+                example_idx = 0  # Use first example from batch
+                for i, exp_idx in enumerate(expert_indices):
+                    features = expert_features[exp_idx][layer_idx][example_idx].cpu()
+                    
+                    # Project onto global components (U)
+                    global_proj = U.T @ features
+                    
+                    # Project onto local components (V)
+                    local_proj = V_list[i].T @ features
+                    
+                    print(f"\nExpert {exp_idx} projections:")
+                    print(f"  Global component magnitudes (top 5): {torch.norm(global_proj[:5], dim=-1).tolist()}")
+                    print(f"  Local component magnitudes (top 5): {torch.norm(local_proj[:5], dim=-1).tolist()}")
+                    
+                    # Calculate proportion of variance explained
+                    total_var = torch.norm(features).item() ** 2
+                    global_var = torch.norm(global_proj).item() ** 2
+                    local_var = torch.norm(local_proj).item() ** 2
+                    
+                    print(f"  Variance explained:")
+                    print(f"    Global components: {global_var/total_var:.3f}")
+                    print(f"    Local components: {local_var/total_var:.3f}")
             
             # Clear forced expert setting
             for block in self.blocks:
