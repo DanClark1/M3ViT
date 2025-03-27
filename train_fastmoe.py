@@ -393,7 +393,7 @@ def main():
         model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", 'cuda')
 
 
-        if args.visualize_features and hasattr(model.module, 'visualize_features'):
+        if args.visualize_features and hasattr(model.module.backbone, 'visualize_features'):
             viz_save_dir = os.path.join(args.viz_dir, 'inference')
             viz_batch = next(iter(val_dataloader))
             viz_inputs = viz_batch['image'].cuda(non_blocking=True)
