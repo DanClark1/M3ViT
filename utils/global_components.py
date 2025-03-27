@@ -87,13 +87,16 @@ def get_num_global_components(clients):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     covs = [torch.Tensor((Y @ Y.T) / Y.shape[1]).to(device) for Y in clients]
 
-    candidate_r1 = list(range(1, 300))
+    max_r1 = 383
     gv = []
+    candidate_r1 = list(range(1, 383))
 
-    for r1 in tqdm(candidate_r1):
-        model = PerPCA(r1=r1, r2=300, eta=0.01, tol=1e-3)
-        U, _ = model.fit(clients)
-        gv.append(global_variance_explained(U.to(device), covs))
+    model = PerPCA(r1=max_r1, r2=300, eta=0.01, tol=1e-3)
+    U, _ = model.fit(clients)
+
+    for i in tqdm(range(U)):
+        U_subset = U[:, :i]
+        gv.append(global_variance_explained(U_subset.to(device), covs))
 
     gv = np.array(gv)
     second_diff = np.abs(np.diff(gv, n=2))
@@ -116,19 +119,19 @@ if __name__ == "__main__":
     get_num_global_components(clients)
 
 
-    # covs    = [(Y @ Y.T) / Y.shape[1] for Y in clients]
+    covs    = [(Y @ Y.T) / Y.shape[1] for Y in clients]
 
-    # candidate_r1 = list(range(20, 101))
-    # gv = []
+    candidate_r1 = list(range(20, 101))
+    gv = []
 
-    # for r1 in tqdm(candidate_r1):
-    #     model = PerPCA(r1=r1, r2=383, eta=0.01, tol=1e-3)
-    #     U, _ = model.fit(clients)
-    #     gv.append(global_variance_explained(U.to(device), covs))
+    for r1 in tqdm(candidate_r1):
+        model = PerPCA(r1=r1, r2=383, eta=0.01, tol=1e-3)
+        U, _ = model.fit(clients)
+        gv.append(global_variance_explained(U.to(device), covs))
 
-    # gv = np.array(gv)
-    # second_diff = np.abs(np.diff(gv, n=2))
-    # optimal_r1 = candidate_r1[np.argmax(second_diff) + 1]
+    gv = np.array(gv)
+    second_diff = np.abs(np.diff(gv, n=2))
+    optimal_r1 = candidate_r1[np.argmax(second_diff) + 1]
 
-    # print("Elbow (2nd diff) =", optimal_r1)
+    print("Elbow (2nd diff) =", optimal_r1)
 
