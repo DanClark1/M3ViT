@@ -67,7 +67,10 @@ def pooled_scree(covs, max_components=20):
 
 
 def global_variance_explained(U, clients):
-    print('clients shape:', clients[0].shape)
+    device = 'cuda'
+    clients = clients.to(device)
+    U = U.to(device)
+    print('clients shape:', clients.shape)
     print('components shape:', U.shape)
     total_variance = 0
     for client in clients:
