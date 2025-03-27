@@ -69,21 +69,21 @@ def pooled_scree(covs, max_components=20):
     return explained
 
 
-def global_variance_explained(U, clients):
+def global_variance_explained(V, clients):
     '''
     U shape: (d, r1)
     clients shape: list of (d, n) tensors'''
     device = 'cuda'
 
     clients = clients.to(device)
-    U = U.to(device)
+    V = V.to(device)
     clients = clients.swapaxes(-1, -2)
     total_variance = 0
-    for client in clients:
+    for client, V_sub in zip(clients, V_sub):
         print('CLIENT SHAPE:', client.shape)
-        print('U SHAPE:', U.shape)
+        print('U SHAPE:', V.shape)
         S = (client.T @ client)
-        ratio = (torch.trace(U.T @ S @ U) / torch.trace(S)) / clients.shape[0]
+        ratio = (torch.trace(V_sub.T @ S @ V_sub) / torch.trace(S)) / clients.shape[0]
         total_variance += ratio
     return total_variance.item()
 
@@ -107,11 +107,11 @@ def get_num_global_components(clients):
     candidate_r1 = list(range(1, 384))
 
     model = PerPCA(r1=max_r1, r2=384, eta=0.01, tol=1e-3)
-    U, _ = model.fit(clients)
+    U, V = model.fit(clients)
 
     for i in tqdm(range(U.shape[1])):
-        print('U: ', U.shape)
-        U_subset = U[:, :i]
+        print('V: ', V.shape)
+        V_subset = U[:, :, :i]
 
         gv.append(global_variance_explained(U_subset, clients))
 
