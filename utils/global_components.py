@@ -1,7 +1,9 @@
 import torch
 import numpy as np
 from tqdm import tqdm
-from sklearn.utils.extmath import randomized_svd, PCA
+from sklearn.utils.extmath import randomized_svd
+# import sklearn pca
+from sklearn.decomposition import PCA
 
 class PerPCA:
     def __init__(self, r1, r2, num_iter=100, eta=0.01, tol=1e-5, device=None):
