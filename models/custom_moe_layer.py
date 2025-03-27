@@ -88,7 +88,7 @@ class _Expert(nn.Module):
         print('calculting components')
         # send output to CPU and concvert to numpy
         # write matrix to a file so it can be reloaded
-        get_num_global_components(self.outputs.T)
+        get_num_global_components(self.outputs)
         ppca = PerPCA(num_components, num_components)
         if self.outputs is not None:
             return ppca.fit(np.array(self.outputs))
@@ -99,7 +99,7 @@ class _Expert(nn.Module):
         '''
         Calculates components of the expert's outputs,
         then creates a new global expert'''
-        get_num_global_components(self.outputs)
+        get_num_global_components(self.outputs.swapaxes(-1, -2))
         # global_comp, local_comp = self.get_components()
         # global_comp = torch.tensor(np.array(global_comp), device='cuda')
         # local_comp = torch.tensor(np.array(local_comp), device='cuda')
