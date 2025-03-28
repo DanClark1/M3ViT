@@ -727,17 +727,21 @@ class VisionTransformerMoE(nn.Module):
                 layer_results['global_variance'] = global_var
                 print(f"Global components: {optimal_global} (var: {global_var:.3f})")
                 
-                # Now analyze local components for each expert
+                # generating V_list for different r2
+                list_of_V_list = [] # can't think of a good name for this
+                for n_components in component_nums:
+                        pca_model = PerPCA(r1=optimal_global, r2=n_components) 
+                        _, V_list = pca_model.fit(clients)
+                        list_of_V_list.append(V_list)
+        
+                # analyze local components for each expert
                 expert_results = {}
                 for exp_idx in expert_indices:
-                    # Create dataset for this expert
                     expert_data = expert_datasets[exp_idx][layer_idx]
                     
-                    # Try different numbers of local components
+                    # going through different numbers of local components
                     local_explained_vars = []
-                    for n_components in component_nums:
-                        pca_model = PerPCA(r1=optimal_global, r2=n_components)  # Only local components
-                        _, V_list = pca_model.fit([expert_data])
+                    for V_list in list_of_V_list:
                         explained_var = pca_model.compute_explained_variance([expert_data], V_list[exp_idx])
                         local_explained_vars.append(explained_var.sum().item())
                     
