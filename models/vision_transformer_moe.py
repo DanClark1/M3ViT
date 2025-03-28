@@ -755,7 +755,7 @@ class VisionTransformerMoE(nn.Module):
                     
                     # Plot local elbow curve
                     plt.figure(figsize=(10, 6))
-                    plt.plot(component_nums, local_explained_vars, 'ro-')
+                    plt.plot(component_nums_local, local_explained_vars, 'ro-')
                     plt.xlabel('Number of Local Components')
                     plt.ylabel('Explained Variance Ratio')
                     plt.title(f'Layer {layer_idx} - Expert {exp_idx} Local Components')
@@ -764,7 +764,7 @@ class VisionTransformerMoE(nn.Module):
                     plt.close()
                     
                     # Find optimal local components
-                    optimal_local, local_var = find_elbow_point(component_nums, local_explained_vars)
+                    optimal_local, local_var = find_elbow_point(component_nums_local, local_explained_vars)
                     expert_results[exp_idx] = {
                         'local_components': optimal_local,
                         'local_variance': local_var
