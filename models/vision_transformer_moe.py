@@ -737,7 +737,52 @@ class VisionTransformerMoE(nn.Module):
                     global_proj = features @ U
                     
                     # Project onto local components (V)
-                    local_proj =  features @ V_list[i]
+                    local_proj = features @ V_list[i]
+                    
+                    # Reconstruct features using only global components
+                    global_features = (global_proj @ U.T).reshape(N, -1)  # [N, D]
+                    
+                    # Visualize original and reconstructed features
+                    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+                    
+                    # Original features
+                    orig_magnitudes = torch.norm(features[1:].reshape(h, w, -1), dim=-1)
+                    im1 = ax1.imshow(orig_magnitudes.cpu().detach(), cmap='viridis')
+                    ax1.set_title(f'Original Features\nExpert {exp_idx}')
+                    plt.colorbar(im1, ax=ax1)
+                    
+                    # Reconstructed features using global components
+                    recon_magnitudes = torch.norm(global_features[1:].reshape(h, w, -1), dim=-1)
+                    im2 = ax2.imshow(recon_magnitudes.cpu().detach(), cmap='viridis')
+                    ax2.set_title(f'Global Component Reconstruction\n({optimal_components} components)')
+                    plt.colorbar(im2, ax=ax2)
+                    
+                    plt.suptitle(f'Layer {layer_idx} - Feature Reconstruction')
+                    plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_expert_{exp_idx}_reconstruction.png'))
+                    plt.close()
+                    
+                    # Visualize individual global components
+                    num_components_to_show = min(16, optimal_components)
+                    fig, axes = plt.subplots(4, 4, figsize=(20, 20))
+                    axes = axes.flatten()
+                    
+                    for j in range(num_components_to_show):
+                        # Project onto single component
+                        component_proj = (global_proj[:, j:j+1] @ U[:, j:j+1].T).reshape(N, -1)
+                        component_magnitudes = torch.norm(component_proj[1:].reshape(h, w, -1), dim=-1)
+                        
+                        im = axes[j].imshow(component_magnitudes.cpu().detach(), cmap='viridis')
+                        axes[j].set_title(f'Component {j}')
+                        plt.colorbar(im, ax=axes[j])
+                    
+                    # Remove empty subplots
+                    for j in range(num_components_to_show, 16):
+                        axes[j].remove()
+                    
+                    plt.suptitle(f'Layer {layer_idx} - Expert {exp_idx} - Top Global Components')
+                    plt.tight_layout()
+                    plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_expert_{exp_idx}_components.png'))
+                    plt.close()
                     
                     print(f"\nExpert {exp_idx} projections:")
                     print(f"  Global component magnitudes (top 5): {torch.norm(global_proj[:5], dim=-1).tolist()}")
