@@ -718,7 +718,7 @@ class VisionTransformerMoE(nn.Module):
                 plt.close()
                 
                 # Print optimal number of components (using simple elbow detection)
-                diffs = np.diff(explained_vars)
+                diffs = np.abs(np.diff(explained_vars, 2))
                 elbow_idx = np.argmin(diffs) + 1
                 optimal_components = component_nums[elbow_idx]
                 print(f"\nOptimal number of global components for layer {layer_idx}: {optimal_components}")
