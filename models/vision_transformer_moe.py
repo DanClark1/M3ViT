@@ -731,8 +731,13 @@ class VisionTransformerMoE(nn.Module):
                 
                 # generating V_list for different r2
                 list_of_V_list = [] # can't think of a good name for this
+
+                # increasing the search range for local components
+                max_components_local = min(200, clients[0].shape[0])
+                component_nums_local = list(range(10, max_components_local + 1, 10))
+                
                 print('Local components:')
-                for n_components in tqdm(component_nums):
+                for n_components in tqdm(component_nums_local):
                         pca_model = PerPCA(r1=optimal_global, r2=n_components) 
                         _, V_list = pca_model.fit(clients)
                         list_of_V_list.append(V_list)
