@@ -17,6 +17,7 @@ from collections import Counter
 from models.gate_funs.noisy_gate import NoisyGate
 from models.gate_funs.noisy_gate_vmoe import NoisyGate_VMoE
 from utils.perpca import PerPCA
+from tqdm import tqdm
 
 a=[[0],[1,17,18,19,20],[2,12,13,14,15,16],[3,9,10,11],[4,5],[6,7,8,38],[21,22,23,24,25,26,39],[27,28,29,30,31,32,33,34,35,36,37]]
 def _cfg(url='', **kwargs):
@@ -705,7 +706,8 @@ class VisionTransformerMoE(nn.Module):
                 component_nums = list(range(10, max_components + 1, 10))
                 explained_vars = []
                 
-                for n_components in component_nums:
+                print('Global components:')
+                for n_components in tqdm(component_nums):
                     pca_model = PerPCA(r1=n_components, r2=50)
                     U, _ = pca_model.fit(clients)
                     explained_var = pca_model.compute_explained_variance(clients, U)
@@ -729,7 +731,8 @@ class VisionTransformerMoE(nn.Module):
                 
                 # generating V_list for different r2
                 list_of_V_list = [] # can't think of a good name for this
-                for n_components in component_nums:
+                print('Local components:')
+                for n_components in tqdm(component_nums):
                         pca_model = PerPCA(r1=optimal_global, r2=n_components) 
                         _, V_list = pca_model.fit(clients)
                         list_of_V_list.append(V_list)
