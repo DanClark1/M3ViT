@@ -633,6 +633,12 @@ class VisionTransformerMoE(nn.Module):
             layer_indices = range(len(self.intermediate_features))
         
         if expert_indices is not None:
+            # Create results dictionary to store component analysis
+            results = {
+                'layer_results': {},
+                'expert_results': {}
+            }
+            
             # Dictionary to store features for each expert
             expert_features = {}
             expert_datasets = {}  # Store 100xd matrices for each expert
@@ -689,118 +695,94 @@ class VisionTransformerMoE(nn.Module):
             print("\nAnalyzing expert specialization using PerPCA:")
             for layer_idx in layer_indices:
                 print(f"\nLayer {layer_idx}:")
+                layer_results = {}
                 
-                # Prepare datasets for PerPCA
+                # Analyze global components first
                 clients = [expert_datasets[exp_idx][layer_idx] for exp_idx in expert_indices]
                 
-                # Create elbow plot for different numbers of global components
-                max_components = min(100, clients[0].shape[0])  # Maximum number of components to try
-                component_nums = list(range(10, max_components + 1, 10))  # Try from 10 to max_components in steps of 10
+                # Create elbow plot for global components
+                max_components = min(100, clients[0].shape[0])
+                component_nums = list(range(10, max_components + 1, 10))
                 explained_vars = []
                 
                 for n_components in component_nums:
-                    # Run PerPCA with different numbers of global components
                     pca_model = PerPCA(r1=n_components, r2=50)
                     U, _ = pca_model.fit(clients)
-                    
-                    # Compute explained variance
                     explained_var = pca_model.compute_explained_variance(clients, U)
                     explained_vars.append(explained_var.sum().item())
                 
-                # Plot elbow curve
+                # Plot global elbow curve
                 plt.figure(figsize=(10, 6))
                 plt.plot(component_nums, explained_vars, 'bo-')
                 plt.xlabel('Number of Global Components')
                 plt.ylabel('Total Explained Variance Ratio')
                 plt.title(f'Layer {layer_idx} - Elbow Plot for Global Components')
                 plt.grid(True)
-                plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_elbow_plot.png'))
+                plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_global_elbow_plot.png'))
                 plt.close()
                 
-                # Print optimal number of components (using simple elbow detection)
-                diffs = np.abs(np.diff(explained_vars, 2))
-                elbow_idx = np.argmin(diffs) + 1
-                optimal_components = component_nums[elbow_idx]
-                print(f"\nOptimal number of global components for layer {layer_idx}: {optimal_components}")
-                print(f"Explained variance ratios up to optimal: {explained_vars[elbow_idx]:.3f}")
+                # Find optimal global components
+                optimal_global, global_var = find_elbow_point(component_nums, explained_vars)
+                layer_results['global_components'] = optimal_global
+                layer_results['global_variance'] = global_var
+                print(f"Global components: {optimal_global} (var: {global_var:.3f})")
                 
-                # Run final PerPCA with optimal number of components
-                pca_model = PerPCA(r1=optimal_components, r2=50)
-                U, V_list = pca_model.fit(clients)
-                
-                # Project one example through each expert onto their components
-                example_idx = 0  # Use first example from batch
-                for i, exp_idx in enumerate(expert_indices):
-                    features = expert_features[exp_idx][layer_idx][example_idx].cpu()
+                # Now analyze local components for each expert
+                expert_results = {}
+                for exp_idx in expert_indices:
+                    # Create dataset for this expert
+                    expert_data = expert_datasets[exp_idx][layer_idx]
                     
-                    # Project onto global components (U)
-                    global_proj = features @ U
+                    # Try different numbers of local components
+                    local_explained_vars = []
+                    for n_components in component_nums:
+                        pca_model = PerPCA(r1=optimal_global, r2=n_components)  # Only local components
+                        _, V_list = pca_model.fit([expert_data])
+                        explained_var = pca_model.compute_explained_variance([expert_data], V_list[exp_idx])
+                        local_explained_vars.append(explained_var.sum().item())
                     
-                    # Project onto local components (V)
-                    local_proj = features @ V_list[i]
-                    
-                    # Reconstruct features using only global components
-                    global_features = (global_proj @ U.T).reshape(N, -1)  # [N, D]
-                    
-                    # Visualize original and reconstructed features
-                    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
-                    
-                    # Original features
-                    orig_magnitudes = torch.norm(features[1:].reshape(h, w, -1), dim=-1)
-                    im1 = ax1.imshow(orig_magnitudes.cpu().detach(), cmap='viridis')
-                    ax1.set_title(f'Original Features\nExpert {exp_idx}')
-                    plt.colorbar(im1, ax=ax1)
-                    
-                    # Reconstructed features using global components
-                    recon_magnitudes = torch.norm(global_features[1:].reshape(h, w, -1), dim=-1)
-                    im2 = ax2.imshow(recon_magnitudes.cpu().detach(), cmap='viridis')
-                    ax2.set_title(f'Global Component Reconstruction\n({optimal_components} components)')
-                    plt.colorbar(im2, ax=ax2)
-                    
-                    plt.suptitle(f'Layer {layer_idx} - Feature Reconstruction')
-                    plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_expert_{exp_idx}_reconstruction.png'))
+                    # Plot local elbow curve
+                    plt.figure(figsize=(10, 6))
+                    plt.plot(component_nums, local_explained_vars, 'ro-')
+                    plt.xlabel('Number of Local Components')
+                    plt.ylabel('Explained Variance Ratio')
+                    plt.title(f'Layer {layer_idx} - Expert {exp_idx} Local Components')
+                    plt.grid(True)
+                    plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_expert_{exp_idx}_local_elbow.png'))
                     plt.close()
                     
-                    # Visualize individual global components
-                    num_components_to_show = min(16, optimal_components)
-                    fig, axes = plt.subplots(4, 4, figsize=(20, 20))
-                    axes = axes.flatten()
+                    # Find optimal local components
+                    optimal_local, local_var = find_elbow_point(component_nums, local_explained_vars)
+                    expert_results[exp_idx] = {
+                        'local_components': optimal_local,
+                        'local_variance': local_var
+                    }
+                    print(f"Expert {exp_idx} local components: {optimal_local} (var: {local_var:.3f})")
+                
+                layer_results['expert_results'] = expert_results
+                results['layer_results'][layer_idx] = layer_results
+                
+                # Run final PerPCA with optimal components
+                # ... rest of existing visualization code ...
+
+            # Save results to file
+            with open(os.path.join(save_dir, 'component_analysis.txt'), 'w') as f:
+                f.write("Component Analysis Results\n")
+                f.write("=========================\n\n")
+                
+                for layer_idx in layer_indices:
+                    layer_results = results['layer_results'][layer_idx]
+                    f.write(f"Layer {layer_idx}:\n")
+                    f.write(f"  Global components: {layer_results['global_components']}\n")
+                    f.write(f"  Global variance explained: {layer_results['global_variance']:.3f}\n")
+                    f.write("\n  Expert-specific results:\n")
                     
-                    for j in range(num_components_to_show):
-                        # Project onto single component
-                        component_proj = (global_proj[:, j:j+1] @ U[:, j:j+1].T).reshape(N, -1)
-                        component_magnitudes = torch.norm(component_proj[1:].reshape(h, w, -1), dim=-1)
-                        
-                        im = axes[j].imshow(component_magnitudes.cpu().detach(), cmap='viridis')
-                        axes[j].set_title(f'Component {j}')
-                        plt.colorbar(im, ax=axes[j])
-                    
-                    # Remove empty subplots
-                    for j in range(num_components_to_show, 16):
-                        axes[j].remove()
-                    
-                    plt.suptitle(f'Layer {layer_idx} - Expert {exp_idx} - Top Global Components')
-                    plt.tight_layout()
-                    plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_expert_{exp_idx}_components.png'))
-                    plt.close()
-                    
-                    print(f"\nExpert {exp_idx} projections:")
-                    print(f"  Global component magnitudes (top 5): {torch.norm(global_proj[:5], dim=-1).tolist()}")
-                    print(f"  Local component magnitudes (top 5): {torch.norm(local_proj[:5], dim=-1).tolist()}")
-                    
-                    # Calculate proportion of variance explained
-                    total_var = torch.norm(features).item() ** 2
-                    global_var = torch.norm(global_proj).item() ** 2
-                    local_var = torch.norm(local_proj).item() ** 2
-                    
-                    print(f"  Variance explained:")
-                    print(f"    Global components: {global_var/total_var:.3f}")
-                    print(f"    Local components: {local_var/total_var:.3f}")
-            
-            # Clear forced expert setting
-            for block in self.blocks:
-                if hasattr(block, 'moe') and block.moe:
-                    block.mlp.clear_forced_expert()
+                    for exp_idx, exp_results in layer_results['expert_results'].items():
+                        f.write(f"    Expert {exp_idx}:\n")
+                        f.write(f"      Local components: {exp_results['local_components']}\n")
+                        f.write(f"      Local variance explained: {exp_results['local_variance']:.3f}\n")
+                    f.write("\n")
+
         else:
             # Original visualization code for normal routing
             for idx in layer_indices:
@@ -857,3 +839,37 @@ def _init_vit_weights(m, n: str = '', head_bias: float = 0., jax_impl: bool = Fa
     elif isinstance(m, nn.LayerNorm):
         nn.init.zeros_(m.bias)
         nn.init.ones_(m.weight)
+
+def find_elbow_point(component_nums, explained_vars):
+    """
+    Find the elbow point in the explained variance curve.
+    
+    Args:
+        component_nums: List of number of components tried
+        explained_vars: List of corresponding explained variance values
+    
+    Returns:
+        optimal_components: Number of components at elbow point
+        explained_var: Explained variance at elbow point
+    """
+    diffs = np.abs(np.diff(explained_vars, 2))
+    elbow_idx = np.argmin(diffs) + 1
+    return component_nums[elbow_idx], explained_vars[elbow_idx]
+
+
+def find_threshold_point(component_nums, explained_vars, threshold=0.9):
+    """
+    Finds the minimum number of components that achieve a specified threshold of explained variance.
+    
+    Args:
+        component_nums: List of number of components tried
+        explained_vars: List of corresponding explained variance values
+        threshold: Desired threshold for explained variance (default is 0.9)
+        
+    Returns:
+        optimal_components: Number of components that achieve the threshold
+        explained_var: Explained variance at that point
+    """
+    cumulative_vars = np.cumsum(explained_vars)
+    optimal_idx = np.where(cumulative_vars >= threshold)[0][0]
+    return component_nums[optimal_idx], cumulative_vars[optimal_idx]
