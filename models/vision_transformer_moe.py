@@ -691,6 +691,10 @@ class VisionTransformerMoE(nn.Module):
                         plt.title(f'Layer {idx} - Sample {b} - Expert {expert_idx}')
                         plt.savefig(os.path.join(save_dir, f'layer_{idx}_sample_{b}_expert_{expert_idx}.png'))
                         plt.close()
+
+            # make sure the expert outputs aren't the same
+            print(expert_features[0] == expert_features[1])
+
             
             # Analyze expert specialization using PerPCA
             print("\nAnalyzing expert specialization using PerPCA:")
