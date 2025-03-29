@@ -693,7 +693,7 @@ class VisionTransformerMoE(nn.Module):
                         plt.close()
 
             # make sure the expert outputs aren't the same
-            print(expert_features[0] == expert_features[1])
+            print(expert_features[0] - expert_features[1])
 
             
             # Analyze expert specialization using PerPCA
