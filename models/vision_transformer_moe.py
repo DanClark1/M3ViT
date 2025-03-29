@@ -693,7 +693,7 @@ class VisionTransformerMoE(nn.Module):
                         plt.close()
 
             # make sure the expert outputs aren't the same
-            print(expert_datasets[0][0] - expert_datasets[1][0])
+            print(torch.allclose(expert_datasets[0][0], expert_datasets[1][0]))
 
             
             # Analyze expert specialization using PerPCA
