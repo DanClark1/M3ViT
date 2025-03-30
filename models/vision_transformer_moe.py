@@ -673,9 +673,9 @@ class VisionTransformerMoE(nn.Module):
                     if prev_features is None:
                         prev_features = features_list
                     else:
-                        for features in features_list:
-                            print(torch.allclose(features, prev_features[0]))
-                            print(features - prev_features[0])
+                        for features, prev_features in (features_list, prev_features):
+                            print(torch.allclose(features, prev_features))
+                            print(features - prev_features)
 
                 
                 # Store features and datasets
