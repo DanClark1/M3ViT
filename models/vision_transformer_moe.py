@@ -693,93 +693,94 @@ class VisionTransformerMoE(nn.Module):
                         plt.close()
 
             # make sure the expert outputs aren't the same
-            print(torch.allclose(expert_datasets[0][0], expert_datasets[1][0]))
+            print(torch.allclose(expert_datasets[0][1], expert_datasets[1][1]))
 
             
             # Analyze expert specialization using PerPCA
             print("\nAnalyzing expert specialization using PerPCA:")
             for layer_idx in layer_indices:
-                print(f"\nLayer {layer_idx}:")
-                layer_results = {}
-                
-                # Analyze global components first
-                clients = [expert_datasets[exp_idx][layer_idx] for exp_idx in expert_indices]
-                
-                # Create elbow plot for global components
-                max_components = min(100, clients[0].shape[0])
-                component_nums = list(range(10, max_components + 1, 10))
-                explained_vars = []
-                
-                print('Global components:')
-                for n_components in tqdm(component_nums):
-                    pca_model = PerPCA(r1=n_components, r2=50)
-                    U, _ = pca_model.fit(clients)
-                    explained_var = pca_model.compute_explained_variance(clients, U)
-                    explained_vars.append(explained_var.sum().item())
-                
-                # Plot global elbow curve
-                plt.figure(figsize=(10, 6))
-                plt.plot(component_nums, explained_vars, 'bo-')
-                plt.xlabel('Number of Global Components')
-                plt.ylabel('Total Explained Variance Ratio')
-                plt.title(f'Layer {layer_idx} - Elbow Plot for Global Components')
-                plt.grid(True)
-                plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_global_elbow_plot.png'))
-                plt.close()
-                
-                # Find optimal global components
-                optimal_global, global_var = find_elbow_point(component_nums, explained_vars)
-                layer_results['global_components'] = optimal_global
-                layer_results['global_variance'] = global_var
-                print(f"Global components: {optimal_global} (var: {global_var:.3f})")
-                
-                # generating V_list for different r2
-                list_of_V_list = [] # can't think of a good name for this
-
-                # increasing the search range for local components (don't want to overlap with global components)
-                max_components_local = clients[0].shape[0] - optimal_global
-                component_nums_local = list(range(10, max_components_local + 1, 10))
-                
-                print('Local components:')
-                for n_components in tqdm(component_nums_local):
-                        pca_model = PerPCA(r1=optimal_global, r2=n_components) 
-                        _, V_list = pca_model.fit(clients)
-                        list_of_V_list.append(V_list)
-        
-                # analyze local components for each expert
-                expert_results = {}
-                for exp_idx in expert_indices:
-                    expert_data = expert_datasets[exp_idx][layer_idx]
+                if self.blocks[layer_idx].moe:
+                    print(f"\nLayer {layer_idx}:")
+                    layer_results = {}
                     
-                    # going through different numbers of local components
-                    local_explained_vars = []
-                    for V_list in list_of_V_list:
-                        explained_var = pca_model.compute_explained_variance([expert_data], V_list[exp_idx])
-                        local_explained_vars.append(explained_var.sum().item())
+                    # Analyze global components first
+                    clients = [expert_datasets[exp_idx][layer_idx] for exp_idx in expert_indices]
                     
-                    # Plot local elbow curve
+                    # Create elbow plot for global components
+                    max_components = min(100, clients[0].shape[0])
+                    component_nums = list(range(10, max_components + 1, 10))
+                    explained_vars = []
+                    
+                    print('Global components:')
+                    for n_components in tqdm(component_nums):
+                        pca_model = PerPCA(r1=n_components, r2=50)
+                        U, _ = pca_model.fit(clients)
+                        explained_var = pca_model.compute_explained_variance(clients, U)
+                        explained_vars.append(explained_var.sum().item())
+                    
+                    # Plot global elbow curve
                     plt.figure(figsize=(10, 6))
-                    plt.plot(component_nums_local, local_explained_vars, 'ro-')
-                    plt.xlabel('Number of Local Components')
-                    plt.ylabel('Explained Variance Ratio')
-                    plt.title(f'Layer {layer_idx} - Expert {exp_idx} Local Components')
+                    plt.plot(component_nums, explained_vars, 'bo-')
+                    plt.xlabel('Number of Global Components')
+                    plt.ylabel('Total Explained Variance Ratio')
+                    plt.title(f'Layer {layer_idx} - Elbow Plot for Global Components')
                     plt.grid(True)
-                    plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_expert_{exp_idx}_local_elbow.png'))
+                    plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_global_elbow_plot.png'))
                     plt.close()
                     
-                    # Find optimal local components
-                    optimal_local, local_var = find_elbow_point(component_nums_local, local_explained_vars)
-                    expert_results[exp_idx] = {
-                        'local_components': optimal_local,
-                        'local_variance': local_var
-                    }
-                    print(f"Expert {exp_idx} local components: {optimal_local} (var: {local_var:.3f})")
-                
-                layer_results['expert_results'] = expert_results
-                results['layer_results'][layer_idx] = layer_results
-                
-                # Run final PerPCA with optimal components
-                # ... rest of existing visualization code ...
+                    # Find optimal global components
+                    optimal_global, global_var = find_elbow_point(component_nums, explained_vars)
+                    layer_results['global_components'] = optimal_global
+                    layer_results['global_variance'] = global_var
+                    print(f"Global components: {optimal_global} (var: {global_var:.3f})")
+                    
+                    # generating V_list for different r2
+                    list_of_V_list = [] # can't think of a good name for this
+
+                    # increasing the search range for local components (don't want to overlap with global components)
+                    max_components_local = clients[0].shape[0] - optimal_global
+                    component_nums_local = list(range(10, max_components_local + 1, 10))
+                    
+                    print('Local components:')
+                    for n_components in tqdm(component_nums_local):
+                            pca_model = PerPCA(r1=optimal_global, r2=n_components) 
+                            _, V_list = pca_model.fit(clients)
+                            list_of_V_list.append(V_list)
+            
+                    # analyze local components for each expert
+                    expert_results = {}
+                    for exp_idx in expert_indices:
+                        expert_data = expert_datasets[exp_idx][layer_idx]
+                        
+                        # going through different numbers of local components
+                        local_explained_vars = []
+                        for V_list in list_of_V_list:
+                            explained_var = pca_model.compute_explained_variance([expert_data], V_list[exp_idx])
+                            local_explained_vars.append(explained_var.sum().item())
+                        
+                        # Plot local elbow curve
+                        plt.figure(figsize=(10, 6))
+                        plt.plot(component_nums_local, local_explained_vars, 'ro-')
+                        plt.xlabel('Number of Local Components')
+                        plt.ylabel('Explained Variance Ratio')
+                        plt.title(f'Layer {layer_idx} - Expert {exp_idx} Local Components')
+                        plt.grid(True)
+                        plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_expert_{exp_idx}_local_elbow.png'))
+                        plt.close()
+                        
+                        # Find optimal local components
+                        optimal_local, local_var = find_elbow_point(component_nums_local, local_explained_vars)
+                        expert_results[exp_idx] = {
+                            'local_components': optimal_local,
+                            'local_variance': local_var
+                        }
+                        print(f"Expert {exp_idx} local components: {optimal_local} (var: {local_var:.3f})")
+                    
+                    layer_results['expert_results'] = expert_results
+                    results['layer_results'][layer_idx] = layer_results
+                    
+                    # Run final PerPCA with optimal components
+                    # ... rest of existing visualization code ...
 
             # Save results to file
             with open(os.path.join(save_dir, 'component_analysis.txt'), 'w') as f:
