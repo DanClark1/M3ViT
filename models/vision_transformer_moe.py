@@ -567,9 +567,12 @@ class VisionTransformerMoE(nn.Module):
         # intermediate_features.append(x)  # Store input features
         
         outs = []
+        printed = False
         for i, blk in enumerate(self.blocks):
             if blk.moe:
-                x = blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs=isval, verbose=(i == 2 and verbose))
+                x = blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs=isval, verbose=((not printed) and verbose))
+                if not printed:
+                    printed = True
             else:
                 x = blk(x)
             intermediate_features.append(x)  # Store features after each block
