@@ -718,7 +718,7 @@ class VisionTransformerMoE(nn.Module):
                     clients = [expert_datasets[exp_idx][layer_idx] for exp_idx in expert_indices]
                     
                     # Create elbow plot for global components
-                    max_components = clients[0].shape[0] - 1
+                    max_components = 1 #clients[0].shape[0] - 1
                     component_nums = list(range(1, max_components + 1))
                     explained_vars = []
 
