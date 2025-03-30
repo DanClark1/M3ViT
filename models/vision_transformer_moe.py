@@ -722,9 +722,12 @@ class VisionTransformerMoE(nn.Module):
                     component_nums = list(range(10, max_components + 1, 10))
                     explained_vars = []
 
-                    pca_model = PerPCA(r1=max_components, r2=50)
-                    U, _ = pca_model.fit(clients)
+
+                    print('fitting')
+                    pca_model = PerPCA(r1=max_components, r2=max_components)
+                    U, V_list = pca_model.fit(clients)
                     
+
                     print('Global components:')
                     for n_components in tqdm(component_nums):
                         U_subset = U[:, :n_components]
@@ -757,8 +760,6 @@ class VisionTransformerMoE(nn.Module):
 
 
                     print('Local components:')
-                    pca_model = PerPCA(r1=optimal_global, r2=max_components_local)
-                    _, V_list = pca_model.fit(clients)
                     for i in range(len(V_list)):
                         list_of_V_list[i] = V_list[:, :i] 
                     
