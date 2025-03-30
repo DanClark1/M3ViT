@@ -662,13 +662,15 @@ class VisionTransformerMoE(nn.Module):
                     with torch.no_grad():
                         print('expert: ', expert_idx)
                         _ = self.forward(input_image, verbose=True)
+                        printed=False
                         for idx in layer_indices:
                             features = self.intermediate_features[idx]
                             features_list.append(features)
                             # Flatten features for each sample
                             flat_features = features.reshape(-1, features.shape[-1])
                             self.clear_intermediate_features()
-                            if hasattr(block, 'moe') and block.moe:
+                            if hasattr(block, 'moe') and block.moe and not printed:
+                                printed =True
                                 # testing something
                                 for block in self.blocks:
                                     if hasattr(block, 'moe') and block.moe and expert_idx < block.mlp.num_expert:
