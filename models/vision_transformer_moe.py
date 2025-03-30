@@ -651,13 +651,11 @@ class VisionTransformerMoE(nn.Module):
                         block.mlp.set_forced_expert(expert_idx)
                 
                 # Run forward pass with forced expert multiple times to build dataset
-                expert_data = []
+                expert_data = {idx: [] for idx in layer_indices}
                 for _ in range(10):  # Run 10 times to get 100 samples (assuming batch_size=10)
                     with torch.no_grad():
                         _ = self.forward(input_image)
                         for idx in layer_indices:
-                            if idx not in expert_data:
-                                expert_data.append([])
                             features = self.intermediate_features[idx]
                             # Flatten features for each sample
                             flat_features = features.reshape(-1, features.shape[-1])
