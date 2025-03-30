@@ -762,6 +762,8 @@ class VisionTransformerMoE(nn.Module):
                     print('Local components:')
                     print(V_list[0].shape)
                     print(U.shape)
+
+                    list_of_V_list = [[] for _ in range(max_components)]
                     for i in range(max_components):
                         list_of_V_list[i] = [v[:, :i] for v in V_list]
                     
