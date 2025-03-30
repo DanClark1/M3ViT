@@ -72,9 +72,8 @@ class _Expert(nn.Module):
         for i in range(len(other_fwd_expert_count)):
             other_fwd_expert_count[i] = fwd_expert_count[i-1]
         other_x = self.htoh4(inp, other_fwd_expert_count)
-        print('are they the same? ', torch.allclose(x, other_x))
-        print(x-other_x)
-        print('counts: ', fwd_expert_count, other_fwd_expert_count)
+        print(f'--- are they the same? {torch.allclose(x, other_x)},\n {fwd_expert_count}, \n {other_fwd_expert_count}, \n{x-other_x}\n --------')
+
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
         if self.record_output and self.stage == 0:
