@@ -651,6 +651,7 @@ class VisionTransformerMoE(nn.Module):
                 # Set forced expert for all MoE layers
                 for block in self.blocks:
                     if hasattr(block, 'moe') and block.moe:
+                        print('set expert idx as ',expert_idx)
                         block.mlp.set_forced_expert(expert_idx)
                 
                 # Run forward pass with forced expert multiple times to build dataset
@@ -665,6 +666,7 @@ class VisionTransformerMoE(nn.Module):
                             # Flatten features for each sample
                             flat_features = features.reshape(-1, features.shape[-1])
                             expert_data[idx].append(flat_features)
+
 
                 if prev_features is None:
                     prev_features = features_list
