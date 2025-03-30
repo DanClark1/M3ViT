@@ -570,7 +570,6 @@ class VisionTransformerMoE(nn.Module):
         printed = False
         for i, blk in enumerate(self.blocks):
             if blk.moe:
-                print('hello')
                 x, intermediate_x = blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs=isval, verbose=((not printed) and verbose))
                 if not printed:
                     printed = True
@@ -582,7 +581,7 @@ class VisionTransformerMoE(nn.Module):
                 outs.append(x)
             
         # Store the intermediate features as a class attribute
-        # self.intermediate_features = intermediate_features
+        self.intermediate_features = intermediate_features
         
         return tuple(outs)
 
@@ -688,8 +687,6 @@ class VisionTransformerMoE(nn.Module):
                                 _ = self.forward(input_image)
 
                             expert_data[idx].append(flat_features)
-
-
                 
                 # Store features and datasets
                 expert_features[expert_idx] = {
