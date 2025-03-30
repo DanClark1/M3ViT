@@ -51,6 +51,8 @@ class _Expert(nn.Module):
         First expand input to 4h (the hidden size is variable, but is called h4
         for convenience). Then perform activation. Finally shirink back to h.
         """
+        print(self.experts.htoh4.weight[0].mean().item(), self.experts.htoh4.weight[1].mean().item())
+
         # make sure everything is on cuda
         if inp.device != 'cuda':
             inp = inp.to('cuda')
