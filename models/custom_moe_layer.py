@@ -287,7 +287,7 @@ class FMoETransformerMLP(FMoE):
         """Clear the forced expert setting"""
         self.forced_expert = None
 
-    def forward_moe(self, gate_inp, moe_inp, task_id=None, sem=None, record_outputs=False):
+    def forward_moe(self, gate_inp, moe_inp, task_id=None, sem=None, record_outputs=False, verbose =False):
         r"""
         The FMoE module first computes gate output, and then conduct MoE forward
         according to the gate.  The score of the selected gate given by the
@@ -376,18 +376,19 @@ class FMoETransformerMLP(FMoE):
             moe_inp, gate_top_k_idx, self.expert_fn, self.num_expert, self.world_size
         )
 
-        # testing something
-        other_gate_top_k_idx = gate_top_k_idx.clone()
-        ones = torch.ones_like(gate_top_k_idx)
-        other_gate_top_k_idx = other_gate_top_k_idx + ones
-        if other_gate_top_k_idx[0][0] == self.num_expert:
-            other_gate_top_k_idx = torch.zeros_like(gate_top_k_idx)
-        
-        other_fwd = _fmoe_general_global_forward(
-            moe_inp, other_gate_top_k_idx, self.expert_fn, self.num_expert, self.world_size
-        )
+        if verbose:
+            # testing something
+            other_gate_top_k_idx = gate_top_k_idx.clone()
+            ones = torch.ones_like(gate_top_k_idx)
+            other_gate_top_k_idx = other_gate_top_k_idx + ones
+            if other_gate_top_k_idx[0][0] == self.num_expert:
+                other_gate_top_k_idx = torch.zeros_like(gate_top_k_idx)
+            
+            other_fwd = _fmoe_general_global_forward(
+                moe_inp, other_gate_top_k_idx, self.expert_fn, self.num_expert, self.world_size
+            )
 
-        print(f'--- are they the same? {torch.allclose(fwd, other_fwd)} \n {gate_top_k_idx} \n {other_gate_top_k_idx} \n {fwd - other_fwd} ---')
+            print(f'--- are they the same? {torch.allclose(fwd, other_fwd)} \n {gate_top_k_idx} \n {other_gate_top_k_idx} \n {fwd - other_fwd} ---')
         self.experts.record_output = False
 
         # recover deleted tensors
