@@ -639,6 +639,9 @@ class VisionTransformerMoE(nn.Module):
                 'layer_results': {},
                 'expert_results': {}
             }
+
+            prev_features = None
+            features_list = []
             
             # Dictionary to store features for each expert
             expert_features = {}
@@ -658,9 +661,17 @@ class VisionTransformerMoE(nn.Module):
                         for idx in layer_indices:
                             print(self.intermediate_features[0].shape)
                             features = self.intermediate_features[idx]
+                            features_list.append(features)
                             # Flatten features for each sample
                             flat_features = features.reshape(-1, features.shape[-1])
                             expert_data[idx].append(flat_features)
+
+                if prev_features is None:
+                    prev_features = features_list
+                else:
+                    for features in features_list:
+                        print(torch.allclose(features, prev_features[0]))
+                        print(features - prev_features[0])
 
                 
                 # Store features and datasets
