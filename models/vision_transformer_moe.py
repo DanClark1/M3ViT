@@ -656,10 +656,12 @@ class VisionTransformerMoE(nn.Module):
                     with torch.no_grad():
                         _ = self.forward(input_image)
                         for idx in layer_indices:
+                            print(len(self.intermediate_features))
                             features = self.intermediate_features[idx]
                             # Flatten features for each sample
                             flat_features = features.reshape(-1, features.shape[-1])
                             expert_data[idx].append(flat_features)
+
                 
                 # Store features and datasets
                 expert_features[expert_idx] = {
