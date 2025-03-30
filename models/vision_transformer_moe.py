@@ -547,7 +547,7 @@ class VisionTransformerMoE(nn.Module):
         np.save(filename, hint)
         return torch.tensor(hint, device=sem.device) 
 
-    def forward_features(self, x, gate_inp, task_id, sem, isval=False):
+    def forward_features(self, x, gate_inp, task_id, sem, isval=False, verbose=False):
         B = x.shape[0]
         x = self.patch_embed(x)
         x = x.flatten(2).transpose(1, 2)
@@ -569,7 +569,7 @@ class VisionTransformerMoE(nn.Module):
         outs = []
         for i, blk in enumerate(self.blocks):
             if blk.moe:
-                x = blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs=isval)
+                x = blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs=isval, verbose=(i == 2 and verbose))
             else:
                 x = blk(x)
             intermediate_features.append(x)  # Store features after each block
