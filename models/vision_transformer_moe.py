@@ -664,7 +664,7 @@ class VisionTransformerMoE(nn.Module):
                             features_list.append(features)
                             # Flatten features for each sample
                             flat_features = features.reshape(-1, features.shape[-1])
-
+                            self.clear_intermediate_features()
                             if hasattr(block, 'moe') and block.moe:
                                 # testing something
                                 for block in self.blocks:
@@ -673,7 +673,7 @@ class VisionTransformerMoE(nn.Module):
                                 print('increased expert: ', expert_idx + 1)
                                 _ = self.forward(input_image)
                                 other_features = self.intermediate_features[idx]
-                                #print(f'---- are they the same? {torch.allclose(features, other_features)} {features - other_features} ----')
+                                print(f'---- are they the same? {torch.allclose(features, other_features)} {features - other_features} ----')
 
                                 for block in self.blocks:
                                     if hasattr(block, 'moe') and block.moe:
