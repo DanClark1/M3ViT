@@ -72,8 +72,6 @@ class _Expert(nn.Module):
         for i in range(len(other_fwd_expert_count)):
             other_fwd_expert_count[i] = fwd_expert_count[i-1]
         other_x = self.htoh4(inp, other_fwd_expert_count)
-        print(f'--- are they the same? {torch.allclose(x, other_x)},\n {fwd_expert_count}, \n {other_fwd_expert_count}, \n{x-other_x}\n --------')
-
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
         if self.record_output and self.stage == 0:
@@ -371,6 +369,8 @@ class FMoETransformerMLP(FMoE):
         # no idea how to actually pass this into the experts
         if record_outputs:
             self.experts.record_output = True
+
+        print('gate_top_k_idx',gate_top_k_idx)
         fwd = _fmoe_general_global_forward(
             moe_inp, gate_top_k_idx, self.expert_fn, self.num_expert, self.world_size
         )
