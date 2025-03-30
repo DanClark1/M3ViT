@@ -656,7 +656,7 @@ class VisionTransformerMoE(nn.Module):
                     with torch.no_grad():
                         _ = self.forward(input_image)
                         for idx in layer_indices:
-                            print(len(self.intermediate_features))
+                            print(self.intermediate_features.shape)
                             features = self.intermediate_features[idx]
                             # Flatten features for each sample
                             flat_features = features.reshape(-1, features.shape[-1])
