@@ -255,7 +255,7 @@ class FMoETransformerMLP(FMoE):
         print(f'Experts output shape: {np.array(self.experts.outputs).shape}')
 
 
-    def forward(self, inp: torch.Tensor, gate_inp=None, task_id = None, task_specific_feature = None, sem=None, record_expert_outputs=False):
+    def forward(self, inp: torch.Tensor, gate_inp=None, task_id = None, task_specific_feature = None, sem=None, record_expert_outputs=False, verbose=False):
         r"""
         This module wraps up the FMoE module with reshape, residual and layer
         normalization.
@@ -273,7 +273,7 @@ class FMoETransformerMLP(FMoE):
             assert self.multi_gate is False
             size = gate_inp.shape[0]
             gate_inp = torch.cat((gate_inp,task_specific_feature.repeat(size,1)),dim=-1)
-        output = self.forward_moe(gate_inp=gate_inp, moe_inp=inp, task_id=task_id, sem=sem, record_outputs=record_expert_outputs)
+        output = self.forward_moe(gate_inp=gate_inp, moe_inp=inp, task_id=task_id, sem=sem, record_outputs=record_expert_outputs, verbose=verbose)
         return output.reshape(original_shape)
     
     def get_output_matrix(self):
