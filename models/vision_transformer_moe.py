@@ -279,10 +279,10 @@ class Block(nn.Module):
             gate_inp = x
         x = x + self.drop_path(self.attn(self.norm1(x)))
         if not self.moe:
-            x = x + self.drop_path(self.mlp(self.norm2(x)))
+            return x + self.drop_path(self.mlp(self.norm2(x)))
         else:
-            x = x + self.drop_path(self.mlp_drop(self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem, record_expert_outputs=record_expert_outputs, verbose=verbose)))
-        return x, self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem, record_expert_outputs=record_expert_outputs, verbose=verbose)
+            mlp = self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem, record_expert_outputs=record_expert_outputs, verbose=verbose)
+            return x + mlp, mlp
 
 class PatchEmbed(nn.Module):
     """ Image to Patch Embedding
