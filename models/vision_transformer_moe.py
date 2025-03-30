@@ -682,7 +682,7 @@ class VisionTransformerMoE(nn.Module):
                                 print(f'---- are they the same? {features.shape} {torch.allclose(features, other_features)} {features - other_features} original: {features} \n new: {other_features}----')
 
                                 for block in self.blocks:
-                                    if and block.moe:
+                                    if block.moe:
                                         block.mlp.set_forced_expert(expert_idx)
 
                                 _ = self.forward(input_image)
