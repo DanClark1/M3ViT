@@ -386,7 +386,7 @@ class FMoETransformerMLP(FMoE):
                 moe_inp, other_gate_top_k_idx, self.expert_fn, self.num_expert, self.world_size
             )
 
-            print(f'--- are they the same? (lower level) {torch.allclose(fwd, other_fwd)} \n {gate_top_k_idx} \n {other_gate_top_k_idx} \n original: {fwd} \n other: {other_fwd} ---')
+            print(f'--- are they the same? (lower level) {torch.allclose(fwd, other_fwd)} {fwd.shape} \n {gate_top_k_idx} \n {other_gate_top_k_idx} \n original: {fwd} \n other: {other_fwd} ---')
         self.experts.record_output = False
 
         # recover deleted tensors

@@ -677,7 +677,7 @@ class VisionTransformerMoE(nn.Module):
                                 print('increased expert: ', expert_idx + 1)
                                 _ = self.forward(input_image)
                                 other_features = self.intermediate_features[idx]
-                                print(f'---- are they the same? {torch.allclose(features, other_features)} {features - other_features} original: {features} \n new: {other_features}----')
+                                print(f'---- are they the same? {features.shape} {torch.allclose(features, other_features)} {features - other_features} original: {features} \n new: {other_features}----')
 
                                 for block in self.blocks:
                                     if hasattr(block, 'moe') and block.moe:
