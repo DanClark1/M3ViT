@@ -369,9 +369,7 @@ class FMoETransformerMLP(FMoE):
         # no idea how to actually pass this into the experts
         if record_outputs:
             self.experts.record_output = True
-
-        print('gate_top_k_idx',gate_top_k_idx)
-
+            
         fwd = _fmoe_general_global_forward(
             moe_inp, gate_top_k_idx, self.expert_fn, self.num_expert, self.world_size
         )
