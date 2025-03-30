@@ -369,7 +369,7 @@ class FMoETransformerMLP(FMoE):
         # no idea how to actually pass this into the experts
         if record_outputs:
             self.experts.record_output = True
-            
+
         fwd = _fmoe_general_global_forward(
             moe_inp, gate_top_k_idx, self.expert_fn, self.num_expert, self.world_size
         )
@@ -386,7 +386,7 @@ class FMoETransformerMLP(FMoE):
                 moe_inp, other_gate_top_k_idx, self.expert_fn, self.num_expert, self.world_size
             )
 
-            print(f'--- are they the same? {torch.allclose(fwd, other_fwd)} \n {gate_top_k_idx} \n {other_gate_top_k_idx} \n {fwd - other_fwd} ---')
+            print(f'--- are they the same? (lower level) {torch.allclose(fwd, other_fwd)} \n {gate_top_k_idx} \n {other_gate_top_k_idx} \n original: {fwd} \n other: {other_fwd} ---')
         self.experts.record_output = False
 
         # recover deleted tensors
