@@ -721,12 +721,14 @@ class VisionTransformerMoE(nn.Module):
                     max_components = clients[0].shape[0] - 1
                     component_nums = list(range(10, max_components + 1, 10))
                     explained_vars = []
+
+                    pca_model = PerPCA(r1=max_components, r2=50)
+                    U, _ = pca_model.fit(clients)
                     
                     print('Global components:')
                     for n_components in tqdm(component_nums):
-                        pca_model = PerPCA(r1=n_components, r2=50)
-                        U, _ = pca_model.fit(clients)
-                        explained_var = pca_model.compute_explained_variance(clients, U)
+                        U_subset = U[:, :n_components]
+                        explained_var = pca_model.compute_explained_variance(clients, U_subset)
                         explained_vars.append(explained_var.sum().item())
                     
                     # Plot global elbow curve
@@ -752,12 +754,19 @@ class VisionTransformerMoE(nn.Module):
                     max_components_local = clients[0].shape[0] - 1
                     # max_components_local = 100
                     component_nums_local = list(range(10, max_components_local + 1, 10))
-                    
+
+
                     print('Local components:')
-                    for n_components in tqdm(component_nums_local):
-                            pca_model = PerPCA(r1=optimal_global, r2=n_components) 
-                            _, V_list = pca_model.fit(clients)
-                            list_of_V_list.append(V_list)
+                    pca_model = PerPCA(r1=optimal_global, r2=max_components_local)
+                    _, V_list = pca_model.fit(clients)
+                    for i in range(len(V_list)):
+                        list_of_V_list[i] = V_list[:, :i] 
+                    
+                    
+                    # for n_components in tqdm(component_nums_local):
+                    #         pca_model = PerPCA(r1=optimal_global, r2=n_components) 
+                    #         _, V_list = pca_model.fit(clients)
+                    #         list_of_V_list.append(V_list)
             
                     # analyze local components for each expert
                     expert_results = {}
