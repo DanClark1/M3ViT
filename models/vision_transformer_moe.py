@@ -718,7 +718,7 @@ class VisionTransformerMoE(nn.Module):
                     clients = [expert_datasets[exp_idx][layer_idx] for exp_idx in expert_indices]
                     
                     # Create elbow plot for global components
-                    max_components = min(100, clients[0].shape[0])
+                    max_components = clients[0].shape[0] - 1
                     component_nums = list(range(10, max_components + 1, 10))
                     explained_vars = []
                     
@@ -749,8 +749,8 @@ class VisionTransformerMoE(nn.Module):
                     list_of_V_list = [] # can't think of a good name for this
 
                     # increasing the search range for local components (don't want to overlap with global components)
-                    # max_components_local = clients[0].shape[0] - optimal_global
-                    max_components_local = 100
+                    max_components_local = clients[0].shape[0] - 1
+                    # max_components_local = 100
                     component_nums_local = list(range(10, max_components_local + 1, 10))
                     
                     print('Local components:')
