@@ -726,6 +726,8 @@ class VisionTransformerMoE(nn.Module):
                     print('fitting')
                     pca_model = PerPCA(r1=max_components, r2=max_components)
                     U, V_list = pca_model.fit(clients)
+                    print(U.shape)
+                    print(V_list[0].shape)
                     
 
                     print('Global components:')
