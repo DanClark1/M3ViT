@@ -662,29 +662,12 @@ class VisionTransformerMoE(nn.Module):
                 for _ in range(10):  # Run 10 times to get 100 samples (assuming batch_size=10)
                     with torch.no_grad():
                         print('expert: ', expert_idx)
-                        _ = self.forward(input_image, verbose=True)
-                        printed=False
+                        _ = self.forward(input_image)
                         for idx in layer_indices:
                             features = self.intermediate_features[idx]
                             features_list.append(features)
                             # Flatten features for each sample
                             flat_features = features.reshape(-1, features.shape[-1])
-                            if block.moe and not printed:
-                                printed =True
-                                # testing something
-                                for block in self.blocks:
-                                    if hasattr(block, 'moe') and block.moe and expert_idx < block.mlp.num_expert:
-                                        block.mlp.set_forced_expert(expert_idx + 1)
-                                print('increased expert: ', expert_idx + 1)
-                                _ = self.forward(input_image)
-                                other_features = self.intermediate_features[idx]
-                                print(f'---- are they the same? {features.shape} {torch.allclose(features, other_features)} {features - other_features} original: {features} \n new: {other_features}----')
-
-                                for block in self.blocks:
-                                    if block.moe:
-                                        block.mlp.set_forced_expert(expert_idx)
-
-                                _ = self.forward(input_image)
 
                             expert_data[idx].append(flat_features)
                 
