@@ -719,7 +719,7 @@ class VisionTransformerMoE(nn.Module):
                     
                     # Create elbow plot for global components
                     max_components = clients[0].shape[0] - 1
-                    component_nums = list(range(10, max_components + 1, 10))
+                    component_nums = list(range(1, max_components + 1))
                     explained_vars = []
 
 
@@ -756,7 +756,7 @@ class VisionTransformerMoE(nn.Module):
                     # increasing the search range for local components (don't want to overlap with global components)
                     max_components_local = clients[0].shape[0] - 1
                     # max_components_local = 100
-                    component_nums_local = list(range(10, max_components_local + 1, 10))
+                    component_nums_local = list(range(1, max_components_local + 1))
 
 
                     print('Local components:')
