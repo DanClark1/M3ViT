@@ -761,7 +761,7 @@ class VisionTransformerMoE(nn.Module):
 
                     print('Local components:')
                     for i in range(len(V_list)):
-                        list_of_V_list[i] = V_list[:, :i] 
+                        list_of_V_list[i] = [v[:, :i] for v in V_list]
                     
                     
                     # for n_components in tqdm(component_nums_local):
