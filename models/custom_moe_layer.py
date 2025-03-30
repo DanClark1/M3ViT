@@ -51,6 +51,7 @@ class _Expert(nn.Module):
         First expand input to 4h (the hidden size is variable, but is called h4
         for convenience). Then perform activation. Finally shirink back to h.
         """
+        print(fwd_expert_count)
         # make sure everything is on cuda
         if inp.device != 'cuda':
             inp = inp.to('cuda')
@@ -287,8 +288,6 @@ class FMoETransformerMLP(FMoE):
         according to the gate.  The score of the selected gate given by the
         expert is multiplied to the experts' output tensors as a weight.
         """
-        print('CHECK: ', self.experts.htoh4.weight[0].mean().item(), self.experts.htoh4.weight[1].mean().item())
-
         moe_inp_batch_size = tree.flatten(
             tree.map_structure(lambda tensor: tensor.shape[0], moe_inp)
         )
