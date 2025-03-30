@@ -281,8 +281,8 @@ class Block(nn.Module):
         if not self.moe:
             return x + self.drop_path(self.mlp(self.norm2(x)))
         else:
-            mlp = self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem, record_expert_outputs=record_expert_outputs, verbose=verbose)
-            return x + mlp, mlp
+            moe_out = self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem, record_expert_outputs=record_expert_outputs, verbose=verbose)
+            return x + moe_out, moe_out
 
 class PatchEmbed(nn.Module):
     """ Image to Patch Embedding
@@ -570,6 +570,7 @@ class VisionTransformerMoE(nn.Module):
         printed = False
         for i, blk in enumerate(self.blocks):
             if blk.moe:
+                print('hello')
                 x, intermediate_x = blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs=isval, verbose=((not printed) and verbose))
                 if not printed:
                     printed = True
@@ -669,7 +670,7 @@ class VisionTransformerMoE(nn.Module):
                             features_list.append(features)
                             # Flatten features for each sample
                             flat_features = features.reshape(-1, features.shape[-1])
-                            if hasattr(block, 'moe') and block.moe and not printed:
+                            if block.moe and not printed:
                                 printed =True
                                 # testing something
                                 for block in self.blocks:
@@ -681,7 +682,7 @@ class VisionTransformerMoE(nn.Module):
                                 print(f'---- are they the same? {features.shape} {torch.allclose(features, other_features)} {features - other_features} original: {features} \n new: {other_features}----')
 
                                 for block in self.blocks:
-                                    if hasattr(block, 'moe') and block.moe:
+                                    if and block.moe:
                                         block.mlp.set_forced_expert(expert_idx)
 
                                 _ = self.forward(input_image)
