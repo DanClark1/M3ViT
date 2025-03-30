@@ -646,7 +646,7 @@ class VisionTransformerMoE(nn.Module):
             # Dictionary to store features for each expert
             expert_features = {}
             expert_datasets = {}  # Store 100xd matrices for each expert
-                        
+
             for expert_idx in expert_indices:
                 # Set forced expert for all MoE layers
                 for block in self.blocks:
@@ -663,6 +663,20 @@ class VisionTransformerMoE(nn.Module):
                             features_list.append(features)
                             # Flatten features for each sample
                             flat_features = features.reshape(-1, features.shape[-1])
+
+
+                            # testing something
+                            for block in self.blocks:
+                                if hasattr(block, 'moe') and block.moe and expert_idx < block.mlp.num_experts:
+                                    block.mlp.set_forced_expert(expert_idx + 1)
+                                _ = self.forward(input_image)
+                                other_features = self.intermediate_features[idx]
+                                print(f'---- are they the same? {torch.allclose(features, other_features)} {features - other_features}')
+
+                                if hasattr(block, 'moe') and block.moe and expert_idx < block.mlp.num_experts:
+                                    block.mlp.set_forced_expert(expert_idx)
+
+
                             expert_data[idx].append(flat_features)
 
 
