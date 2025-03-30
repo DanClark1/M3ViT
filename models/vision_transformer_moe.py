@@ -683,6 +683,7 @@ class VisionTransformerMoE(nn.Module):
                                     if hasattr(block, 'moe') and block.moe:
                                         block.mlp.set_forced_expert(expert_idx)
 
+                                _ = self.forward(input_image)
 
                             expert_data[idx].append(flat_features)
 
