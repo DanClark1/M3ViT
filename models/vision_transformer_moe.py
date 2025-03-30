@@ -661,7 +661,6 @@ class VisionTransformerMoE(nn.Module):
                 expert_data = {idx: [] for idx in layer_indices}
                 for _ in range(10):  # Run 10 times to get 100 samples (assuming batch_size=10)
                     with torch.no_grad():
-                        print('expert: ', expert_idx)
                         _ = self.forward(input_image)
                         for idx in layer_indices:
                             features = self.intermediate_features[idx]
