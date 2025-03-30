@@ -668,7 +668,6 @@ class VisionTransformerMoE(nn.Module):
                             features_list.append(features)
                             # Flatten features for each sample
                             flat_features = features.reshape(-1, features.shape[-1])
-                            self.clear_intermediate_features()
                             if hasattr(block, 'moe') and block.moe and not printed:
                                 printed =True
                                 # testing something
