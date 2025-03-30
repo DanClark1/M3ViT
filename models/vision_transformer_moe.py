@@ -274,14 +274,14 @@ class Block(nn.Module):
         else:
             self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
     
-    def forward(self, x, gate_inp=None, task_id=None, task_specific_feature=None, sem=None, record_expert_outputs=False):
+    def forward(self, x, gate_inp=None, task_id=None, task_specific_feature=None, sem=None, record_expert_outputs=False, verbose=False):
         if self.gate_input_ahead:
             gate_inp = x
         x = x + self.drop_path(self.attn(self.norm1(x)))
         if not self.moe:
             x = x + self.drop_path(self.mlp(self.norm2(x)))
         else:
-            x = x + self.drop_path(self.mlp_drop(self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem, record_expert_outputs=record_expert_outputs)))
+            x = x + self.drop_path(self.mlp_drop(self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem, record_expert_outputs=record_expert_outputs, verbose=verbose)))
         return x
 
 class PatchEmbed(nn.Module):
