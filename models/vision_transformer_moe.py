@@ -398,6 +398,7 @@ class VisionTransformerMoE(nn.Module):
         self.sem_force = sem_force
         # print(self.hybrid_backbone is None)
         self.expert_prune = expert_prune
+        self.moe_block_index = {} # dicitonary mapping the nth moe layer to the actual layer index
         print('set expert prune as ',self.expert_prune)
         if self.hybrid_backbone is not None:
             self.patch_embed = HybridEmbed(
@@ -568,8 +569,11 @@ class VisionTransformerMoE(nn.Module):
         
         outs = []
         printed = False
+        moe_index = 0
         for i, blk in enumerate(self.blocks):
             if blk.moe:
+                self.moe_block_index[moe_index] = i
+                moe_index += 1
                 x, intermediate_x = blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs=isval, verbose=((not printed) and verbose))
                 if not printed:
                     printed = True
@@ -614,7 +618,7 @@ class VisionTransformerMoE(nn.Module):
         
         if not hasattr(self, 'intermediate_features'):
             raise AttributeError("No intermediate features found. Run a forward pass first.")
-        
+                
         # Create save directory if it doesn't exist
         os.makedirs(save_dir, exist_ok=True)
         
@@ -706,8 +710,8 @@ class VisionTransformerMoE(nn.Module):
             # Analyze expert specialization using PerPCA
             print("\nAnalyzing expert specialization using PerPCA:")
             for layer_idx in layer_indices:
-                if self.blocks[layer_idx].moe:
-                    print(f"\nLayer {layer_idx}:")
+                if self.blocks[self.moe_block_index[layer_idx]].moe:
+                    print(f"\nMoE Layer {layer_idx}:")
                     layer_results = {}
                     
                     # Analyze global components first
@@ -745,7 +749,8 @@ class VisionTransformerMoE(nn.Module):
                     list_of_V_list = [] # can't think of a good name for this
 
                     # increasing the search range for local components (don't want to overlap with global components)
-                    max_components_local = clients[0].shape[0] - optimal_global
+                    # max_components_local = clients[0].shape[0] - optimal_global
+                    max_components_local = 100
                     component_nums_local = list(range(10, max_components_local + 1, 10))
                     
                     print('Local components:')
