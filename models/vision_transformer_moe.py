@@ -668,12 +668,12 @@ class VisionTransformerMoE(nn.Module):
                             expert_data[idx].append(flat_features)
 
 
-                if prev_features is None:
-                    prev_features = features_list
-                else:
-                    for features in features_list:
-                        print(torch.allclose(features, prev_features[0]))
-                        print(features - prev_features[0])
+                # if prev_features is None:
+                #     prev_features = features_list
+                # else:
+                #     for features in features_list:
+                #         print(torch.allclose(features, prev_features[0]))
+                #         print(features - prev_features[0])
 
                 
                 # Store features and datasets
