@@ -282,7 +282,7 @@ class Block(nn.Module):
             x = x + self.drop_path(self.mlp(self.norm2(x)))
         else:
             x = x + self.drop_path(self.mlp_drop(self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem, record_expert_outputs=record_expert_outputs, verbose=verbose)))
-        return x
+        return x, self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem, record_expert_outputs=record_expert_outputs, verbose=verbose)
 
 class PatchEmbed(nn.Module):
     """ Image to Patch Embedding
@@ -570,17 +570,18 @@ class VisionTransformerMoE(nn.Module):
         printed = False
         for i, blk in enumerate(self.blocks):
             if blk.moe:
-                x = blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs=isval, verbose=((not printed) and verbose))
+                x, intermediate_x = blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs=isval, verbose=((not printed) and verbose))
                 if not printed:
                     printed = True
+                intermediate_features.append(intermediate_x)
             else:
                 x = blk(x)
-            intermediate_features.append(x)  # Store features after each block
+              # Store features after each block
             if i in self.out_indices:
                 outs.append(x)
             
         # Store the intermediate features as a class attribute
-        self.intermediate_features = intermediate_features
+        # self.intermediate_features = intermediate_features
         
         return tuple(outs)
 
