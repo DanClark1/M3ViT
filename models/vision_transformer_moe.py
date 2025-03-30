@@ -653,7 +653,6 @@ class VisionTransformerMoE(nn.Module):
                 # Set forced expert for all MoE layers
                 for block in self.blocks:
                     if hasattr(block, 'moe') and block.moe:
-                        print('set expert idx as ',expert_idx)
                         block.mlp.set_forced_expert(expert_idx)
                         check = True
                 

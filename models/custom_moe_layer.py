@@ -66,6 +66,13 @@ class _Expert(nn.Module):
             f"Sum of counts ({fwd_expert_count.sum().item()}) != rows ({inp_flat.shape[0]})"
         )
         x = self.htoh4(inp, fwd_expert_count)
+
+        # testing something
+        other_fwd_expert_count = fwd_expert_count.clone()
+        for i in range(len(other_fwd_expert_count)):
+            other_fwd_expert_count[i] = fwd_expert_count[i-1]
+        other_x = self.htoh4(inp, other_fwd_expert_count)
+        print('are they the same? ', torch.allclose(x, other_x))
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
         if self.record_output and self.stage == 0:
