@@ -593,10 +593,10 @@ class VisionTransformerMoE(nn.Module):
         if hasattr(self, 'intermediate_features'):
             del self.intermediate_features
 
-    def forward(self, x, gate_inp=None, task_id=None, sem=None, isval=False):
+    def forward(self, x, gate_inp=None, task_id=None, sem=None, isval=False, verbose=False):
         if sem is not None and (self.regu_sem or self.sem_force):
             sem = self.get_groundtruth_sem(sem)
-        out = self.forward_features(x, gate_inp, task_id=task_id, sem=sem, isval=isval)
+        out = self.forward_features(x, gate_inp, task_id=task_id, sem=sem, isval=isval, verbose=verbose)
         return out
 
     def visualize_features(self, save_dir='feature_viz', layer_indices=None, input_image=None, expert_indices=None):
