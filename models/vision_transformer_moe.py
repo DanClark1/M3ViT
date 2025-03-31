@@ -807,7 +807,7 @@ class VisionTransformerMoE(nn.Module):
                     reconstruction_errors = []
                     pca_model = PerPCA(r1=max_components, r2=max_components)
                     # generate all subsets of clients
-                    clients_combinations = torch.combinations(torch.tensor(np.array(clients), device='cuda'), 2)
+                    clients_combinations = torch.combinations(torch.tensor(clients), 2)
                     for combination in clients_combinations:
                         U, V_list = pca_model.fit(clients)
                         # Compute misalignment
