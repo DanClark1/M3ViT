@@ -252,7 +252,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                     loss_dict['total'] += diversity_loss
                     
                     if i % 25 == 0:
-                        print('Diversity loss:', diversity_loss.item())
+                        print('Diversity loss:', diversity_loss)
                     
             for k, v in loss_dict.items():
                 losses[k].update(v.item())
