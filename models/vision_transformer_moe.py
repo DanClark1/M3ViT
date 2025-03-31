@@ -922,7 +922,7 @@ def compare_perpca_vs_pca(clients, r1, r2):
         """
         # Reconstruct the data from the top k components
         X_hat = torch.Tensor(U @ (U.T @ X))
-        x = torch.Tensor(X)
+        X = torch.Tensor(X)
         # Compute the Frobenius norm squared of the difference
         error = torch.norm(X - X_hat, p='fro') ** 2
         return error.item()
