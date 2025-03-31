@@ -837,7 +837,7 @@ class VisionTransformerMoE(nn.Module):
                     print(f"Optimal global components: {optimal_global} (recon error: {min_recon_error:.3f})")
                     
                     # Now analyze local components
-                    list_of_V_list = [[] for _ in range(max_components)]
+                    list_of_V_list = [[] for _ in range(len(component_nums))]
                     for i in range(max_components):
                         list_of_V_list[i] = [v[:, :i] for v in V_list]
                     
