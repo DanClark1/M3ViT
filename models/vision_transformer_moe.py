@@ -808,7 +808,7 @@ class VisionTransformerMoE(nn.Module):
                     pca_model = PerPCA(r1=max_components, r2=max_components)
                     # generate all subsets of clients
                     clients_combinations = torch.combinations(torch.tensor(clients), 2)
-                    for combination in clients_combinations:
+                    for combination in tqdm(clients_combinations):
                         U, V_list = pca_model.fit(clients)
                         # Compute misalignment
                         theta, lambda_max = self.compute_misalignment(V_list)
