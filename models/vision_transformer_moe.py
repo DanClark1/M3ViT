@@ -807,7 +807,11 @@ class VisionTransformerMoE(nn.Module):
                     reconstruction_errors = []
                     pca_model = PerPCA(r1=max_components, r2=max_components)
                     # generate all subsets of clients
-                    clients_combinations = torch.combinations(torch.tensor(clients), 2)
+                    import itertools
+                    clients_combinations = list(itertools.combinations(clients, 2))
+                    clients_combinations = [torch.cat(pair, dim=0) for pair in clients_combinations]
+
+
                     for combination in tqdm(clients_combinations):
                         U, V_list = pca_model.fit(clients)
                         # Compute misalignment
