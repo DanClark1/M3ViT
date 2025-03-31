@@ -807,7 +807,7 @@ class VisionTransformerMoE(nn.Module):
                     reconstruction_errors = []
 
                     print('Computing reconstruction errors for global components...')
-                    pca_model = PerPCA(r1=50, r2=50)
+                    pca_model = PerPCA(r1=max_components, r2=max_components)
                     U, V_list = pca_model.fit(clients)
 
                     theta, lambda_max = self.compute_misalignment(V_list)
