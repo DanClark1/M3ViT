@@ -838,7 +838,7 @@ class VisionTransformerMoE(nn.Module):
                     
                     # Now analyze local components
                     list_of_V_list = [[] for _ in range(len(component_nums))]
-                    for i in range(max_components):
+                    for i in range(len(component_nums)):
                         list_of_V_list[i] = [v[:, :i] for v in V_list]
                     
                     # Analyze local components for each expert
