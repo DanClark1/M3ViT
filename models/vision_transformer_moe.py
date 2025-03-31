@@ -983,12 +983,12 @@ class VisionTransformerMoE(nn.Module):
                     
                     # Global component projection
                     im1 = axes[1].imshow(global_mag[b], cmap='viridis')
-                    axes[1].set_title(f'Global Component Projection\n({layer_results['global_components']} components)')
+                    axes[1].set_title(f'Global Component Projection\n({layer_results["global_components"]} components)')
                     plt.colorbar(im1, ax=axes[1])
                     
                     # Local component projection
                     im2 = axes[2].imshow(local_mag[b], cmap='viridis')
-                    axes[2].set_title(f'Local Component Projection\n({exp_results['local_components']} components)')
+                    axes[2].set_title(f'Local Component Projection\n({exp_results["local_components"]} components)')
                     plt.colorbar(im2, ax=axes[2])
                     
                     plt.suptitle(f'Layer {layer_idx} - Sample {b} - Expert {exp_idx} Projections')
