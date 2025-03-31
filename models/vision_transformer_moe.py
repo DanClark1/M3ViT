@@ -921,8 +921,8 @@ def compare_perpca_vs_pca(clients, r1, r2):
             error (float): The reconstruction error as the Frobenius norm squared.
         """
         # Reconstruct the data from the top k components
-        X_hat = torch.Tensor(U @ (U.T @ X), device='cpu')
-        X = torch.Tensor(X, device='cpu')
+        X_hat = torch.tensor(U @ (U.T @ X), device='cpu')
+        X = torch.tensor(X, device='cpu')
         # Compute the Frobenius norm squared of the difference
         error = torch.norm(X - X_hat, p='fro') ** 2
         return error.item()
@@ -942,7 +942,7 @@ def compare_perpca_vs_pca(clients, r1, r2):
         total_error = 0.0
         clients = torch.stack(clients)
         clients = clients.cpu()
-        U = torch.Tensor(U, device='cpu')
+        U = torch.tensor(U, device='cpu')
         V_list = [torch.Tensor(V, device='cpu') for V in V_list]
         for client_data, V in zip(clients, V_list):
             # Reconstruction for this client
