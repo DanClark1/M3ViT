@@ -940,7 +940,7 @@ def compare_perpca_vs_pca(clients, r1, r2):
             total_error (float): Average reconstruction error over clients.
         """
         total_error = 0.0
-        clients = torch.Tensor(clients)
+        clients = torch.stack(clients)
         U = torch.Tensor(U)
         V_list = [torch.Tensor(V) for V in V_list]
         for client_data, V in zip(clients, V_list):
