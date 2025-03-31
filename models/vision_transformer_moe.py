@@ -810,38 +810,59 @@ class VisionTransformerMoE(nn.Module):
                     pca_model = PerPCA(r1=max_components, r2=max_components)
                     U, V_list = pca_model.fit(clients)
 
-                    # Compute contribution of each component to reconstruction
+                    # Compute contribution of each component to reconstruction and variance
                     component_errors = []
+                    component_vars = []
                     for j in range(U.shape[1]):
                         # Use single component
                         U_j = U[:, j:j+1]
                         # Compute reconstruction error with just this component
                         recon_error = perpca_reconstruction_error(clients, U_j, [torch.zeros_like(U_j) for _ in clients])
                         component_errors.append((j, recon_error))
+                        # Compute explained variance for this component
+                        var = pca_model.compute_explained_variance(clients, U_j).sum().item()
+                        component_vars.append((j, var))
                     
                     # Sort components by their reconstruction error (lower is better)
                     sorted_components = sorted(component_errors, key=lambda x: x[1])
                     best_component_indices = [idx for idx, _ in sorted_components]
                     
-                    # Now compute cumulative reconstruction error using best components
+                    # Now compute cumulative reconstruction error and variance using best components
                     reconstruction_errors = []
+                    explained_vars = []
                     for n_components in tqdm(component_nums):
                         # Use the n best components
                         best_indices = best_component_indices[:n_components]
                         U_best = U[:, best_indices]
+                        # Compute reconstruction error
                         recon_error = perpca_reconstruction_error(clients, U_best, 
                                                                [torch.zeros_like(U_best) for _ in clients])
                         reconstruction_errors.append(recon_error)
+                        # Compute explained variance
+                        var = pca_model.compute_explained_variance(clients, U_best).sum().item()
+                        explained_vars.append(var)
                     
-                    # Plot reconstruction error curve
-                    plt.figure(figsize=(10, 6))
-                    plt.plot(component_nums, reconstruction_errors, 'bo-')
-                    plt.xlabel('Number of Best Components')
-                    plt.ylabel('Reconstruction Error')
-                    plt.yscale('log')
-                    plt.title(f'Layer {layer_idx} - Reconstruction Error vs Best Components')
-                    plt.grid(True)
-                    plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_global_recon_error.png'))
+                    # Plot reconstruction error and variance curves
+                    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 6))
+                    
+                    # Reconstruction error
+                    ax1.plot(component_nums, reconstruction_errors, 'bo-')
+                    ax1.set_xlabel('Number of Best Components')
+                    ax1.set_ylabel('Reconstruction Error')
+                    ax1.set_yscale('log')
+                    ax1.set_title('Reconstruction Error vs Best Components')
+                    ax1.grid(True)
+                    
+                    # Explained variance
+                    ax2.plot(component_nums, explained_vars, 'ro-')
+                    ax2.set_xlabel('Number of Best Components')
+                    ax2.set_ylabel('Cumulative Explained Variance')
+                    ax2.set_title('Explained Variance vs Best Components')
+                    ax2.grid(True)
+                    
+                    plt.suptitle(f'Layer {layer_idx} - Global Component Analysis')
+                    plt.tight_layout()
+                    plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_global_analysis.png'))
                     plt.close()
                     
                     # Find optimal number of components using reconstruction error
@@ -864,19 +885,23 @@ class VisionTransformerMoE(nn.Module):
                         
                         # Compute contribution of each local component
                         local_component_errors = []
+                        local_component_vars = []
                         for j in range(V.shape[1]):
                             V_j = V[:, j:j+1]
                             recon_error = perpca_reconstruction_error([expert_data], 
                                                                    torch.zeros_like(V_j), 
                                                                    [V_j])
                             local_component_errors.append((j, recon_error))
+                            var = pca_model.compute_explained_variance([expert_data], V_j).sum().item()
+                            local_component_vars.append((j, var))
                         
                         # Sort local components
                         sorted_local = sorted(local_component_errors, key=lambda x: x[1])
                         best_local_indices = [idx for idx, _ in sorted_local]
                         
-                        # Compute cumulative reconstruction error
+                        # Compute cumulative reconstruction error and variance
                         local_recon_errors = []
+                        local_explained_vars = []
                         for n_components in component_nums:
                             best_indices = best_local_indices[:n_components]
                             V_best = V[:, best_indices]
@@ -884,17 +909,31 @@ class VisionTransformerMoE(nn.Module):
                                                                    torch.zeros_like(V_best), 
                                                                    [V_best])
                             local_recon_errors.append(recon_error)
+                            var = pca_model.compute_explained_variance([expert_data], V_best).sum().item()
+                            local_explained_vars.append(var)
                         
-                        # Plot local reconstruction error curve
-                        plt.figure(figsize=(10, 6))
-                        plt.plot(component_nums, local_recon_errors, 'ro-')
-                        plt.xlabel('Number of Best Local Components')
-                        plt.ylabel('Reconstruction Error')
-                        plt.yscale('log')
-                        plt.title(f'Layer {layer_idx} - Expert {exp_idx} Best Local Components')
-                        plt.grid(True)
+                        # Plot local reconstruction error and variance curves
+                        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 6))
+                        
+                        # Reconstruction error
+                        ax1.plot(component_nums, local_recon_errors, 'bo-')
+                        ax1.set_xlabel('Number of Best Components')
+                        ax1.set_ylabel('Reconstruction Error')
+                        ax1.set_yscale('log')
+                        ax1.set_title('Reconstruction Error vs Best Components')
+                        ax1.grid(True)
+                        
+                        # Explained variance
+                        ax2.plot(component_nums, local_explained_vars, 'ro-')
+                        ax2.set_xlabel('Number of Best Components')
+                        ax2.set_ylabel('Cumulative Explained Variance')
+                        ax2.set_title('Explained Variance vs Best Components')
+                        ax2.grid(True)
+                        
+                        plt.suptitle(f'Layer {layer_idx} - Expert {exp_idx} Local Component Analysis')
+                        plt.tight_layout()
                         plt.savefig(os.path.join(save_dir, 
-                                  f'layer_{layer_idx}_expert_{exp_idx}_local_recon.png'))
+                                  f'layer_{layer_idx}_expert_{exp_idx}_local_analysis.png'))
                         plt.close()
                         
                         # Find optimal local components
