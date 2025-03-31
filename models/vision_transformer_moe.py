@@ -898,13 +898,15 @@ class VisionTransformerMoE(nn.Module):
             # After finding optimal components, visualize projections
             print("\nVisualizing feature projections...")
             
-            # Get optimal components
-            U_opt = U[:, :optimal_global]
-            V_opt_list = [v[:, :optimal_local] for v in V_list]
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            
+            # Get optimal components and ensure they're on the right device
+            U_opt = U[:, :optimal_global].to(device)
+            V_opt_list = [v[:, :optimal_local].to(device) for v in V_list]
             
             # For each expert
             for exp_idx in expert_indices:
-                expert_data = expert_datasets[exp_idx][layer_idx]
+                expert_data = expert_datasets[exp_idx][layer_idx].to(device)
                 
                 # Project onto global components
                 global_proj = (U_opt @ (U_opt.T @ expert_data)).T  # [n, d]
@@ -915,6 +917,11 @@ class VisionTransformerMoE(nn.Module):
                 
                 # Original features
                 orig_features = expert_data.T  # [n, d]
+                
+                # Move all tensors to CPU for visualization
+                orig_features = orig_features.cpu()
+                global_proj = global_proj.cpu()
+                local_proj = local_proj.cpu()
                 
                 # Reshape all to image format for visualization
                 B = orig_features.shape[0] // (h * w)  # Batch size
@@ -932,17 +939,17 @@ class VisionTransformerMoE(nn.Module):
                     fig, axes = plt.subplots(1, 3, figsize=(30, 8))
                     
                     # Original features
-                    im0 = axes[0].imshow(orig_mag[b].cpu(), cmap='viridis')
+                    im0 = axes[0].imshow(orig_mag[b], cmap='viridis')
                     axes[0].set_title(f'Original Features\nExpert {exp_idx}')
                     plt.colorbar(im0, ax=axes[0])
                     
                     # Global component projection
-                    im1 = axes[1].imshow(global_mag[b].cpu(), cmap='viridis')
+                    im1 = axes[1].imshow(global_mag[b], cmap='viridis')
                     axes[1].set_title(f'Global Component Projection\n({optimal_global} components)')
                     plt.colorbar(im1, ax=axes[1])
                     
                     # Local component projection
-                    im2 = axes[2].imshow(local_mag[b].cpu(), cmap='viridis')
+                    im2 = axes[2].imshow(local_mag[b], cmap='viridis')
                     axes[2].set_title(f'Local Component Projection\n({optimal_local} components)')
                     plt.colorbar(im2, ax=axes[2])
                     
@@ -958,13 +965,14 @@ class VisionTransformerMoE(nn.Module):
                 fig, axes = plt.subplots(4, 4, figsize=(20, 20))
                 axes = axes.flatten()
                 
+                expert_data = expert_data.to(device)  # Ensure data is on correct device
                 for j in range(min(16, optimal_global)):
                     # Project onto single component
                     single_proj = (U_opt[:, j:j+1] @ (U_opt[:, j:j+1].T @ expert_data)).T
-                    single_spatial = single_proj.reshape(B, h, w, -1)
+                    single_spatial = single_proj.cpu().reshape(B, h, w, -1)
                     single_mag = torch.norm(single_spatial, dim=-1)
                     
-                    im = axes[j].imshow(single_mag[0].cpu(), cmap='viridis')
+                    im = axes[j].imshow(single_mag[0], cmap='viridis')
                     axes[j].set_title(f'Global Component {j}')
                     plt.colorbar(im, ax=axes[j])
                 
@@ -985,10 +993,10 @@ class VisionTransformerMoE(nn.Module):
                 for j in range(min(16, optimal_local)):
                     # Project onto single component
                     single_proj = (V_opt[:, j:j+1] @ (V_opt[:, j:j+1].T @ expert_data)).T
-                    single_spatial = single_proj.reshape(B, h, w, -1)
+                    single_spatial = single_proj.cpu().reshape(B, h, w, -1)
                     single_mag = torch.norm(single_spatial, dim=-1)
                     
-                    im = axes[j].imshow(single_mag[0].cpu(), cmap='viridis')
+                    im = axes[j].imshow(single_mag[0], cmap='viridis')
                     axes[j].set_title(f'Local Component {j}')
                     plt.colorbar(im, ax=axes[j])
                 
