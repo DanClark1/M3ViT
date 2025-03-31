@@ -606,6 +606,40 @@ class VisionTransformerMoE(nn.Module):
             sem = self.get_groundtruth_sem(sem)
         out = self.forward_features(x, gate_inp, task_id=task_id, sem=sem, isval=isval, verbose=verbose)
         return out
+    
+    def compute_misalignment(V_list):
+        """
+        Computes the misalignment parameter (θ) from a list of local PC matrices.
+        
+        Args:
+            V_list (list of torch.Tensor): List of local PC matrices, each of shape (d, r),
+                where each matrix is orthonormal (i.e. V.T @ V = I).
+                
+        Returns:
+            theta (float): The misalignment parameter defined as θ = 1 - lambda_max,
+                where lambda_max is the largest eigenvalue of the average projection matrix.
+            lambda_max (float): The largest eigenvalue of the average projection matrix.
+        """
+        # Assume at least one local PC matrix exists.
+        d = V_list[0].shape[0]
+        device = V_list[0].device
+        N = len(V_list)
+        
+        # Compute the average projection matrix: P_avg = (1/N) * sum(V @ V.T)
+        P_avg = torch.zeros(d, d, device=device)
+        for V in V_list:
+            P_avg += V @ V.T
+        P_avg /= N
+
+        # Compute eigenvalues of the average projection matrix.
+        # torch.linalg.eigvalsh returns sorted eigenvalues in ascending order.
+        eigvals = torch.linalg.eigvalsh(P_avg)
+        lambda_max = eigvals[-1].item()
+        
+        # Misalignment parameter: theta = 1 - lambda_max
+        theta = 1 - lambda_max
+        
+        return theta, lambda_max
 
     def visualize_features(self, save_dir='feature_viz', layer_indices=None, input_image=None, expert_indices=None):
         """
@@ -724,8 +758,11 @@ class VisionTransformerMoE(nn.Module):
 
 
                     print('fitting')
-                    pca_model = PerPCA(r1=max_components, r2=1)
+                    pca_model = PerPCA(r1=50, r2=50)
                     U, V_list = pca_model.fit(clients)
+
+                    theta, lambda_max = self.compute_misalignment(V_list)
+                    print(f"Misalignment (theta): {theta:.3f} (lambda_max: {lambda_max:.3f})")
                     print(U.shape)
                     print(V_list[0].shape)
                     
