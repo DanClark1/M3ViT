@@ -607,7 +607,7 @@ class VisionTransformerMoE(nn.Module):
         out = self.forward_features(x, gate_inp, task_id=task_id, sem=sem, isval=isval, verbose=verbose)
         return out
     
-    def compute_misalignment(V_list):
+    def compute_misalignment(self, V_list):
         """
         Computes the misalignment parameter (θ) from a list of local PC matrices.
         
