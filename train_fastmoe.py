@@ -185,54 +185,6 @@ parser.add_argument('--viz_dir', type=str, default='feature_visualizations',
 parser.add_argument('--diversity_loss_weight', default=0.0, type=float,
                    help='Weight for expert diversity loss (0.0 to disable)')
 
-parser.add_argument('--pos_emb_from_pretrained', default=False, type=str, help='pos embedding load from pretrain weights')
-parser.add_argument('--lr', default=None, type=float)
-# parser.add_argument('--weight_decay', default=None, type=float)
-
-parser.add_argument('--one_by_one',default=False, type=str2bool, help='whether train task one after another')
-parser.add_argument('--task_one_hot',default=False, type=str2bool, help='whether use Task-conditioned MoE')
-parser.add_argument('--multi_gate',default=False, type=str2bool, help='whether use Multi gate MoE')
-
-parser.add_argument('--eval', action='store_true',help='if only do evaluation')
-parser.add_argument('--flops', action='store_true',
-        help='flops calculation')
-parser.add_argument('--ckp',type=str,default=None,help='checkpoint path during evaluation')
-parser.add_argument('--save_dir', type=str, default=None)
-parser.add_argument('--gate_task_specific_dim', default=-1, type=int, help='gate task specific dims')
-
-parser.add_argument('--regu_experts_fromtask',default=False, type=str2bool, help='whether use task id to guide expert selection')
-parser.add_argument('--num_experts_pertask',default=-1, type=int)
-
-parser.add_argument('--gate_input_ahead',default=False, type=str2bool, help='whether make gate input different from token')
-
-parser.add_argument('--regu_sem',default=False, type=str2bool, help='whether use segmentation map to guide expert selection')
-parser.add_argument('--semregu_loss_weight', default=0.01, type=float)
-
-parser.add_argument('--sem_force',default=False, type=str2bool, help='whether use segmentation map to guide expert selection')
-parser.add_argument('--warmup_epochs',default=5, type=int, help='whether need warmup train expert')
-
-parser.add_argument('--epochs',default=None, type=int, help='number of train epochs')
-
-parser.add_argument('--regu_subimage',default=False, type=str2bool, help='whether use subimage regulation for expert selection')
-parser.add_argument('--subimageregu_weight', default=0.01, type=float)
-
-parser.add_argument('--multi_level',default=None, type=str2bool, help='whether use multi level loss')
-
-parser.add_argument('--opt', default=None, type=str, metavar='OPTIMIZER', help='Optimizer (default: "adamw"')
-parser.add_argument('--weight_decay', type=float, default=0.0001,help='weight decay (default: 0.05)')
-
-parser.add_argument('--expert_prune',default=False, type=str2bool, help='whether use expert pruning')
-
-parser.add_argument('--tam_level0',default=None, type=str2bool, help='use tamlevel0 to boost training')
-parser.add_argument('--tam_level1',default=None, type=str2bool, help='use tamlevel1 to boost training')
-parser.add_argument('--tam_level2',default=None, type=str2bool, help='use tamlevel2 to boost training')
-
-parser.add_argument('--resume', default='', help='resume from checkpoint')
-parser.add_argument('--time', action='store_true', help='if wanna get inference time')
-parser.add_argument('--visualize_features', action='store_true', 
-                   help='whether to visualize intermediate features')
-parser.add_argument('--viz_dir', type=str, default='feature_visualizations',
-                   help='directory to save feature visualizations')
 args = parser.parse_args()
 
 if args.task_one_hot:
