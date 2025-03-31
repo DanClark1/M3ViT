@@ -932,7 +932,7 @@ def compare_perpca_vs_pca(clients, r1, r2):
         explained_var_per_client = []
         for i in range(len(clients)):
             explained_var_per_client.append(pca_model.compute_explained_variance(clients, V_list_subset[i]))
-        explained_var = explained_var_per_client / len(explained_var_per_client)
+        explained_var = np.sum(np.array(explained_var_per_client)) / len(explained_var_per_client)
         explained_vars_perpca_local.append(explained_var.sum().item())
     
 
