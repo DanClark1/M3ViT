@@ -40,6 +40,49 @@ def _cfg(url='', **kwargs):
     }
 
 
+def perpca_reconstruction_error(clients, U, V_list):
+        """
+        Compute the overall reconstruction error for PerPCA.
+        
+        Args:
+            clients (list of torch.Tensor): Each element is a client's data matrix of shape (d, n_i).
+            U (torch.Tensor): Global PC matrix of shape (d, r1).
+            V_list (list of torch.Tensor): List of local PC matrices (one per client) of shape (d, r2_i).
+        
+        Returns:
+            total_error (float): Average reconstruction error over clients.
+        """
+        total_error = 0.0
+        clients = torch.stack(clients)
+        clients = clients.cpu()
+        U = U.cpu()
+        V_list = [torch.tensor(V, device='cpu') for V in V_list]
+        for client_data, V in zip(clients, V_list):
+            # Reconstruction for this client
+            reconstruction = U @ (U.T @ client_data) + V @ (V.T @ client_data)
+            error = torch.norm(client_data - reconstruction, p='fro') ** 2
+            total_error += error.item()
+        return total_error / len(clients)
+
+def reconstruction_error(X, U):
+        """
+        Compute the reconstruction error for standard PCA.
+        
+        Args:
+            X (torch.Tensor): Data matrix of shape (d, n) where each column is a data sample.
+            U (torch.Tensor): Principal component matrix of shape (d, k) (assumed to be orthonormal).
+        
+        Returns:
+            error (float): The reconstruction error as the Frobenius norm squared.
+        """
+        # Reconstruct the data from the top k components
+        X_hat = torch.tensor(U @ (U.T @ X), device='cpu')
+        X = torch.tensor(X, device='cpu')
+        # Compute the Frobenius norm squared of the difference
+        error = torch.norm(X - X_hat, p='fro') ** 2
+        return error.item()
+
+
 default_cfgs = {
     # patch models
     'vit_tiny_patch16_224': _cfg(
@@ -758,103 +801,81 @@ class VisionTransformerMoE(nn.Module):
                     # Analyze global components first
                     clients = [expert_datasets[exp_idx][layer_idx] for exp_idx in expert_indices]
                     
-                    # Create elbow plot for global components
+                    # Create reconstruction error plot for global components
                     max_components = clients[0].shape[0] - 1
                     component_nums = list(range(1, max_components + 1))
-                    explained_vars = []
+                    reconstruction_errors = []
 
-
-                    print('fitting')
-
-                    compare_perpca_vs_pca(clients, 3, 3)
+                    print('Computing reconstruction errors for global components...')
                     pca_model = PerPCA(r1=50, r2=50)
                     U, V_list = pca_model.fit(clients)
 
                     theta, lambda_max = self.compute_misalignment(V_list)
                     print(f"Misalignment (theta): {theta:.3f} (lambda_max: {lambda_max:.3f})")
-                    print(U.shape)
-                    print(V_list[0].shape)
-                    
 
-                    print('Global components:')
                     for n_components in tqdm(component_nums):
                         U_subset = U[:, :n_components]
-                        explained_var = pca_model.compute_explained_variance(clients, U_subset)
-                        explained_vars.append(explained_var.sum().item())
+                        recon_error = perpca_reconstruction_error(clients, U_subset, [torch.zeros_like(U_subset) for _ in clients])
+                        reconstruction_errors.append(recon_error)
                     
-                    # Plot global elbow curve
+                    # Plot reconstruction error curve
                     plt.figure(figsize=(10, 6))
-                    plt.plot(component_nums, explained_vars, 'bo-')
+                    plt.plot(component_nums, reconstruction_errors, 'bo-')
                     plt.xlabel('Number of Global Components')
-                    plt.ylabel('Total Explained Variance Ratio')
-                    plt.title(f'Layer {layer_idx} - Elbow Plot for Global Components')
+                    plt.ylabel('Reconstruction Error')
+                    plt.yscale('log')  # Use log scale for better visualization
+                    plt.title(f'Layer {layer_idx} - Reconstruction Error vs Global Components')
                     plt.grid(True)
-                    plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_global_elbow_plot.png'))
+                    plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_global_recon_error.png'))
                     plt.close()
                     
-                    # Find optimal global components
-                    optimal_global, global_var = find_elbow_point(component_nums, explained_vars)
+                    # Find optimal global components using reconstruction error
+                    optimal_global = component_nums[np.argmin(reconstruction_errors)]
+                    min_recon_error = min(reconstruction_errors)
                     layer_results['global_components'] = optimal_global
-                    layer_results['global_variance'] = global_var
-                    print(f"Global components: {optimal_global} (var: {global_var:.3f})")
+                    layer_results['global_recon_error'] = min_recon_error
+                    print(f"Optimal global components: {optimal_global} (recon error: {min_recon_error:.3f})")
                     
-                    # generating V_list for different r2
-                    list_of_V_list = [] # can't think of a good name for this
-
-                    # increasing the search range for local components (don't want to overlap with global components)
-                    max_components_local = clients[0].shape[0] - 1
-                    # max_components_local = 100
-                    component_nums_local = list(range(1, max_components_local + 1))
-
-
-                    print('Local components:')
-                    print(V_list[0].shape)
-                    print(U.shape)
-
+                    # Now analyze local components
                     list_of_V_list = [[] for _ in range(max_components)]
                     for i in range(max_components):
                         list_of_V_list[i] = [v[:, :i] for v in V_list]
                     
-                    
-                    # for n_components in tqdm(component_nums_local):
-                    #         pca_model = PerPCA(r1=optimal_global, r2=n_components) 
-                    #         _, V_list = pca_model.fit(clients)
-                    #         list_of_V_list.append(V_list)
-            
-                    # analyze local components for each expert
+                    # Analyze local components for each expert
                     expert_results = {}
                     for exp_idx in expert_indices:
                         expert_data = expert_datasets[exp_idx][layer_idx]
                         
-                        # going through different numbers of local components
-                        local_explained_vars = []
+                        # Calculate reconstruction errors for different numbers of local components
+                        local_recon_errors = []
                         for V_list in list_of_V_list:
-                            explained_var = pca_model.compute_explained_variance([expert_data], V_list[exp_idx])
-                            local_explained_vars.append(explained_var.sum().item())
+                            recon_error = perpca_reconstruction_error([expert_data], 
+                                                                   torch.zeros_like(U_subset), 
+                                                                   [V_list[exp_idx]])
+                            local_recon_errors.append(recon_error)
                         
-                        # Plot local elbow curve
+                        # Plot local reconstruction error curve
                         plt.figure(figsize=(10, 6))
-                        plt.plot(component_nums_local, local_explained_vars, 'ro-')
+                        plt.plot(component_nums, local_recon_errors, 'ro-')
                         plt.xlabel('Number of Local Components')
-                        plt.ylabel('Explained Variance Ratio')
+                        plt.ylabel('Reconstruction Error')
+                        plt.yscale('log')
                         plt.title(f'Layer {layer_idx} - Expert {exp_idx} Local Components')
                         plt.grid(True)
-                        plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_expert_{exp_idx}_local_elbow.png'))
+                        plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_expert_{exp_idx}_local_recon.png'))
                         plt.close()
                         
-                        # Find optimal local components
-                        optimal_local, local_var = find_elbow_point(component_nums_local, local_explained_vars)
+                        # Find optimal local components using reconstruction error
+                        optimal_local = component_nums[np.argmin(local_recon_errors)]
+                        min_local_recon = min(local_recon_errors)
                         expert_results[exp_idx] = {
                             'local_components': optimal_local,
-                            'local_variance': local_var
+                            'local_recon_error': min_local_recon
                         }
-                        print(f"Expert {exp_idx} local components: {optimal_local} (var: {local_var:.3f})")
+                        print(f"Expert {exp_idx} optimal local components: {optimal_local} (recon error: {min_local_recon:.3f})")
                     
                     layer_results['expert_results'] = expert_results
                     results['layer_results'][layer_idx] = layer_results
-                    
-                    # Run final PerPCA with optimal components
-                    # ... rest of existing visualization code ...
 
             # Save results to file
             with open(os.path.join(save_dir, 'component_analysis.txt'), 'w') as f:
@@ -865,13 +886,13 @@ class VisionTransformerMoE(nn.Module):
                     layer_results = results['layer_results'][layer_idx]
                     f.write(f"Layer {layer_idx}:\n")
                     f.write(f"  Global components: {layer_results['global_components']}\n")
-                    f.write(f"  Global variance explained: {layer_results['global_variance']:.3f}\n")
+                    f.write(f"  Global reconstruction error: {layer_results['global_recon_error']:.3f}\n")
                     f.write("\n  Expert-specific results:\n")
                     
                     for exp_idx, exp_results in layer_results['expert_results'].items():
                         f.write(f"    Expert {exp_idx}:\n")
                         f.write(f"      Local components: {exp_results['local_components']}\n")
-                        f.write(f"      Local variance explained: {exp_results['local_variance']:.3f}\n")
+                        f.write(f"      Local reconstruction error: {exp_results['local_recon_error']:.3f}\n")
                     f.write("\n")
 
         else:
@@ -909,47 +930,9 @@ def compare_perpca_vs_pca(clients, r1, r2):
     This function uses the PerPCA implementation (assumed to have methods fit and compute_explained_variance)
     and the sklearn PCA on the pooled data to generate a scree plot for both approaches.
     """
-    def reconstruction_error(X, U):
-        """
-        Compute the reconstruction error for standard PCA.
-        
-        Args:
-            X (torch.Tensor): Data matrix of shape (d, n) where each column is a data sample.
-            U (torch.Tensor): Principal component matrix of shape (d, k) (assumed to be orthonormal).
-        
-        Returns:
-            error (float): The reconstruction error as the Frobenius norm squared.
-        """
-        # Reconstruct the data from the top k components
-        X_hat = torch.tensor(U @ (U.T @ X), device='cpu')
-        X = torch.tensor(X, device='cpu')
-        # Compute the Frobenius norm squared of the difference
-        error = torch.norm(X - X_hat, p='fro') ** 2
-        return error.item()
+    
 
-    def perpca_reconstruction_error(clients, U, V_list):
-        """
-        Compute the overall reconstruction error for PerPCA.
-        
-        Args:
-            clients (list of torch.Tensor): Each element is a client's data matrix of shape (d, n_i).
-            U (torch.Tensor): Global PC matrix of shape (d, r1).
-            V_list (list of torch.Tensor): List of local PC matrices (one per client) of shape (d, r2_i).
-        
-        Returns:
-            total_error (float): Average reconstruction error over clients.
-        """
-        total_error = 0.0
-        clients = torch.stack(clients)
-        clients = clients.cpu()
-        U = torch.tensor(U, device='cpu')
-        V_list = [torch.tensor(V, device='cpu') for V in V_list]
-        for client_data, V in zip(clients, V_list):
-            # Reconstruction for this client
-            reconstruction = U @ (U.T @ client_data) + V @ (V.T @ client_data)
-            error = torch.norm(client_data - reconstruction, p='fro') ** 2
-            total_error += error.item()
-        return total_error / len(clients)
+    
 
     # move clients to numpy
     # Instantiate PerPCA with the specified number of global (r1) and local (r2) components.
