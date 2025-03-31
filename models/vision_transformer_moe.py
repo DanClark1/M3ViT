@@ -799,6 +799,15 @@ class VisionTransformerMoE(nn.Module):
                     
                     # Analyze global components first
                     clients = [expert_datasets[exp_idx][layer_idx] for exp_idx in expert_indices]
+                    pca_model = PerPCA(r1=max_components, r2=max_components)
+                    # generate all subsets of clients
+                    clients_combinations = torch.combinations(clients, 2)
+                    for combination in clients_combinations:
+                        U, V_list = pca_model.fit(clients)
+                        # Compute misalignment
+                        theta, lambda_max = self.compute_misalignment(V_list)
+                        print('Combination of clients:', combination)
+                        print(f"Misalignment (theta) for layer {layer_idx}: {theta:.4f} (lambda_max: {lambda_max:.4f})")
                     
                     # Create reconstruction error plot for global components
                     max_components = clients[0].shape[0] - 1
@@ -806,7 +815,7 @@ class VisionTransformerMoE(nn.Module):
                     reconstruction_errors = []
 
                     print('Computing reconstruction errors for global components...')
-                    pca_model = PerPCA(r1=max_components, r2=max_components)
+                    
                     U, V_list = pca_model.fit(clients)
 
                     # measure cosine similarity between each client
