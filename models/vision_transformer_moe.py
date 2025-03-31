@@ -766,7 +766,7 @@ class VisionTransformerMoE(nn.Module):
 
                     print('fitting')
 
-                    compare_perpca_vs_pca(clients, 50, 50)
+                    compare_perpca_vs_pca(clients, 3, 3)
                     pca_model = PerPCA(r1=50, r2=50)
                     U, V_list = pca_model.fit(clients)
 
