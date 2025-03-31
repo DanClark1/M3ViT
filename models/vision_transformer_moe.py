@@ -895,6 +895,113 @@ class VisionTransformerMoE(nn.Module):
                         f.write(f"      Local reconstruction error: {exp_results['local_recon_error']:.3f}\n")
                     f.write("\n")
 
+            # After finding optimal components, visualize projections
+            print("\nVisualizing feature projections...")
+            
+            # Get optimal components
+            U_opt = U[:, :optimal_global]
+            V_opt_list = [v[:, :optimal_local] for v in V_list]
+            
+            # For each expert
+            for exp_idx in expert_indices:
+                expert_data = expert_datasets[exp_idx][layer_idx]
+                
+                # Project onto global components
+                global_proj = (U_opt @ (U_opt.T @ expert_data)).T  # [n, d]
+                
+                # Project onto local components
+                V_opt = V_opt_list[exp_idx]
+                local_proj = (V_opt @ (V_opt.T @ expert_data)).T  # [n, d]
+                
+                # Original features
+                orig_features = expert_data.T  # [n, d]
+                
+                # Reshape all to image format for visualization
+                B = orig_features.shape[0] // (h * w)  # Batch size
+                orig_spatial = orig_features.reshape(B, h, w, -1)
+                global_spatial = global_proj.reshape(B, h, w, -1)
+                local_spatial = local_proj.reshape(B, h, w, -1)
+                
+                # Compute feature magnitudes
+                orig_mag = torch.norm(orig_spatial, dim=-1)
+                global_mag = torch.norm(global_spatial, dim=-1)
+                local_mag = torch.norm(local_spatial, dim=-1)
+                
+                # Plot side by side for each sample in batch
+                for b in range(min(B, 5)):  # Show first 5 samples
+                    fig, axes = plt.subplots(1, 3, figsize=(30, 8))
+                    
+                    # Original features
+                    im0 = axes[0].imshow(orig_mag[b].cpu(), cmap='viridis')
+                    axes[0].set_title(f'Original Features\nExpert {exp_idx}')
+                    plt.colorbar(im0, ax=axes[0])
+                    
+                    # Global component projection
+                    im1 = axes[1].imshow(global_mag[b].cpu(), cmap='viridis')
+                    axes[1].set_title(f'Global Component Projection\n({optimal_global} components)')
+                    plt.colorbar(im1, ax=axes[1])
+                    
+                    # Local component projection
+                    im2 = axes[2].imshow(local_mag[b].cpu(), cmap='viridis')
+                    axes[2].set_title(f'Local Component Projection\n({optimal_local} components)')
+                    plt.colorbar(im2, ax=axes[2])
+                    
+                    plt.suptitle(f'Layer {layer_idx} - Sample {b} - Expert {exp_idx} Projections')
+                    plt.savefig(os.path.join(save_dir, 
+                              f'layer_{layer_idx}_expert_{exp_idx}_sample_{b}_projections.png'))
+                    plt.close()
+                    
+                # Also visualize individual component contributions
+                num_components_to_show = min(16, max(optimal_global, optimal_local))
+                
+                # Global components
+                fig, axes = plt.subplots(4, 4, figsize=(20, 20))
+                axes = axes.flatten()
+                
+                for j in range(min(16, optimal_global)):
+                    # Project onto single component
+                    single_proj = (U_opt[:, j:j+1] @ (U_opt[:, j:j+1].T @ expert_data)).T
+                    single_spatial = single_proj.reshape(B, h, w, -1)
+                    single_mag = torch.norm(single_spatial, dim=-1)
+                    
+                    im = axes[j].imshow(single_mag[0].cpu(), cmap='viridis')
+                    axes[j].set_title(f'Global Component {j}')
+                    plt.colorbar(im, ax=axes[j])
+                
+                # Remove empty subplots
+                for j in range(min(16, optimal_global), 16):
+                    axes[j].remove()
+                
+                plt.suptitle(f'Layer {layer_idx} - Expert {exp_idx} - Global Component Contributions')
+                plt.tight_layout()
+                plt.savefig(os.path.join(save_dir, 
+                              f'layer_{layer_idx}_expert_{exp_idx}_global_components.png'))
+                plt.close()
+                
+                # Local components
+                fig, axes = plt.subplots(4, 4, figsize=(20, 20))
+                axes = axes.flatten()
+                
+                for j in range(min(16, optimal_local)):
+                    # Project onto single component
+                    single_proj = (V_opt[:, j:j+1] @ (V_opt[:, j:j+1].T @ expert_data)).T
+                    single_spatial = single_proj.reshape(B, h, w, -1)
+                    single_mag = torch.norm(single_spatial, dim=-1)
+                    
+                    im = axes[j].imshow(single_mag[0].cpu(), cmap='viridis')
+                    axes[j].set_title(f'Local Component {j}')
+                    plt.colorbar(im, ax=axes[j])
+                
+                # Remove empty subplots
+                for j in range(min(16, optimal_local), 16):
+                    axes[j].remove()
+                
+                plt.suptitle(f'Layer {layer_idx} - Expert {exp_idx} - Local Component Contributions')
+                plt.tight_layout()
+                plt.savefig(os.path.join(save_dir, 
+                              f'layer_{layer_idx}_expert_{exp_idx}_local_components.png'))
+                plt.close()
+
         else:
             # Original visualization code for normal routing
             for idx in layer_indices:
