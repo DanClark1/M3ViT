@@ -911,7 +911,6 @@ def compare_perpca_vs_pca(clients, r1, r2):
     """
 
     # move clients to numpy
-    clients = [client.cpu().numpy() for client in clients]
     # Instantiate PerPCA with the specified number of global (r1) and local (r2) components.
     pca_model = PerPCA(r1=r1, r2=r2)
     U, V_list = pca_model.fit(clients)
@@ -927,6 +926,9 @@ def compare_perpca_vs_pca(clients, r1, r2):
         explained_var = pca_model.compute_explained_variance(clients, U_subset)
         explained_vars_perpca.append(explained_var.sum().item())
     
+
+    clients = [client.cpu().numpy() for client in clients]
+
     # Pool the client data into one matrix.
     pooled_data = np.hstack(clients)  # Shape: (d, total_samples)
     pooled_data = pooled_data.T         # Reshape to (total_samples, d) for sklearn PCA
