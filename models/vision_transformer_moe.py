@@ -909,6 +909,9 @@ def compare_perpca_vs_pca(clients, r1, r2):
     This function uses the PerPCA implementation (assumed to have methods fit and compute_explained_variance)
     and the sklearn PCA on the pooled data to generate a scree plot for both approaches.
     """
+
+    # move clients to numpy
+    clients = [client.cpu().numpy() for client in clients]
     # Instantiate PerPCA with the specified number of global (r1) and local (r2) components.
     pca_model = PerPCA(r1=r1, r2=r2)
     U, V_list = pca_model.fit(clients)
