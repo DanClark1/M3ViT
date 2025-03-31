@@ -1,109 +1,94 @@
-
-string = """1.86599414e-06 1.18931507e-06 8.58317321e-07 8.15559872e-07
- 5.72002648e-07 4.93499726e-07 4.39394114e-07 3.82786396e-07
- 3.63779435e-07 3.53063342e-07 3.36768693e-07 2.99807823e-07
- 2.82934081e-07 2.39783276e-07 2.36117117e-07 2.30544671e-07
- 2.19996963e-07 2.04507401e-07 1.86650510e-07 1.84590192e-07
- 1.70353033e-07 1.67790375e-07 1.65823067e-07 1.53201015e-07
- 1.46541879e-07 1.38149431e-07 1.31090388e-07 1.29827995e-07
- 1.20458694e-07 1.18581966e-07 1.15147728e-07 1.07724695e-07
- 1.03214845e-07 9.96568943e-08 9.81839605e-08 9.47947925e-08
- 9.13458891e-08 8.65040448e-08 8.49562269e-08 8.15530754e-08
- 7.91703414e-08 7.54968710e-08 7.28917868e-08 7.21585067e-08
- 6.68929090e-08 6.51624887e-08 6.04764665e-08 5.81899968e-08
- 5.57834703e-08 5.44543219e-08 5.15015195e-08 5.10949434e-08
- 4.90703869e-08 4.74478696e-08 4.63978296e-08 4.47520385e-08
- 4.33029648e-08 4.24132445e-08 4.09751593e-08 4.00388203e-08
- 3.77292295e-08 3.64463197e-08 3.58846997e-08 3.56427918e-08
- 3.40116202e-08 3.22501421e-08 3.20828981e-08 3.12001909e-08
- 3.05444345e-08 2.92431697e-08 2.73166183e-08 2.66162434e-08
- 2.61280455e-08 2.59163997e-08 2.52248675e-08 2.36623308e-08
- 2.31952839e-08 2.26160335e-08 2.23813235e-08 2.08946229e-08
- 2.07365769e-08 2.03630037e-08 1.90854816e-08 1.86237923e-08
- 1.80050179e-08 1.74095138e-08 1.69875829e-08 1.67804952e-08
- 1.67445915e-08 1.61409890e-08 1.58494728e-08 1.51023851e-08
- 1.46328354e-08 1.42366448e-08 1.38859333e-08 1.36138008e-08
- 1.33359119e-08 1.28319995e-08 1.22351498e-08 1.19544143e-08
- 1.15562457e-08 1.14883028e-08 1.12617444e-08 1.06236433e-08
- 1.04666356e-08 1.03000044e-08 9.59400648e-09 9.32496658e-09
- 8.89804230e-09 8.68337491e-09 8.39092440e-09 8.36087555e-09
- 8.14429768e-09 7.83362175e-09 7.76384645e-09 7.61245644e-09
- 7.12018622e-09 6.94158686e-09 6.80707135e-09 6.68364786e-09
- 6.43914344e-09 6.35544728e-09 6.30465546e-09 6.19399954e-09
- 5.88526605e-09 5.78297543e-09 5.42832534e-09 5.39229905e-09
- 5.18415710e-09 4.97412556e-09 4.89575136e-09 4.69567585e-09
- 4.59336302e-09 4.53645699e-09 4.42648629e-09 4.28736868e-09
- 4.21537560e-09 4.17699031e-09 3.98223721e-09 3.70771969e-09
- 3.60900532e-09 3.55836627e-09 3.47371731e-09 3.32965810e-09
- 3.30015015e-09 3.16529891e-09 3.13877391e-09 3.01556158e-09
- 2.89447932e-09 2.79523893e-09 2.74107559e-09 2.64099609e-09
- 2.55296784e-09 2.54018451e-09 2.46678478e-09 2.40123366e-09
- 2.33737052e-09 2.25880070e-09 2.20795182e-09 2.16996643e-09
- 2.14994045e-09 2.04678652e-09 2.01739181e-09 1.97503902e-09
- 1.89471216e-09 1.84177140e-09 1.73683778e-09 1.71484071e-09
- 1.67742908e-09 1.62394120e-09 1.58969571e-09 1.50805324e-09
- 1.44810175e-09 1.40757483e-09 1.38331380e-09 1.32326983e-09
- 1.30225186e-09 1.25538724e-09 1.19428967e-09 1.19041377e-09
- 1.13664711e-09 1.10880594e-09 1.06912412e-09 1.05997011e-09
- 1.02926434e-09 1.01116193e-09 9.75805214e-10 9.61665081e-10
- 9.10693188e-10 8.84560702e-10 8.39230463e-10 8.21950896e-10
- 8.12350964e-10 7.80880305e-10 7.69851072e-10 7.52239937e-10
- 7.16418480e-10 7.05578873e-10 6.70773381e-10 6.62722488e-10
- 6.49928167e-10 5.99952310e-10 5.86009963e-10 5.54864266e-10
- 5.45701262e-10 5.24549071e-10 5.02990205e-10 4.97531405e-10
- 4.92952790e-10 4.80876727e-10 4.54657839e-10 4.42798326e-10
- 4.37448910e-10 4.09689477e-10 3.98046957e-10 3.92364835e-10
- 3.77388565e-10 3.67141262e-10 3.44373641e-10 3.38796075e-10
- 3.28731375e-10 3.17638638e-10 3.07355058e-10 3.04493875e-10
- 2.92908336e-10 2.86261986e-10 2.69330919e-10 2.67254413e-10
- 2.59624544e-10 2.49280901e-10 2.44303910e-10 2.37042386e-10
- 2.20845925e-10 2.18323720e-10 2.14411891e-10 2.05250858e-10
- 1.97463323e-10 1.92405994e-10 1.86061638e-10 1.82774379e-10
- 1.77233783e-10 1.63654423e-10 1.61047883e-10 1.58640392e-10
- 1.50970070e-10 1.46306467e-10 1.36093498e-10 1.30646979e-10
- 1.28049460e-10 1.23973276e-10 1.20854826e-10 1.19319957e-10
- 1.10467385e-10 1.07991879e-10 1.04319477e-10 1.03929254e-10
- 9.85540885e-11 9.49995291e-11 8.75149397e-11 8.49885995e-11
- 8.22123411e-11 8.09998110e-11 7.61931004e-11 7.44006662e-11
- 7.17398640e-11 6.84858975e-11 6.61280128e-11 6.38022829e-11
- 6.06877534e-11 5.72526783e-11 5.51271286e-11 5.32735835e-11
- 5.01345077e-11 4.76076852e-11 4.67603213e-11 4.52083683e-11
- 4.43951889e-11 4.27707939e-11 4.05162154e-11 3.81890804e-11
- 3.73217846e-11 3.50560622e-11 3.36499439e-11 3.16709610e-11
- 3.05767425e-11 2.96474269e-11 2.86053368e-11 2.82095527e-11
- 2.78381658e-11 2.43357556e-11 2.34904648e-11 2.32194750e-11
- 2.15994410e-11 2.01376398e-11 1.99159647e-11 1.91042026e-11
- 1.83944301e-11 1.78360521e-11 1.70827484e-11 1.57414290e-11
- 1.41958285e-11 1.37337260e-11 1.34907276e-11 1.28851088e-11
- 1.17077112e-11 1.13305225e-11 1.04921237e-11 9.79982241e-12
- 9.72946116e-12 8.90452208e-12 8.32660243e-12 8.16176640e-12
- 7.89583503e-12 7.10511858e-12 6.90756263e-12 6.56311030e-12
- 6.19052466e-12 5.67811900e-12 5.38336953e-12 5.23394566e-12
- 4.99276835e-12 4.77591577e-12 4.64835895e-12 4.28371227e-12
- 3.97910047e-12 3.61444663e-12 3.46997387e-12 3.23215846e-12
- 2.97756589e-12 2.82854165e-12 2.59822719e-12 2.31896945e-12
- 2.20320507e-12 2.10516782e-12 1.91330849e-12 1.70747260e-12
- 1.58919807e-12 1.56959005e-12 1.48949895e-12 1.38295929e-12
- 1.29948548e-12 1.18156374e-12 1.09608188e-12 9.91671805e-13
- 8.27077989e-13 7.91873891e-13 7.68356353e-13 6.61866232e-13
- 6.39044698e-13 6.21203555e-13 5.71488386e-13 4.98958351e-13
- 4.62818423e-13 4.03982512e-13 3.85593846e-13 3.68490909e-13
- 3.20267060e-13 2.89530796e-13 2.73395645e-13 2.40913138e-13
- 2.10409516e-13 1.86346422e-13 1.71700477e-13 1.53160552e-13
- 1.36714533e-13 1.31254830e-13 1.14738202e-13 1.03121620e-13
- 7.96276361e-14 7.79367144e-14 6.44069487e-14 5.20354057e-14
- 4.75504950e-14 3.97927066e-14 2.99611783e-14 2.81292018e-14
- 2.07328881e-14 1.34956946e-14 1.23170822e-14 6.39873930e-15
- 3.40121315e-15 1.32817964e-15 2.99235882e-16 8.86362242e-18
-"""
-
-# plot the values
+import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
 
-values = [float(x) for x in string.strip("[]").split()]
-plt.plot(values, marker="o")
-plt.title("PerPCA Scree Plot")
-plt.xlabel("Number of global PCs (r₁)")
-plt.ylabel("Shared‑variance fraction")
+# ---------------------------
+# Step 1: Simulate Homogeneous Data
+# ---------------------------
+np.random.seed(0)
+n_samples = 1000  # total number of samples
+d = 50            # dimensionality of data
+
+# Create data from a standard normal distribution (covariance = I)
+data = np.random.multivariate_normal(np.zeros(d), np.eye(d), size=n_samples)
+
+# ---------------------------
+# Step 2: Standard PCA on Pooled Data
+# ---------------------------
+pca = PCA()
+pca.fit(data)
+explained_variance = pca.explained_variance_ratio_
+
+plt.figure(figsize=(8, 6))
+plt.plot(range(1, d + 1), explained_variance, 'o-', label="Standard PCA")
+plt.xlabel("Principal Component")
+plt.ylabel("Explained Variance Ratio")
+plt.title("Scree Plot for Standard PCA on Homogeneous Data")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# ---------------------------
+# Step 3: Simulate Federated Setting
+# ---------------------------
+n_clients = 5
+client_data = np.array_split(data, n_clients)
+
+def compute_local_PCs(client_data, n_components=10):
+    """
+    Compute the top n_components local principal components for each client.
+    Returns a list of local PC matrices of shape (d, n_components).
+    """
+    local_PCs = []
+    for client in client_data:
+        # Compute the sample covariance matrix for the client data.
+        cov_mat = np.cov(client.T)
+        # Eigen-decomposition (eigh returns sorted eigenvalues in ascending order)
+        eigenvals, eigenvecs = np.linalg.eigh(cov_mat)
+        # Sort eigenvectors in descending order of eigenvalues
+        idx = np.argsort(eigenvals)[::-1]
+        eigenvecs = eigenvecs[:, idx]
+        local_PCs.append(eigenvecs[:, :n_components])
+    return local_PCs
+
+local_PCs = compute_local_PCs(client_data, n_components=10)
+
+# ---------------------------
+# Step 4: Compute Misalignment Parameter (θ)
+# ---------------------------
+def compute_avg_projection(V_list):
+    """
+    Computes the average projection matrix from a list of local PC matrices.
+    """
+    d = V_list[0].shape[0]
+    P_avg = np.zeros((d, d))
+    for V in V_list:
+        # Projection matrix for V (V must be orthonormal: V.T @ V = I)
+        P_avg += V @ V.T
+    P_avg /= len(V_list)
+    return P_avg
+
+P_avg = compute_avg_projection(local_PCs)
+eigvals_avg = np.linalg.eigvalsh(P_avg)  # ascending order
+lambda_max = np.max(eigvals_avg)
+theta = 1 - lambda_max
+print("Misalignment parameter (theta):", theta)
+print("Largest eigenvalue of average projection (lambda_max):", lambda_max)
+
+# ---------------------------
+# Step 5: Compare with Pooled PCA (Global Components)
+# ---------------------------
+# Compute the pooled covariance matrix from the entire dataset
+pooled_cov = np.cov(data.T)
+eigenvals_pooled, _ = np.linalg.eigh(pooled_cov)
+eigenvals_pooled = eigenvals_pooled[::-1]  # sort in descending order
+explained_variance_pooled = eigenvals_pooled / np.sum(eigenvals_pooled)
+
+plt.figure(figsize=(8, 6))
+plt.plot(range(1, d + 1), explained_variance_pooled, 'o-', label="Pooled PCA")
+plt.xlabel("Principal Component")
+plt.ylabel("Explained Variance Ratio")
+plt.title("Scree Plot for Pooled PCA on Homogeneous Data")
+plt.legend()
 plt.grid(True)
 plt.show()

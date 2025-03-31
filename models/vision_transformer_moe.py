@@ -19,6 +19,15 @@ from models.gate_funs.noisy_gate_vmoe import NoisyGate_VMoE
 from utils.perpca import PerPCA
 from tqdm import tqdm
 
+from sklearn.decomposition import PCA
+
+
+import os
+import matplotlib.pyplot as plt
+import torch.nn.functional as F
+
+
+
 a=[[0],[1,17,18,19,20],[2,12,13,14,15,16],[3,9,10,11],[4,5],[6,7,8,38],[21,22,23,24,25,26,39],[27,28,29,30,31,32,33,34,35,36,37]]
 def _cfg(url='', **kwargs):
     return {
@@ -646,9 +655,7 @@ class VisionTransformerMoE(nn.Module):
         Visualizes intermediate features as heatmaps and saves them to disk.
         Also analyzes expert specialization using PerPCA.
         """
-        import os
-        import matplotlib.pyplot as plt
-        import torch.nn.functional as F
+
         
         if not hasattr(self, 'intermediate_features'):
             raise AttributeError("No intermediate features found. Run a forward pass first.")
@@ -758,6 +765,8 @@ class VisionTransformerMoE(nn.Module):
 
 
                     print('fitting')
+
+                    compare_perpca_vs_pca(clients, 50, 50)
                     pca_model = PerPCA(r1=50, r2=50)
                     U, V_list = pca_model.fit(clients)
 
@@ -886,6 +895,54 @@ class VisionTransformerMoE(nn.Module):
                     plt.close()
 
         print(f"Visualizations saved to {save_dir}")
+
+def compare_perpca_vs_pca(clients, r1, r2):
+    """
+    Compare PerPCA global component explained variance with regular PCA on pooled data.
+    
+    Args:
+        clients (list of numpy.ndarray): Each element is a client data matrix of shape (d, n_client),
+            where d is the feature dimension.
+        r1 (int): Number of global components for PerPCA.
+        r2 (int): Number of local components for PerPCA.
+    
+    This function uses the PerPCA implementation (assumed to have methods fit and compute_explained_variance)
+    and the sklearn PCA on the pooled data to generate a scree plot for both approaches.
+    """
+    # Instantiate PerPCA with the specified number of global (r1) and local (r2) components.
+    pca_model = PerPCA(r1=r1, r2=r2)
+    U, V_list = pca_model.fit(clients)
+    
+    # Determine maximum number of components from the PerPCA output.
+    max_components = U.shape[1]
+    component_nums = list(range(1, max_components + 1))
+    explained_vars_perpca = []
+    
+    # Compute the explained variance for the global components from PerPCA.
+    for n_components in component_nums:
+        U_subset = U[:, :n_components]
+        explained_var = pca_model.compute_explained_variance(clients, U_subset)
+        explained_vars_perpca.append(explained_var.sum().item())
+    
+    # Pool the client data into one matrix.
+    pooled_data = np.hstack(clients)  # Shape: (d, total_samples)
+    pooled_data = pooled_data.T         # Reshape to (total_samples, d) for sklearn PCA
+    
+    # Run regular PCA on the pooled data.
+    pca = PCA(n_components=max_components)
+    pca.fit(pooled_data)
+    explained_vars_pca = pca.explained_variance_ratio_
+    
+    # Plot the comparison between PerPCA global components and regular PCA.
+    plt.figure(figsize=(10, 6))
+    plt.plot(component_nums, explained_vars_perpca, 'bo-', label='PerPCA Global Components')
+    plt.plot(component_nums, explained_vars_pca, 'ro-', label='Regular PCA')
+    plt.xlabel("Number of Components")
+    plt.ylabel("Explained Variance Ratio")
+    plt.title("Comparison of PerPCA vs Regular PCA")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig('app/perpca_vs_pca_comparison.png')
 
 
 def _init_vit_weights(m, n: str = '', head_bias: float = 0., jax_impl: bool = False):
