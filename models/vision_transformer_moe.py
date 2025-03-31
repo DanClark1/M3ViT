@@ -909,6 +909,42 @@ def compare_perpca_vs_pca(clients, r1, r2):
     This function uses the PerPCA implementation (assumed to have methods fit and compute_explained_variance)
     and the sklearn PCA on the pooled data to generate a scree plot for both approaches.
     """
+    def reconstruction_error(X, U):
+        """
+        Compute the reconstruction error for standard PCA.
+        
+        Args:
+            X (torch.Tensor): Data matrix of shape (d, n) where each column is a data sample.
+            U (torch.Tensor): Principal component matrix of shape (d, k) (assumed to be orthonormal).
+        
+        Returns:
+            error (float): The reconstruction error as the Frobenius norm squared.
+        """
+        # Reconstruct the data from the top k components
+        X_hat = U @ (U.T @ X)
+        # Compute the Frobenius norm squared of the difference
+        error = torch.norm(X - X_hat, p='fro') ** 2
+        return error.item()
+
+    def perpca_reconstruction_error(clients, U, V_list):
+        """
+        Compute the overall reconstruction error for PerPCA.
+        
+        Args:
+            clients (list of torch.Tensor): Each element is a client's data matrix of shape (d, n_i).
+            U (torch.Tensor): Global PC matrix of shape (d, r1).
+            V_list (list of torch.Tensor): List of local PC matrices (one per client) of shape (d, r2_i).
+        
+        Returns:
+            total_error (float): Average reconstruction error over clients.
+        """
+        total_error = 0.0
+        for client_data, V in zip(clients, V_list):
+            # Reconstruction for this client
+            reconstruction = U @ (U.T @ client_data) + V @ (V.T @ client_data)
+            error = torch.norm(client_data - reconstruction, p='fro') ** 2
+            total_error += error.item()
+        return total_error / len(clients)
 
     # move clients to numpy
     # Instantiate PerPCA with the specified number of global (r1) and local (r2) components.
@@ -946,6 +982,10 @@ def compare_perpca_vs_pca(clients, r1, r2):
     pca = PCA(n_components=max_components)
     pca.fit(pooled_data)
     explained_vars_pca = pca.explained_variance_ratio_
+
+    # print reconstruction errors
+    print('Reconstruction error for standard PCA:', reconstruction_error(pooled_data.T, pca.components_.T))
+    print('Reconstruction error for PerPCA:', perpca_reconstruction_error(clients, U, V_list))
     
     # Plot the comparison between PerPCA global components and regular PCA.
     plt.figure(figsize=(10, 6))
