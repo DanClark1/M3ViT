@@ -919,12 +919,21 @@ def compare_perpca_vs_pca(clients, r1, r2):
     max_components = U.shape[1]
     component_nums = list(range(1, max_components + 1))
     explained_vars_perpca = []
+    explained_vars_perpca_local = []
     
     # Compute the explained variance for the global components from PerPCA.
     for n_components in component_nums:
         U_subset = U[:, :n_components]
         explained_var = pca_model.compute_explained_variance(clients, U_subset)
         explained_vars_perpca.append(explained_var.sum().item())
+
+    for n_components in component_nums:
+        V_list_subset = [V[:, :n_components] for V in V_list]
+        explained_var_per_client = []
+        for i in range(len(clients)):
+            explained_var_per_client.append(pca_model.compute_explained_variance(clients, V_list_subset[i]))
+        explained_var = explained_var_per_client / len(explained_var_per_client)
+        explained_vars_perpca_local.append(explained_var.sum().item())
     
 
     clients = [client.cpu().numpy() for client in clients]
@@ -942,6 +951,7 @@ def compare_perpca_vs_pca(clients, r1, r2):
     plt.figure(figsize=(10, 6))
     plt.plot(component_nums, explained_vars_perpca, 'bo-', label='PerPCA Global Components')
     plt.plot(component_nums, explained_vars_pca, 'ro-', label='Regular PCA')
+    plt.plot(component_nums, explained_vars_perpca_local, 'go-', label='PerPCA Local Components')
     plt.xlabel("Number of Components")
     plt.ylabel("Explained Variance Ratio")
     plt.title("Comparison of PerPCA vs Regular PCA")
