@@ -169,6 +169,7 @@ class FMoETransformerMLP(FMoE):
         regu_subimage = False,
         expert_prune = False,
         prune_threshold = 0.1,
+        diversity_loss_weight = 0.0,
         **kwargs
     ):
         super().__init__(num_expert=num_expert, d_model=d_model, gate=gate, world_size=world_size, top_k=top_k, **kwargs)
@@ -185,6 +186,8 @@ class FMoETransformerMLP(FMoE):
         self.expert_prune = expert_prune
         self.prune_threshold = prune_threshold
         self.forced_expert = None
+        self.diversity_loss_weight = diversity_loss_weight
+        self.expert_outputs = None
 
         if self.sem_force:
             self.force_id=[[0],[1,17,18,19,20],[2,12,13,14,15,16],[3,9,10,11],[4,5],[6,7,8,38],[21,22,23,24,25,26,39],[27,28,29,30,31,32,33,34,35,36,37]]
@@ -286,6 +289,34 @@ class FMoETransformerMLP(FMoE):
     def clear_forced_expert(self):
         """Clear the forced expert setting"""
         self.forced_expert = None
+
+    def compute_diversity_loss(self, expert_outputs):
+        """
+        Compute diversity loss based on cosine similarity between expert outputs.
+        
+        Args:
+            expert_outputs: Tensor of shape (num_experts, batch_size, d_model)
+            
+        Returns:
+            diversity_loss: Scalar tensor measuring similarity between expert outputs
+        """
+        if expert_outputs is None or self.diversity_loss_weight == 0:
+            return 0.0
+        
+        # Normalize expert outputs
+        expert_outputs = F.normalize(expert_outputs, p=2, dim=-1)
+        
+        # Compute pairwise cosine similarities
+        similarities = torch.matmul(expert_outputs, expert_outputs.transpose(1, 2))
+        
+        # Create mask to exclude self-similarities
+        mask = torch.eye(similarities.size(1), device=similarities.device)
+        mask = 1 - mask
+        
+        # Average similarity excluding self-similarity
+        diversity_loss = (similarities * mask).sum() / (mask.sum() + 1e-6)
+        
+        return self.diversity_loss_weight * diversity_loss
 
     def forward_moe(self, gate_inp, moe_inp, task_id=None, sem=None, record_outputs=False, verbose =False):
         r"""
@@ -456,4 +487,20 @@ class FMoETransformerMLP(FMoE):
         assert all(
             [batch_size == moe_outp_batch_size[0] for batch_size in moe_outp_batch_size]
         ), "MoE outputs must have the same batch size"
+
+        # Store expert outputs for diversity loss if weight > 0
+        if self.diversity_loss_weight > 0:
+            # Reshape expert outputs to (num_experts, batch_size, d_model)
+            expert_outputs = moe_outp.view(-1, self.num_expert, moe_outp.size(-1))
+            expert_outputs = expert_outputs.transpose(0, 1)
+            self.expert_outputs = expert_outputs
+            
+            # Compute diversity loss
+            diversity_loss = self.compute_diversity_loss(expert_outputs)
+            
+            # Store loss for collection by the main training loop
+            if not hasattr(self, 'diversity_losses'):
+                self.diversity_losses = []
+            self.diversity_losses.append(diversity_loss)
+
         return moe_outp

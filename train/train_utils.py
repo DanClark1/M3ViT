@@ -16,7 +16,7 @@ import torchvision.utils as vutils
 import torch.nn.functional as F
 import pickle
 from os.path import join
-from utils.moe_utils import collect_noisy_gating_loss,collect_semregu_loss, collect_regu_subimage_loss
+from utils.moe_utils import collect_noisy_gating_loss,collect_semregu_loss, collect_regu_subimage_loss, collect_diversity_loss
 def get_loss_meters(p):
     """ Return dictionary with loss meters to monitor training """
     all_tasks = p.ALL_TASKS.NAMES
@@ -245,12 +245,15 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
                 loss_dict['total'] += collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
-                # if args.regu_sem and epoch<args.warmup_epochs:
-                #     semregu_loss = collect_semregu_loss(model, args.semregu_loss_weight)
-                #     loss_dict['total'] += semregu_loss
-                # if args.regu_subimage and epoch<args.warmup_epochs:
-                #     regu_subimage_loss = collect_regu_subimage_loss(model, args.subimageregu_weight)
-                #     loss_dict['total']+=regu_subimage_loss
+                
+                # Add diversity loss
+                if hasattr(args, 'diversity_loss_weight') and args.diversity_loss_weight > 0:
+                    diversity_loss = collect_diversity_loss(model)
+                    loss_dict['total'] += diversity_loss
+                    
+                    if i % 25 == 0:
+                        print('Diversity loss:', diversity_loss.item())
+                    
             for k, v in loss_dict.items():
                 losses[k].update(v.item())
             performance_meter.update({t: get_output(output[t], t) for t in p.TASKS.NAMES}, 
