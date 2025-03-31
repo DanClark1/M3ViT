@@ -943,7 +943,7 @@ def compare_perpca_vs_pca(clients, r1, r2):
         clients = torch.stack(clients)
         clients = clients.cpu()
         U = torch.tensor(U, device='cpu')
-        V_list = [torch.Tensor(V, device='cpu') for V in V_list]
+        V_list = [torch.tensor(V, device='cpu') for V in V_list]
         for client_data, V in zip(clients, V_list):
             # Reconstruction for this client
             reconstruction = U @ (U.T @ client_data) + V @ (V.T @ client_data)
