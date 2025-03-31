@@ -699,7 +699,6 @@ class VisionTransformerMoE(nn.Module):
         Also analyzes expert specialization using PerPCA.
         """
 
-        
         if not hasattr(self, 'intermediate_features'):
             raise AttributeError("No intermediate features found. Run a forward pass first.")
                 
@@ -809,6 +808,15 @@ class VisionTransformerMoE(nn.Module):
                     print('Computing reconstruction errors for global components...')
                     pca_model = PerPCA(r1=max_components, r2=max_components)
                     U, V_list = pca_model.fit(clients)
+
+                    # measure cosine similarity between each client
+                    client_cosine_similarities = []
+                    for i in range(len(clients)):
+                        for j in range(i + 1, len(clients)):
+                            cos_sim = F.cosine_similarity(clients[i], clients[j], dim=1)
+                            client_cosine_similarities.append(cos_sim.mean().item())
+                    avg_cosine_similarity = np.mean(client_cosine_similarities)
+                    print(f"Average cosine similarity between clients: {avg_cosine_similarity:.4f}")
 
                     # Compute contribution of each component to reconstruction and variance
                     component_errors = []
