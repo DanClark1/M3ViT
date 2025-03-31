@@ -810,69 +810,106 @@ class VisionTransformerMoE(nn.Module):
                     pca_model = PerPCA(r1=max_components, r2=max_components)
                     U, V_list = pca_model.fit(clients)
 
-                    theta, lambda_max = self.compute_misalignment(V_list)
-                    print(f"Misalignment (theta): {theta:.3f} (lambda_max: {lambda_max:.3f})")
-
+                    # Compute contribution of each component to reconstruction
+                    component_errors = []
+                    for j in range(U.shape[1]):
+                        # Use single component
+                        U_j = U[:, j:j+1]
+                        # Compute reconstruction error with just this component
+                        recon_error = perpca_reconstruction_error(clients, U_j, [torch.zeros_like(U_j) for _ in clients])
+                        component_errors.append((j, recon_error))
+                    
+                    # Sort components by their reconstruction error (lower is better)
+                    sorted_components = sorted(component_errors, key=lambda x: x[1])
+                    best_component_indices = [idx for idx, _ in sorted_components]
+                    
+                    # Now compute cumulative reconstruction error using best components
+                    reconstruction_errors = []
                     for n_components in tqdm(component_nums):
-                        U_subset = U[:, :n_components]
-                        recon_error = perpca_reconstruction_error(clients, U_subset, [torch.zeros_like(U_subset) for _ in clients])
+                        # Use the n best components
+                        best_indices = best_component_indices[:n_components]
+                        U_best = U[:, best_indices]
+                        recon_error = perpca_reconstruction_error(clients, U_best, 
+                                                               [torch.zeros_like(U_best) for _ in clients])
                         reconstruction_errors.append(recon_error)
                     
                     # Plot reconstruction error curve
                     plt.figure(figsize=(10, 6))
                     plt.plot(component_nums, reconstruction_errors, 'bo-')
-                    plt.xlabel('Number of Global Components')
+                    plt.xlabel('Number of Best Components')
                     plt.ylabel('Reconstruction Error')
-                    plt.yscale('log')  # Use log scale for better visualization
-                    plt.title(f'Layer {layer_idx} - Reconstruction Error vs Global Components')
+                    plt.yscale('log')
+                    plt.title(f'Layer {layer_idx} - Reconstruction Error vs Best Components')
                     plt.grid(True)
                     plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_global_recon_error.png'))
                     plt.close()
                     
-                    # Find optimal global components using reconstruction error
+                    # Find optimal number of components using reconstruction error
                     optimal_global = component_nums[np.argmin(reconstruction_errors)]
                     min_recon_error = min(reconstruction_errors)
+                    optimal_indices = best_component_indices[:optimal_global]
+                    
+                    # Store results
                     layer_results['global_components'] = optimal_global
                     layer_results['global_recon_error'] = min_recon_error
+                    layer_results['global_component_indices'] = optimal_indices
                     print(f"Optimal global components: {optimal_global} (recon error: {min_recon_error:.3f})")
+                    print(f"Best component indices: {optimal_indices[:10]}...")  # Show first 10
                     
-                    # Now analyze local components
-                    list_of_V_list = [[] for _ in range(len(component_nums))]
-                    for i in range(len(component_nums)):
-                        list_of_V_list[i] = [v[:, :i] for v in V_list]
-                    
-                    # Analyze local components for each expert
+                    # Do the same for local components
                     expert_results = {}
                     for exp_idx in expert_indices:
                         expert_data = expert_datasets[exp_idx][layer_idx]
+                        V = V_list[exp_idx]
                         
-                        # Calculate reconstruction errors for different numbers of local components
-                        local_recon_errors = []
-                        for V_list in list_of_V_list:
+                        # Compute contribution of each local component
+                        local_component_errors = []
+                        for j in range(V.shape[1]):
+                            V_j = V[:, j:j+1]
                             recon_error = perpca_reconstruction_error([expert_data], 
-                                                                   torch.zeros_like(U_subset), 
-                                                                   [V_list[exp_idx]])
+                                                                   torch.zeros_like(V_j), 
+                                                                   [V_j])
+                            local_component_errors.append((j, recon_error))
+                        
+                        # Sort local components
+                        sorted_local = sorted(local_component_errors, key=lambda x: x[1])
+                        best_local_indices = [idx for idx, _ in sorted_local]
+                        
+                        # Compute cumulative reconstruction error
+                        local_recon_errors = []
+                        for n_components in component_nums:
+                            best_indices = best_local_indices[:n_components]
+                            V_best = V[:, best_indices]
+                            recon_error = perpca_reconstruction_error([expert_data], 
+                                                                   torch.zeros_like(V_best), 
+                                                                   [V_best])
                             local_recon_errors.append(recon_error)
                         
                         # Plot local reconstruction error curve
                         plt.figure(figsize=(10, 6))
                         plt.plot(component_nums, local_recon_errors, 'ro-')
-                        plt.xlabel('Number of Local Components')
+                        plt.xlabel('Number of Best Local Components')
                         plt.ylabel('Reconstruction Error')
                         plt.yscale('log')
-                        plt.title(f'Layer {layer_idx} - Expert {exp_idx} Local Components')
+                        plt.title(f'Layer {layer_idx} - Expert {exp_idx} Best Local Components')
                         plt.grid(True)
-                        plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_expert_{exp_idx}_local_recon.png'))
+                        plt.savefig(os.path.join(save_dir, 
+                                  f'layer_{layer_idx}_expert_{exp_idx}_local_recon.png'))
                         plt.close()
                         
-                        # Find optimal local components using reconstruction error
+                        # Find optimal local components
                         optimal_local = component_nums[np.argmin(local_recon_errors)]
                         min_local_recon = min(local_recon_errors)
+                        optimal_local_indices = best_local_indices[:optimal_local]
+                        
                         expert_results[exp_idx] = {
                             'local_components': optimal_local,
-                            'local_recon_error': min_local_recon
+                            'local_recon_error': min_local_recon,
+                            'local_component_indices': optimal_local_indices
                         }
-                        print(f"Expert {exp_idx} optimal local components: {optimal_local} (recon error: {min_local_recon:.3f})")
+                        print(f"Expert {exp_idx} optimal local components: {optimal_local}")
+                        print(f"Reconstruction error: {min_local_recon:.3f}")
+                        print(f"Best local indices: {optimal_local_indices[:10]}...")  # Show first 10
                     
                     layer_results['expert_results'] = expert_results
                     results['layer_results'][layer_idx] = layer_results
@@ -901,8 +938,9 @@ class VisionTransformerMoE(nn.Module):
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             
             # Get optimal components and ensure they're on the right device
-            U_opt = U[:, :optimal_global].to(device)
-            V_opt_list = [v[:, :optimal_local].to(device) for v in V_list]
+            U_opt = U[:, layer_results['global_component_indices']].to(device)
+            V_opt_list = [v[:, exp_results['local_component_indices']].to(device) 
+                         for i, v in enumerate(V_list)]
             
             # For each expert
             for exp_idx in expert_indices:
@@ -945,12 +983,12 @@ class VisionTransformerMoE(nn.Module):
                     
                     # Global component projection
                     im1 = axes[1].imshow(global_mag[b], cmap='viridis')
-                    axes[1].set_title(f'Global Component Projection\n({optimal_global} components)')
+                    axes[1].set_title(f'Global Component Projection\n({layer_results['global_components']} components)')
                     plt.colorbar(im1, ax=axes[1])
                     
                     # Local component projection
                     im2 = axes[2].imshow(local_mag[b], cmap='viridis')
-                    axes[2].set_title(f'Local Component Projection\n({optimal_local} components)')
+                    axes[2].set_title(f'Local Component Projection\n({exp_results['local_components']} components)')
                     plt.colorbar(im2, ax=axes[2])
                     
                     plt.suptitle(f'Layer {layer_idx} - Sample {b} - Expert {exp_idx} Projections')
@@ -959,14 +997,14 @@ class VisionTransformerMoE(nn.Module):
                     plt.close()
                     
                 # Also visualize individual component contributions
-                num_components_to_show = min(16, max(optimal_global, optimal_local))
+                num_components_to_show = min(16, max(layer_results['global_components'], exp_results['local_components']))
                 
                 # Global components
                 fig, axes = plt.subplots(4, 4, figsize=(20, 20))
                 axes = axes.flatten()
                 
                 expert_data = expert_data.to(device)  # Ensure data is on correct device
-                for j in range(min(16, optimal_global)):
+                for j in range(min(16, layer_results['global_components'])):
                     # Project onto single component
                     single_proj = (U_opt[:, j:j+1] @ (U_opt[:, j:j+1].T @ expert_data)).T
                     single_spatial = single_proj.cpu().reshape(B, h, w, -1)
@@ -977,7 +1015,7 @@ class VisionTransformerMoE(nn.Module):
                     plt.colorbar(im, ax=axes[j])
                 
                 # Remove empty subplots
-                for j in range(min(16, optimal_global), 16):
+                for j in range(min(16, layer_results['global_components']), 16):
                     axes[j].remove()
                 
                 plt.suptitle(f'Layer {layer_idx} - Expert {exp_idx} - Global Component Contributions')
@@ -990,7 +1028,7 @@ class VisionTransformerMoE(nn.Module):
                 fig, axes = plt.subplots(4, 4, figsize=(20, 20))
                 axes = axes.flatten()
                 
-                for j in range(min(16, optimal_local)):
+                for j in range(min(16, exp_results['local_components'])):
                     # Project onto single component
                     single_proj = (V_opt[:, j:j+1] @ (V_opt[:, j:j+1].T @ expert_data)).T
                     single_spatial = single_proj.cpu().reshape(B, h, w, -1)
@@ -1001,7 +1039,7 @@ class VisionTransformerMoE(nn.Module):
                     plt.colorbar(im, ax=axes[j])
                 
                 # Remove empty subplots
-                for j in range(min(16, optimal_local), 16):
+                for j in range(min(16, exp_results['local_components']), 16):
                     axes[j].remove()
                 
                 plt.suptitle(f'Layer {layer_idx} - Expert {exp_idx} - Local Component Contributions')
