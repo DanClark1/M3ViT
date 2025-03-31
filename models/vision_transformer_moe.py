@@ -921,7 +921,8 @@ def compare_perpca_vs_pca(clients, r1, r2):
             error (float): The reconstruction error as the Frobenius norm squared.
         """
         # Reconstruct the data from the top k components
-        X_hat = U @ (U.T @ X)
+        X_hat = torch.Tensor(U @ (U.T @ X))
+        x = torch.Tensor(X)
         # Compute the Frobenius norm squared of the difference
         error = torch.norm(X - X_hat, p='fro') ** 2
         return error.item()
@@ -939,6 +940,9 @@ def compare_perpca_vs_pca(clients, r1, r2):
             total_error (float): Average reconstruction error over clients.
         """
         total_error = 0.0
+        clients = torch.Tensor(clients)
+        U = torch.Tensor(U)
+        V_list = [torch.Tensor(V) for V in V_list]
         for client_data, V in zip(clients, V_list):
             # Reconstruction for this client
             reconstruction = U @ (U.T @ client_data) + V @ (V.T @ client_data)
@@ -972,10 +976,10 @@ def compare_perpca_vs_pca(clients, r1, r2):
         explained_vars_perpca_local.append(explained_var.sum().item())
     
 
-    clients = [client.cpu().numpy() for client in clients]
+    cpu_clients = [client.cpu().numpy() for client in clients]
 
     # Pool the client data into one matrix.
-    pooled_data = np.hstack(clients)  # Shape: (d, total_samples)
+    pooled_data = np.hstack(cpu_clients)  # Shape: (d, total_samples)
     pooled_data = pooled_data.T         # Reshape to (total_samples, d) for sklearn PCA
     
     # Run regular PCA on the pooled data.
