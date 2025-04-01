@@ -746,7 +746,7 @@ class VisionTransformerMoE(nn.Module):
                 
                 # Run forward pass with forced expert multiple times to build dataset
                 expert_data = {idx: [] for idx in layer_indices}
-                for _ in range(10):  # Run 10 times to get 100 samples (assuming batch_size=10)
+                for _ in range(100):  # Run 10 times to get 100 samples (assuming batch_size=10)
                     with torch.no_grad():
                         _ = self.forward(input_image)
                         for idx in layer_indices:
