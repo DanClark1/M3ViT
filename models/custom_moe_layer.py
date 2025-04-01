@@ -42,6 +42,7 @@ class _Expert(nn.Module):
         self.record_output = False
         self.num_experts = num_expert
         self.stage = 0 # set this to 1 once components are calculated
+        self.outputs_size_limit = 1000
 
     def reset_outputs(self):
         self.outputs = None
@@ -74,12 +75,10 @@ class _Expert(nn.Module):
         other_x = self.htoh4(inp, other_fwd_expert_count)
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
-        if self.record_output and self.stage == 0:
+        if self.record_output and self.stage == 0 and self.outputs.shape[1] < self.outputs_size_limit:
             splits = torch.split(x, fwd_expert_count.tolist(), dim=0)
             min_count = int(fwd_expert_count.min().item())
             out = torch.stack([chunk[:min_count] for chunk in splits], dim=0).to('cpu').detach()
-            print('out shape', out.shape)
-            exit()
             if self.outputs is None:
                 self.outputs = out
             else:
