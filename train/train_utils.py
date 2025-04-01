@@ -311,7 +311,7 @@ def calculate_moe_diversity_loss(model, coefficient=0.1):
         clients = layers[layer_idx]
 
         # Stack expert outputs to create tensor of shape (num_experts, d, b)
-        clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0)
+        clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0, device='cuda')
         
         # Batched QR decomposition (in reduced mode), Q: (num_experts, d, r)
         Q, _ = torch.linalg.qr(clients_tensor, mode='reduced')
