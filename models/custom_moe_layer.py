@@ -75,13 +75,13 @@ class _Expert(nn.Module):
         other_x = self.htoh4(inp, other_fwd_expert_count)
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
-        if self.record_output and self.stage == 0 and self.outputs.shape[1] < self.outputs_size_limit:
+        if self.record_output and self.stage == 0:
             splits = torch.split(x, fwd_expert_count.tolist(), dim=0)
             min_count = int(fwd_expert_count.min().item())
             out = torch.stack([chunk[:min_count] for chunk in splits], dim=0).to('cpu').detach()
             if self.outputs is None:
                 self.outputs = out
-            else:
+            elif self.outputs.shape[1] < self.outputs_size_limit:
                 self.outputs = torch.cat((self.outputs, out), dim=1)
         return x
     

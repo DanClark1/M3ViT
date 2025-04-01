@@ -322,6 +322,9 @@ def calculate_moe_diversity_loss(model, coefficient=0.1):
         pairwise_similarity = (M ** 2).sum(dim=(-1, -2))
         similarity += pairwise_similarity.triu(diagonal=1).sum()
 
+    for block in backbone.blocks:
+        block.mlp.experts.reset_outputs()
+
     return coefficient * similarity
 
     
