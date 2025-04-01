@@ -754,7 +754,6 @@ class VisionTransformerMoE(nn.Module):
                             features_list.append(features)
                             # Flatten features for each sample
                             flat_features = features.reshape(-1, features.shape[-1])
-                            print(f'features shape: {flat_features.shape}')
                             expert_data[idx].append(flat_features)
                 
                 # Store features and datasets
