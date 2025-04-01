@@ -301,17 +301,16 @@ def calculate_moe_diversity_loss(model, coefficient=0.1):
     expert_indices = (i for i in range(num_experts)) # hardcoding these for now
     layer_indices = (i for i in range(num_layers))
 
-    expert_datasets = {}
     
-    layers = [block.mlp.get_output_matricies() for block in backbone.blocks]
+    layers = [block.mlp.get_output_matrix() for block in backbone.blocks if block.moe]
         
     similarity = 0
 
     for layer_idx in layer_indices:
-        clients = [expert_datasets[exp_idx][layer_idx] for exp_idx in expert_indices]
+        clients = layers[layer_idx]
 
         # decomposing expert datasets into orthonormal bases
-        features_list = [torch.linalg.qr(expert_datasets[e][layer_idx])[0] for e in range(num_experts)]
+        features_list = [torch.linalg.qr(clients[e])[0] for e in range(num_experts)]
 
         
         F = torch.stack(features_list, dim=0)

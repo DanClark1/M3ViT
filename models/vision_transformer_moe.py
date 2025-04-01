@@ -316,6 +316,7 @@ class Block(nn.Module):
             else:
                 raise ValueError("unknow gate type of {}".format(moe_gate_type))
 
+            print('mlp')
             self.mlp = FMoETransformerMLP(num_expert=moe_experts, d_model=dim, d_gate=moe_gate_dim, d_hidden=moe_hidden_dim,
                                           world_size=world_size, top_k=moe_top_k, activation=activation, gate=moe_gate_fun,
                                           gate_return_decoupled_activation=gate_return_decoupled_activation, vmoe_noisy_std=vmoe_noisy_std, 
