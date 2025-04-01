@@ -805,7 +805,20 @@ class VisionTransformerMoE(nn.Module):
                     max_components = 5
                     component_nums = list(range(0, max_components + 1))
                     reconstruction_errors = []
-                    pca_model = PerPCA(r1=1, r2=max_components)
+                    
+
+                    import itertools
+                    r_values = [0,1,2,3,4,5]
+                    r_value_combinations = list(itertools.combinations(r_values, 2))
+                    for combination in r_value_combinations:
+                        pca_model = PerPCA(r1=combination[0], r2=combination[1])
+                        U, V_list = pca_model.fit(clients)
+                        # Compute misalignment
+                        theta, lambda_max = self.compute_misalignment(V_list)
+                        print(f'theta: {theta:.4f}, r1 = {combination[0]}, r2 = {combination[1]}')
+
+                    exit()
+
                     # generate all subsets of clients
                     # import itertools
                     # clients_combinations = list(itertools.combinations(clients, 2))
