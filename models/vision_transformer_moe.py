@@ -805,7 +805,7 @@ class VisionTransformerMoE(nn.Module):
                     max_components = clients[0].shape[0] - 1
                     component_nums = list(range(10, max_components + 1, 10))
                     reconstruction_errors = []
-                    pca_model = PerPCA(r1=5, r2=max_components)
+                    pca_model = PerPCA(r1=1, r2=2)
                     # generate all subsets of clients
                     # import itertools
                     # clients_combinations = list(itertools.combinations(clients, 2))
