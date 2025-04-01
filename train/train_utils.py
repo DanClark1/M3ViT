@@ -263,6 +263,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             loss.backward()
 
             if (i + 1) % accumulation_steps == 0 or (i + 1) == len(train_loader):
+                print('backward step')
                 optimizer.step()
                 optimizer.zero_grad()
             # don't know what this does or when it should be called for accumulated training so i'm ignoring it
