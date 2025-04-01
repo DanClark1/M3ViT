@@ -334,6 +334,9 @@ def calculate_moe_diversity_loss(model, coefficient=0.01):
     num_pairs = num_experts * (num_experts - 1) / 2 * num_layers
     total_similarity /= num_pairs
 
+    # divide by dimension of the output
+    total_similarity /= clients_tensor.size(1)
+
     # Reset expert outputs for each block
     for block in backbone.blocks:
         if block.moe:
