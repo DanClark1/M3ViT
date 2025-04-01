@@ -810,6 +810,7 @@ class VisionTransformerMoE(nn.Module):
                     reconstruction_errors = []
 
                     print('size of client: ',clients[0].shape)
+                    print('length of clients: ',len(clients))
 
                     for i in range(len(clients)):
                         V_i = torch.linalg.qr(clients[i])[0]
