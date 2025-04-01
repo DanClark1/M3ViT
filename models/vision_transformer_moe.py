@@ -627,6 +627,7 @@ class VisionTransformerMoE(nn.Module):
                 self.moe_block_index[moe_index] = i
                 moe_index += 1
                 x, intermediate_x = blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs=isval, verbose=((not printed) and verbose))
+                print(f'intermediate {intermediate_x.shape}')
                 if not printed:
                     printed = True
                 intermediate_features.append(intermediate_x)

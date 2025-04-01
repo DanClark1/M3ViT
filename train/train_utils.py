@@ -253,7 +253,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                     print(f'intermediate features: {thing.shape}')
                 print(torch.allclose(things[0], things[1]))
                 matricies.append(things)
-                print(f'number of experts: {len(things)}\n----')
+                print(f'number of moe layers: {len(things)}\n----')
                     
             for k, v in loss_dict.items():
                 losses[k].update(v.item())
