@@ -812,8 +812,10 @@ class VisionTransformerMoE(nn.Module):
 
                     for i in range(len(clients)):
                         V_i = torch.linalg.qr(clients[i])[0]
+
                         for j in range(i + 1, len(clients)):
                             V_j = torch.linalg.qr(clients[j])[0]
+                            
                             print(f'similarity: {torch.norm(V_i.T @ V_j, p="fro") ** 2}')
                     
 

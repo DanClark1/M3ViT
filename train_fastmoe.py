@@ -184,6 +184,7 @@ parser.add_argument('--viz_dir', type=str, default='feature_visualizations',
                    help='directory to save feature visualizations')
 parser.add_argument('--diversity_loss_weight', default=0.0, type=float,
                    help='Weight for expert diversity loss (0.0 to disable)')
+parser.add_argument('--train_accumulation_steps', default=1, type=int, help='Number of steps to accumulate gradients')
 
 args = parser.parse_args()
 

@@ -196,6 +196,7 @@ def train_mixture_vanilla(p, train_loader, model,prior_model, criterion, optimiz
 
 def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer, epoch):
     """ Vanilla training with fixed loss weights """
+    accumulation_steps = p['train_accumulation_steps']
     losses = get_loss_meters(p)
     performance_meter = PerformanceMeter(p)
     progress = ProgressMeter(len(train_loader),
@@ -242,28 +243,34 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             
             # Measure loss and performance
             loss_dict = criterion(output, targets)
+
+            matricies = []
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
                 loss_dict['total'] += collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
+
+
+                print(f'intermediate features: {model.module.get_intermediate_features().shape}')
+                matricies.append(model.module.get_intermediate_features())
                 
-                # Add diversity loss
-                if hasattr(args, 'diversity_loss_weight') and args.diversity_loss_weight > 0:
-                    diversity_loss = collect_diversity_loss(model)
-                    loss_dict['total'] += diversity_loss
-                    
-                    if i % 25 == 0:
-                        print('Diversity loss:', diversity_loss)
                     
             for k, v in loss_dict.items():
                 losses[k].update(v.item())
             performance_meter.update({t: get_output(output[t], t) for t in p.TASKS.NAMES}, 
                                     {t: targets[t] for t in p.TASKS.NAMES})
             # Backward
-            optimizer.zero_grad()
-            loss_dict['total'].backward()
-            if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
-                model.allreduce_params()
-            optimizer.step()
+
+            
+            loss = loss_dict['total'] / accumulation_steps
+
+            loss.backward()
+
+            if (i + 1) % accumulation_steps == 0 or (i + 1) == len(train_loader):
+                optimizer.step()
+                optimizer.zero_grad()
+            # don't know what this does or when it should be called for accumulated training so i'm ignoring it
+            # if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
+            #     model.allreduce_params()
             
             
         if i % 25 == 0:
