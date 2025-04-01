@@ -251,7 +251,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
 
 
                 print(f'intermediate features: {model.module.get_intermediate_features().shape}')
-                matricies.append(model.module.get_intermediate_features())
+                matricies.append(model.module.backbone.get_intermediate_features())
                 
                     
             for k, v in loss_dict.items():
