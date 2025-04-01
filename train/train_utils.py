@@ -196,7 +196,7 @@ def train_mixture_vanilla(p, train_loader, model,prior_model, criterion, optimiz
 
 def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer, epoch):
     """ Vanilla training with fixed loss weights """
-    accumulation_steps = p['train_accumulation_steps']
+    accumulation_steps = args['train_accumulation_steps']
     losses = get_loss_meters(p)
     performance_meter = PerformanceMeter(p)
     progress = ProgressMeter(len(train_loader),
