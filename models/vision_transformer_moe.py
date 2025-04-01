@@ -834,36 +834,19 @@ class VisionTransformerMoE(nn.Module):
                     avg_cosine_similarity = np.mean(client_cosine_similarities)
                     print(f"Average cosine similarity between clients: {avg_cosine_similarity:.4f}")
 
-                    # Compute contribution of each component to reconstruction and variance
-                    component_errors = []
-                    component_vars = []
-                    for j in range(U.shape[1]):
-                        # Use single component
-                        U_j = U[:, j:j+1]
-                        # Compute reconstruction error with just this component
-                        recon_error = perpca_reconstruction_error(clients, U_j, [torch.zeros_like(U_j) for _ in clients])
-                        component_errors.append((j, recon_error))
-                        # Compute explained variance for this component
-                        var = pca_model.compute_explained_variance(clients, U_j).sum().item()
-                        component_vars.append((j, var))
-                    
-                    # Sort components by their reconstruction error (lower is better)
-                    sorted_components = sorted(component_errors, key=lambda x: x[1])
-                    best_component_indices = [idx for idx, _ in sorted_components]
                     
                     # Now compute cumulative reconstruction error and variance using best components
                     reconstruction_errors = []
                     explained_vars = []
                     for n_components in tqdm(component_nums):
                         # Use the n best components
-                        best_indices = best_component_indices[:n_components]
-                        U_best = U[:, best_indices]
+                        U_subset = U[:, :n_components]
                         # Compute reconstruction error
-                        recon_error = perpca_reconstruction_error(clients, U_best, 
-                                                               [torch.zeros_like(U_best) for _ in clients])
+                        recon_error = perpca_reconstruction_error(clients, U_subset, 
+                                                               [torch.zeros_like(U_subset) for _ in clients])
                         reconstruction_errors.append(recon_error)
                         # Compute explained variance
-                        var = pca_model.compute_explained_variance(clients, U_best).sum().item()
+                        var = pca_model.compute_explained_variance(clients, U_subset).sum().item()
                         explained_vars.append(var)
                     
                     # Plot reconstruction error and variance curves
@@ -890,16 +873,13 @@ class VisionTransformerMoE(nn.Module):
                     plt.close()
                     
                     # Find optimal number of components using reconstruction error
-                    optimal_global = component_nums[np.argmin(reconstruction_errors)]
-                    min_recon_error = min(reconstruction_errors)
-                    optimal_indices = best_component_indices[:optimal_global]
+                    optimal_global = component_nums[np.argmin(explained_vars)]
+                    min_recon_error = min(explained_vars)
                     
                     # Store results
                     layer_results['global_components'] = optimal_global
                     layer_results['global_recon_error'] = min_recon_error
-                    layer_results['global_component_indices'] = optimal_indices
                     print(f"Optimal global components: {optimal_global} (recon error: {min_recon_error:.3f})")
-                    print(f"Best component indices: {optimal_indices[:10]}...")  # Show first 10
                     
                     # Do the same for local components
                     expert_results = {}
