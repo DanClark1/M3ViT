@@ -287,7 +287,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
 
 
 
-def calculate_moe_diversity_loss(model, coefficient=0.1):
+def calculate_moe_diversity_loss(model, coefficient=1):
     '''
     Takes the an image in a batch and computes the diversity loss (assuming model is moe)
 
