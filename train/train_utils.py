@@ -330,6 +330,10 @@ def calculate_moe_diversity_loss(model, coefficient=0.01):
         # Use only upper triangle (exclude diagonal) and sum
         total_similarity += pairwise_similarity.triu(diagonal=1).sum()
 
+    # Normalize by the number of pairs and layers
+    num_pairs = num_experts * (num_experts - 1) / 2 * num_layers
+    total_similarity /= num_pairs
+
     # Reset expert outputs for each block
     for block in backbone.blocks:
         if block.moe:
