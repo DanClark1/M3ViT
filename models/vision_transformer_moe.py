@@ -805,19 +805,19 @@ class VisionTransformerMoE(nn.Module):
                     max_components = clients[0].shape[0] - 1
                     component_nums = list(range(10, max_components + 1, 10))
                     reconstruction_errors = []
-                    pca_model = PerPCA(r1=max_components, r2=max_components)
+                    pca_model = PerPCA(r1=5, r2=max_components)
                     # generate all subsets of clients
-                    import itertools
-                    clients_combinations = list(itertools.combinations(clients, 2))
-                    clients_combinations = [torch.cat(pair, dim=0) for pair in clients_combinations]
+                    # import itertools
+                    # clients_combinations = list(itertools.combinations(clients, 2))
+                    # clients_combinations = [torch.cat(pair, dim=0) for pair in clients_combinations]
 
 
-                    for combination in tqdm(clients_combinations):
-                        U, V_list = pca_model.fit(clients)
-                        # Compute misalignment
-                        theta, lambda_max = self.compute_misalignment(V_list)
-                        print('Combination of clients:', combination)
-                        print(f"Misalignment (theta) for layer {layer_idx}: {theta:.4f} (lambda_max: {lambda_max:.4f})")
+                    # for combination in tqdm(clients_combinations):
+                    #     U, V_list = pca_model.fit(combination)
+                    #     # Compute misalignment
+                    #     theta, lambda_max = self.compute_misalignment(V_list)
+                    #     print('Combination of clients:', combination)
+                    #     print(f"Misalignment (theta) for layer {layer_idx}: {theta:.4f} (lambda_max: {lambda_max:.4f})")
                     
 
 
