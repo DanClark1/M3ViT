@@ -17,6 +17,7 @@ import torch.nn.functional as F
 import pickle
 from os.path import join
 from utils.moe_utils import collect_noisy_gating_loss,collect_semregu_loss, collect_regu_subimage_loss, collect_diversity_loss
+from tqdm import tqdm
 def get_loss_meters(p):
     """ Return dictionary with loss meters to monitor training """
     all_tasks = p.ALL_TASKS.NAMES
@@ -307,7 +308,7 @@ def calculate_moe_diversity_loss(model, coefficient=0.1):
         
     similarity = 0
 
-    for layer_idx in layer_indices:
+    for layer_idx in tqdm(layer_indices):
         clients = layers[layer_idx]
 
         # decomposing expert datasets into orthonormal bases
