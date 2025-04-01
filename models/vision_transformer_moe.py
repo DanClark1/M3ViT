@@ -819,7 +819,7 @@ class VisionTransformerMoE(nn.Module):
                         U, V_list = pca_model.fit(clients)
                         # Compute misalignment
                         theta, lambda_max = self.compute_misalignment(V_list)
-                        print(f'theta: {theta}, r1 = {combination[0]}, r2 = {combination[1]}')
+                        print(f'theta: {theta}, lambda_max: {lambda_max}, r1 = {combination[0]}, r2 = {combination[1]}')
 
                     exit()
 
