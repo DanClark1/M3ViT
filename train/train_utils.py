@@ -248,11 +248,12 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
                 loss_dict['total'] += collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
-
-                for thing in model.module.backbone.get_intermediate_features():
+                things = model.module.backbone.get_intermediate_features()
+                for thing in things:
                     print(f'intermediate features: {thing.shape}')
-                matricies.append(model.module.backbone.get_intermediate_features())
-                print('----')
+                print(torch.allclose(things[0], things[1]))
+                matricies.append(things)
+                print(f'number of experts: {len(things)}\n----')
                     
             for k, v in loss_dict.items():
                 losses[k].update(v.item())
