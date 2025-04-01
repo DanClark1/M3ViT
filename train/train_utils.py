@@ -303,7 +303,7 @@ def calculate_moe_diversity_loss(model, coefficient=0.1):
 
     expert_datasets = {}
     
-    layers = [block.mlp.get_output_matrix() for block in backbone.blocks]
+    layers = [block.mlp.get_output_matricies() for block in backbone.blocks]
         
     similarity = 0
 
