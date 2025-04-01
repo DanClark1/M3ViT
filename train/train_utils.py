@@ -296,39 +296,43 @@ def calculate_moe_diversity_loss(model, coefficient=0.1):
 
     We then take these and measure the alignment of their bases
     '''
-    print('start')
     backbone = model.module.backbone
     num_experts = 16
     num_layers = 6
-    expert_indices = (i for i in range(num_experts)) # hardcoding these for now
-    layer_indices = (i for i in range(num_layers))
 
-    
+    # Assuming that for each block, block.mlp.get_output_matrix() returns a list or tensor for each expert.
     layers = [block.mlp.get_output_matrix() for block in backbone.blocks if block.moe]
-        
-    similarity = 0
+    
+    total_similarity = 0.0
 
-    for layer_idx in tqdm(layer_indices):
+    for layer_idx in range(num_layers):
+        # `clients` is assumed to be a list with length = num_experts,
+        # each element shape (d, b)
         clients = layers[layer_idx]
 
-        # decomposing expert datasets into orthonormal bases
-        features_list = [torch.linalg.qr(clients[e])[0] for e in range(num_experts)]
-
+        # Stack expert outputs to create tensor of shape (num_experts, d, b)
+        clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0)
         
-        F = torch.stack(features_list, dim=0)
-        F_t = F.transpose(1, 2)
+        # Batched QR decomposition (in reduced mode), Q: (num_experts, d, r)
+        Q, _ = torch.linalg.qr(clients_tensor, mode='reduced')
+        
+        # Compute pairwise similarity between the orthonormal bases
+        # Q: (N, d, r) -> transpose Q for inner product: (N, r, d)
+        Q_T = Q.transpose(1, 2)
+        # Compute inner products for each pair: shape (N, N, r, r)
+        inner = torch.matmul(Q_T.unsqueeze(1), Q.unsqueeze(0))
+        # Squared Frobenius norm of each inner product matrix: (N, N)
+        pairwise_similarity = inner.pow(2).sum(dim=(-1, -2))
+        
+        # Use only upper triangle (exclude diagonal) and sum
+        total_similarity += pairwise_similarity.triu(diagonal=1).sum()
 
-        # computing the similarity between the bases
-        M = torch.matmul(F_t.unsqueeze(1), F.unsqueeze(0))
-        pairwise_similarity = (M ** 2).sum(dim=(-1, -2))
-        similarity += pairwise_similarity.triu(diagonal=1).sum()
-
+    # Reset expert outputs for each block
     for block in backbone.blocks:
-        block.mlp.experts.reset_outputs()
-
-    print(similarity, ', end')
-
-    return coefficient * similarity
-
+        if block.moe:
+            block.mlp.experts.reset_outputs()
     
+    # Optionally, log the total similarity for debugging (consider logging less frequently)
+    # print(total_similarity, ', end')
 
+    return coefficient * total_similarity
