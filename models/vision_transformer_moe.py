@@ -805,6 +805,8 @@ class VisionTransformerMoE(nn.Module):
                     max_components = 5
                     component_nums = list(range(0, max_components + 1))
                     reconstruction_errors = []
+
+                    print('size of client: ',clients[0].shape)
                     
 
                     import itertools
