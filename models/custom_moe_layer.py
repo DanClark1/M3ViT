@@ -359,7 +359,6 @@ class FMoETransformerMLP(FMoE):
                 # print('in custom moe_layer,task_id',task_id)
                 gate_top_k_idx, gate_score = self.gate[task_id](gate_inp)
             else:
-                print(task_id)
                 gate_top_k_idx, gate_score = self.gate(gate_inp, task_id=task_id,sem=sem)
 
         if self.expert_prune:
