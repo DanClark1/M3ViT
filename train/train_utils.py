@@ -238,7 +238,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             # if (args.regu_sem or args.sem_force or args.regu_subimage) and epoch<args.warmup_epochs:
             #     output = model(images,sem=targets['semseg'])
             # else:
-            output = model(images)
+            output = model(images, isval=True)
             
             
             # Measure loss and performance
@@ -248,7 +248,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
                 loss_dict['total'] += collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
-                loss_dict['total'] += calculate_moe_diversity_loss(images, model)
+                loss_dict['total'] += calculate_moe_diversity_loss(model)
                     
             for k, v in loss_dict.items():
                 losses[k].update(v.item())
@@ -285,7 +285,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
 
 
 
-def calculate_moe_diversity_loss(images, model, coefficient=0.1):
+def calculate_moe_diversity_loss(model, coefficient=0.1):
     '''
     Takes the an image in a batch and computes the diversity loss (assuming model is moe)
 
@@ -295,7 +295,6 @@ def calculate_moe_diversity_loss(images, model, coefficient=0.1):
 
     We then take these and measure the alignment of their bases
     '''
-    images = images[:2]
     backbone = model.module.backbone
     num_experts = 16
     num_layers = 6
@@ -303,9 +302,7 @@ def calculate_moe_diversity_loss(images, model, coefficient=0.1):
     layer_indices = (i for i in range(num_layers))
 
     expert_datasets = {}
-
-    _ = model(images, isval=True)
-
+    
     layers = [block.mlp.get_output_matrix() for block in backbone.blocks]
         
     similarity = 0
