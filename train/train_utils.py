@@ -304,7 +304,7 @@ def calculate_moe_diversity_loss(images, model, coefficient=0.1):
 
     expert_datasets = {}
 
-    backbone.forward(images, record_outputs=True)
+    backbone.forward(images, isval=True)
 
     layers = [block.mlp.get_output_matrix() for block in backbone.blocks]
         
