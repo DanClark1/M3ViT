@@ -295,6 +295,7 @@ def calculate_moe_diversity_loss(model, coefficient=0.1):
 
     We then take these and measure the alignment of their bases
     '''
+    print('start')
     backbone = model.module.backbone
     num_experts = 16
     num_layers = 6
@@ -323,6 +324,8 @@ def calculate_moe_diversity_loss(model, coefficient=0.1):
 
     for block in backbone.blocks:
         block.mlp.experts.reset_outputs()
+
+    print(similarity, ', end')
 
     return coefficient * similarity
 
