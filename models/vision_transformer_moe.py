@@ -803,7 +803,7 @@ class VisionTransformerMoE(nn.Module):
 
                     # Create reconstruction error plot for global components
                     max_components = 2
-                    component_nums = list(range(10, max_components + 1, 10))
+                    component_nums = list(range(0, max_components + 1))
                     reconstruction_errors = []
                     pca_model = PerPCA(r1=max_components, r2=max_components)
                     # generate all subsets of clients
