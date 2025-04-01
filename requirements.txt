@@ -12,3 +12,4 @@ thop
 mmcv
 scikit-image
 scipy
+wandb
