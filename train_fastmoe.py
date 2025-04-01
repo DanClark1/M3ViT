@@ -57,7 +57,7 @@ def load_for_training(model, optimizer, path, device):
         dist.barrier()  # wait for rank 0 to write file
 
         checkpoint = torch.load(path, map_location=f"{device}")
-        model.module.load_state_dict(checkpoint["model_state"])
+        model.load_state_dict(checkpoint["model_state"])
         optimizer.load_state_dict(checkpoint["optimizer_state"])
         start_epoch = checkpoint["epoch"] + 1
 
