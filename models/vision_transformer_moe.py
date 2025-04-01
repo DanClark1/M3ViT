@@ -763,7 +763,7 @@ class VisionTransformerMoE(nn.Module):
                     for idx in layer_indices
                 }
                 expert_datasets[expert_idx] = {
-                    idx: torch.cat(expert_data[idx], dim=0)[:100].T  # Take first 100 samples, transpose to dxn
+                    idx: torch.cat(expert_data[idx], dim=0).T  #  transpose to dxn
                     for idx in layer_indices
                 }
                 
