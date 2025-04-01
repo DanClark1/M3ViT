@@ -305,7 +305,7 @@ def calculate_moe_diversity_loss(model, coefficient=0.1):
     
     total_similarity = 0.0
 
-    for layer_idx in range(num_layers):
+    for layer_idx in tqdm(range(num_layers)):
         # `clients` is assumed to be a list with length = num_experts,
         # each element shape (d, b)
         clients = layers[layer_idx]
