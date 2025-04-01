@@ -7,7 +7,8 @@ class PerPCA:
         self.num_iter = num_iter
         self.eta = eta
         self.tol = tol
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        #self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = 'cpu'
 
     def polar(self, W):
         U, _, Vh = torch.linalg.svd(W, full_matrices=False)
