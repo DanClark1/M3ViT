@@ -295,7 +295,7 @@ def calculate_moe_diversity_loss(images, model, coefficient=0.1):
 
     We then take these and measure the alignment of their bases
     '''
-    images = images[:10]
+    images = images[:2]
     backbone = model.module.backbone
     num_experts = 16
     num_layers = 6
