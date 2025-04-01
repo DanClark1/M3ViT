@@ -248,12 +248,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
                 loss_dict['total'] += collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
-                things = model.module.backbone.get_intermediate_features()
-                for thing in things:
-                    print(f'intermediate features: {thing.shape}')
-                print(torch.allclose(things[0], things[1]))
-                matricies.append(things)
-                print(f'number of moe layers: {len(things)}\n----')
+                loss_dict['total'] += calculate_moe_diversity_loss(images, model)
                     
             for k, v in loss_dict.items():
                 losses[k].update(v.item())
@@ -287,3 +282,50 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
     eval_results = performance_meter.get_score(verbose = True)
 
     return eval_results
+
+
+
+def calculate_moe_diversity_loss(images, model, coefficient=0.1):
+    '''
+    Takes the an image in a batch and computes the diversity loss (assuming model is moe)
+
+    This works by basically forcing a certain expert, and then doing n forward
+    passes through the model and recording it. This is done for every expert,
+    creating an nxd matrix for each expert.
+
+    We then take these and measure the alignment of their bases
+    '''
+    images = images[:10]
+    backbone = model.module.backbone
+    num_experts = 16
+    num_layers = 6
+    expert_indices = (i for i in range(num_experts)) # hardcoding these for now
+    layer_indices = (i for i in range(num_layers))
+
+    expert_datasets = {}
+
+    backbone.forward(images, record_outputs=True)
+
+    layers = [block.mlp.get_output_matrix() for block in backbone.blocks]
+        
+    similarity = 0
+
+    for layer_idx in layer_indices:
+        clients = [expert_datasets[exp_idx][layer_idx] for exp_idx in expert_indices]
+
+        # decomposing expert datasets into orthonormal bases
+        features_list = [torch.linalg.qr(expert_datasets[e][layer_idx])[0] for e in range(num_experts)]
+
+        
+        F = torch.stack(features_list, dim=0)
+        F_t = F.transpose(1, 2)
+
+        # computing the similarity between the bases
+        M = torch.matmul(F_t.unsqueeze(1), F.unsqueeze(0))
+        pairwise_similarity = (M ** 2).sum(dim=(-1, -2))
+        similarity += pairwise_similarity.triu(diagonal=1).sum()
+
+    return coefficient * similarity
+
+    
+
