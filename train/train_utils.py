@@ -312,9 +312,12 @@ def calculate_moe_diversity_loss(model, coefficient=0.01):
 
         # Stack expert outputs to create tensor of shape (num_experts, d, b)
         clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0)
+        clients_tensor = F.normalize(clients_tensor, dim=1)  
         
         # Batched QR decomposition (in reduced mode), Q: (num_experts, d, r)
-        Q, _ = torch.linalg.qr(clients_tensor, mode='reduced')
+        eps = 1e-6
+        U, _, _ = torch.linalg.svd(clients_tensor + eps, full_matrices=False)
+        Q = U  # Use left-singular vectors as basis
         
         # Compute pairwise similarity between the orthonormal bases
         # Q: (N, d, r) -> transpose Q for inner product: (N, r, d)
@@ -333,6 +336,6 @@ def calculate_moe_diversity_loss(model, coefficient=0.01):
             block.mlp.experts.reset_outputs()
     
     # Optionally, log the total similarity for debugging (consider logging less frequently)
-    # print(total_similarity, ', end')
+    print(total_similarity, ', end')
 
     return coefficient * total_similarity
