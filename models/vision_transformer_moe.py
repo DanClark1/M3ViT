@@ -800,6 +800,8 @@ class VisionTransformerMoE(nn.Module):
                     # Analyze global components first
                     clients = [expert_datasets[exp_idx][layer_idx] for exp_idx in expert_indices]
 
+                    print(f'sample cosine similarity between clients: {F.cosine_similarity(clients[0], clients[1], dim=1).mean().item()}')    
+
 
                     # Create reconstruction error plot for global components
                     max_components = 5
