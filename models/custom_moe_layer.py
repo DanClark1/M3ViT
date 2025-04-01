@@ -281,7 +281,8 @@ class FMoETransformerMLP(FMoE):
         return output.reshape(original_shape)
     
     def get_output_matrix(self):
-        return torch.cat(self.experts.outputs, dim=0).T
+        print(type(self.experts.outputs))
+        return torch.stack(self.experts.outputs, dim=0).T
 
     def set_forced_expert(self, expert_idx):
         """Force the layer to use a specific expert"""
