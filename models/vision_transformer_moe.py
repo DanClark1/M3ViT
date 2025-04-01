@@ -819,7 +819,7 @@ class VisionTransformerMoE(nn.Module):
                         U, V_list = pca_model.fit(clients)
                         # Compute misalignment
                         theta, lambda_max = self.compute_misalignment(V_list)
-                        print(f'theta: {theta:.4f}, r1 = {combination[0]}, r2 = {combination[1]}')
+                        print(f'theta: {theta}, r1 = {combination[0]}, r2 = {combination[1]}')
 
                     exit()
 
@@ -849,7 +849,7 @@ class VisionTransformerMoE(nn.Module):
                             cos_sim = F.cosine_similarity(clients[i], clients[j], dim=1)
                             client_cosine_similarities.append(cos_sim.mean().item())
                     avg_cosine_similarity = np.mean(client_cosine_similarities)
-                    print(f"Average cosine similarity between clients: {avg_cosine_similarity:.4f}")
+                    print(f"Average cosine similarity between clients: {avg_cosine_similarity}")
 
                     
                     # Now compute cumulative reconstruction error and variance using best components
