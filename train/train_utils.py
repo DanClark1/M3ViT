@@ -344,7 +344,8 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=1):
     
     # Return the loss scaled by the coefficient.
     # If the experts are highly similar (cosine close to 1), the loss is high.
-    return coefficient * total_cosine
+    return (coefficient * total_cosine).unsqueeze(0)
+
 
 
 def calculate_moe_diversity_loss(model, coefficient=1):
