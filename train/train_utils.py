@@ -253,7 +253,8 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 #print(loss_dict['total'])
                 #print(calculate_moe_cosine_similarity_loss(model).shape)
                 # Force both to be scalars before summing, then restore shape if necessary
-                loss_total = loss_dict['total'].squeeze() + calculate_moe_cosine_similarity_loss(model).squeeze()
+                similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze()
+                loss_total = loss_dict['total'].squeeze() + similarity_loss
                 loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
 
                     
@@ -278,6 +279,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             
             
         if i % 25 == 0:
+            print('similarity_loss',similarity_loss)
             progress.display(i)
             # for name, param in model.named_parameters():
             #     if 'gamma' in name:
@@ -408,7 +410,6 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=10):
     
     # Optionally, log the total similarity for debugging (consider logging less frequently)
     # print(total_similarity, ', end')
-    print(total_cosine.shape)
     return torch.tensor(coefficient * total_cosine, device ='cuda')
 
 
