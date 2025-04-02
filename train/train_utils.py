@@ -367,7 +367,8 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=10):
     # Assuming that for each block, block.mlp.get_output_matrix() returns a list or tensor for each expert.
     layers = [block.mlp.get_output_matrix() for block in backbone.blocks if block.moe]
     
-    total_similarity = 0.0
+    total_cosine = 0.0
+
 
     for layer_idx in range(num_layers):
         # `clients` is assumed to be a list with length = num_experts,
