@@ -18,6 +18,7 @@ import pickle
 from os.path import join
 from utils.moe_utils import collect_noisy_gating_loss,collect_semregu_loss, collect_regu_subimage_loss, collect_diversity_loss
 from tqdm import tqdm
+import wandb
 def get_loss_meters(p):
     """ Return dictionary with loss meters to monitor training """
     all_tasks = p.ALL_TASKS.NAMES
@@ -248,9 +249,13 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             matricies = []
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
-                loss_dict['total'] += collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
+                main_loss = loss_dict['total']
+                gating_loss += collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
+                loss_dict['total'] += gating_loss
                 diversity_loss = calculate_moe_diversity_loss(model)
                 loss_dict['total'] += diversity_loss
+                
+                wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "diversity loss": diversity_loss.item(), "gating_loss": gating_loss.item()})
                 #print(loss_dict['total'])
                 #print(calculate_moe_cosine_similarity_loss(model).shape)
                 # Force both to be scalars before summing, then restore shape if necessary

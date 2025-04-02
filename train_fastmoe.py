@@ -21,7 +21,7 @@ from train.train_utils import train_vanilla,train_vanilla_distributed
 from evaluation.evaluate_utils import eval_model, validate_results, save_model_predictions,\
                                     eval_all_results,validate_results_v2
 from termcolor import colored
-
+import wandb
 import torch.distributed as dist
 import subprocess
 import random
@@ -198,7 +198,7 @@ if "LOCAL_RANK" not in os.environ:
     os.environ["LOCAL_RANK"] = str(args.local_rank)
     # print(os.environ["LOCAL_RANK"])
 
-
+wandb.init(project='m3vit_diss')
 
 def main():
     cv2.setNumThreads(0)
