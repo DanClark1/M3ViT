@@ -38,7 +38,7 @@ from utils.model_utils import save_model
 from thop import profile
 from torch.utils.data import Subset
 import random
-
+import datetime
 def save_checkpoint(model, optimizer, epoch, path):
         # Only save from process with global rank 0
         if dist.get_rank() == 0:
@@ -472,7 +472,7 @@ def main():
     device = torch.device(f"cuda:{args.local_rank}")
     local_rank = torch.distributed.get_rank()
 
-    
+    date_string = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     # SAVE
     # save_checkpoint(model, optimizer, 0, "/app/checkpoint.pt")
@@ -493,7 +493,7 @@ def main():
         # factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
         eval_train = train_vanilla_distributed(args, p, train_dataloader, model, criterion, optimizer, epoch)
 
-        save_checkpoint(model, optimizer, 0, f"/app/checkpoint_{epoch}.pt")
+        save_checkpoint(model, optimizer, 0, f"/app/checkpoint_{epoch}_{date_string}.pt")
 
 
         # Evaluate
