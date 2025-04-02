@@ -352,7 +352,7 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=1):
 
 
 
-def calculate_moe_diversity_loss(model, coefficient=1):
+def calculate_moe_diversity_loss(model, coefficient=10):
     '''
     Takes the an image in a batch and computes the diversity loss (assuming model is moe)
 
