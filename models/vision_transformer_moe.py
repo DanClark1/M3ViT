@@ -804,21 +804,20 @@ class VisionTransformerMoE(nn.Module):
 
 
                     # Create reconstruction error plot for global components
-                    max_components = 5
-                    component_nums = list(range(0, max_components + 1))
-                    reconstruction_errors = []
+                    clients = torch.cat(clients, dim=0)
+                    clients = clients.swapaxes(-1, -2)
+                    print(f'clients shape: {clients.shape}')
+                    U, S, Vh = torch.linalg.svd(clients, full_matrices=False)
+                    k = 5
+                    expert_subspaces = Vh[:, :k, :].transpose(1, 2)
+                    M = torch.einsum('idk,jdk->ijab', expert_subspaces, expert_subspaces)
+                    overlap = torch.einsum('ijab,ijab->ij', M, M)
+                    total_overlap = overlap.sum() - torch.diag(overlap).sum()
+                    num_off_diagonals = N * (N - 1)
+                    scalar_overlap = total_overlap / num_off_diagonals
 
-                    print('size of client: ',clients[0].shape)
-                    print('length of clients: ',len(clients))
+                    print("Scalar Overlap:", scalar_overlap.item())
 
-                    for i in range(len(clients)):
-                        V_i = torch.linalg.qr(clients[i])[0]
-
-                        for j in range(i + 1, len(clients)):
-                            V_j = torch.linalg.qr(clients[j])[0]
-                            
-                            print(f'similarity: {torch.norm(V_i.T @ V_j, p="fro") ** 2}')
-                    
 
                     import itertools
                     r_values = [0,1,2,3,4,5]
