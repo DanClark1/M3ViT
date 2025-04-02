@@ -242,6 +242,8 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             # else:
             output = model(images, isval=True)
             
+            # log the max and min value in the output
+            wandb.log({"max output": output['semseg'].max(), "min output": output['semseg'].min()})
             
             # Measure loss and performance
             loss_dict = criterion(output, targets)
@@ -449,14 +451,9 @@ def calculate_moe_diversity_loss(model, alpha=10):
         # Stack expert outputs to create tensor of shape (num_experts, d, b)
         clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0)
 
-        # get minimum and maximum value stored in clients_tensor
-        min_val = clients_tensor.min()
-        max_val = clients_tensor.max()
-        clients_tensor = torch.log(F.normalize(clients_tensor, dim=1))
-
 
         if torch.isnan(clients_tensor).any():
-            raise ValueError(f"NaNs detected in clients_tensor after normalization. Min: {min_val}, Max: {max_val}")
+            raise ValueError(f"NaNs detected in clients_tensor after normalization.")
         
         eps = 1e-6
         # Adding eps for numerical stability if needed
