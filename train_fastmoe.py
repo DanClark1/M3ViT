@@ -598,4 +598,11 @@ def sanity_check(state_dict, pretrained_weights, linear_keyword):
     print("=> sanity check passed.")
 
 if __name__ == "__main__":
-    main()
+    rank = args.local_rank
+    # for writing the errors to a file
+    try:
+        main()
+    except Exception as e:
+        with open(f'error_log_{rank}.txt', 'a') as f:
+            f.write(str(e))
+        raise e
