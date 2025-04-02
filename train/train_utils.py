@@ -250,7 +250,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
                 main_loss = loss_dict['total']
-                gating_loss += collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
+                gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
                 diversity_loss = calculate_moe_diversity_loss(model)
                 loss_dict['total'] += diversity_loss
