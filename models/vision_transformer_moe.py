@@ -806,6 +806,7 @@ class VisionTransformerMoE(nn.Module):
                     # Create reconstruction error plot for global components
                     clients = torch.stack(clients, dim=0)
                     clients = clients.swapaxes(-1, -2)
+                    clients = clients.to('cuda')
                     print(f'clients shape: {clients.shape}')
                     U, S, Vh = torch.linalg.svd(clients, full_matrices=False)
                     k = 5
