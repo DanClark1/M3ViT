@@ -448,7 +448,7 @@ def calculate_moe_diversity_loss(model, alpha=10):
 
         # Stack expert outputs to create tensor of shape (num_experts, d, b)
         clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0)
-        clients_tensor = F.normalize(clients_tensor, dim=1)  
+        clients_tensor = torch.log(F.normalize(clients_tensor, dim=1))
 
 
         if torch.isnan(clients_tensor).any():
@@ -488,4 +488,4 @@ def calculate_moe_diversity_loss(model, alpha=10):
     
     # Optionally, log the total similarity for debugging (consider logging less frequently)
     # print(total_similarity, ', end')
-    return torch.pow(total_similarity, alpha)
+    return total_similarity
