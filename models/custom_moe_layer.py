@@ -42,7 +42,7 @@ class _Expert(nn.Module):
         self.record_output = False
         self.num_experts = num_expert
         self.stage = 0 # set this to 1 once components are calculated
-        self.outputs_size_limit = 5000
+        self.outputs_size_limit = 1000
 
     def reset_outputs(self):
         self.outputs = None
