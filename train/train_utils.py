@@ -345,7 +345,7 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=1):
     # Return the loss scaled by the coefficient.
     # If the experts are highly similar (cosine close to 1), the loss is high.
     print(total_cosine)
-    exit()
+
     return coefficient * total_cosine
 
 
