@@ -420,7 +420,7 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=0.1):
     return torch.abs(coefficient * total_cosine)
 
 
-def calculate_moe_diversity_loss(model):
+def calculate_moe_diversity_loss(model, alpha=10):
     '''
     Takes the an image in a batch and computes the diversity loss (assuming model is moe)
 
@@ -486,4 +486,4 @@ def calculate_moe_diversity_loss(model):
     
     # Optionally, log the total similarity for debugging (consider logging less frequently)
     # print(total_similarity, ', end')
-    return total_similarity
+    return torch.pow(total_similarity, alpha)
