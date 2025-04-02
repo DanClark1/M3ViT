@@ -270,6 +270,10 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 rank = torch.distributed.get_rank()
                 if rank == 0:
                     wandb.log({"diversity loss":diversity_loss, "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
+
+                for block in model.module.backbone.blocks:
+                    if block.moe:
+                        block.mlp.experts.reset_outputs()
                     
             for k, v in loss_dict.items():
                 losses[k].update(v.item())
@@ -413,13 +417,6 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=0.1):
         # Average cosine similarity for the current layer
         total_cosine += layer_cosine / pair_count
 
-
-    total_cosine
-
-    # Reset expert outputs for each block
-    for block in backbone.blocks:
-        if block.moe:
-            block.mlp.experts.reset_outputs()
     
     # Optionally, log the total similarity for debugging (consider logging less frequently)
     # print(total_similarity, ', end')
@@ -485,9 +482,7 @@ def calculate_moe_diversity_loss(model, alpha=10):
     total_similarity /= clients_tensor.size(1)
 
     # Reset expert outputs for each block
-    for block in backbone.blocks:
-        if block.moe:
-            block.mlp.experts.reset_outputs()
+    
     
     # Optionally, log the total similarity for debugging (consider logging less frequently)
     # print(total_similarity, ', end')
