@@ -804,7 +804,7 @@ class VisionTransformerMoE(nn.Module):
 
 
                     # Create reconstruction error plot for global components
-                    clients = torch.cat(clients, dim=0)
+                    clients = torch.stack(clients, dim=0)
                     clients = clients.swapaxes(-1, -2)
                     print(f'clients shape: {clients.shape}')
                     U, S, Vh = torch.linalg.svd(clients, full_matrices=False)
