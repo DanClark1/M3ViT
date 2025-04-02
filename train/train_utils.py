@@ -406,8 +406,7 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=10):
     # Optionally, log the total similarity for debugging (consider logging less frequently)
     # print(total_similarity, ', end')
     print(total_cosine.shape)
-    exit()
-    return coefficient * total_cosine
+    return (coefficient * total_cosine).unsqueeze(0)
 
 
 def calculate_moe_diversity_loss(model, coefficient=10):
