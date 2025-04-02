@@ -477,6 +477,9 @@ def main():
 
     date_string = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
+    wandb.watch(model, log='all', log_freq=100)
+
+
     # SAVE
     # save_checkpoint(model, optimizer, 0, "/app/checkpoint.pt")
 

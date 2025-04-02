@@ -446,11 +446,19 @@ def calculate_moe_diversity_loss(model, coefficient=0.1):
         # Stack expert outputs to create tensor of shape (num_experts, d, b)
         clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0)
         clients_tensor = F.normalize(clients_tensor, dim=1)  
+
+
+        if torch.isnan(clients_tensor).any():
+            raise ValueError("NaNs detected in clients_tensor after normalization.")
         
         eps = 1e-6
         # Adding eps for numerical stability if needed
         Q, _ = torch.linalg.qr(clients_tensor + eps, mode='reduced')
         # Q now has shape (num_experts, d, r) where r = min(d, b)
+
+        if torch.isnan(Q).any():
+            raise ValueError("NaNs detected in Q matrix after QR decomposition.")
+
 
         # Compute pairwise similarity between the orthonormal bases
         # Transpose Q for inner product: (num_experts, r, d)
