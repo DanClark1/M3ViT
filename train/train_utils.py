@@ -267,7 +267,9 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze()
                 loss_total = loss_dict['total'].squeeze() + similarity_loss
                 loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
-                wandb.log({"diversity loss":diversity_loss, "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
+                rank = torch.distributed.get_rank()
+                if rank == 0:
+                    wandb.log({"diversity loss":diversity_loss, "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
                     
             for k, v in loss_dict.items():
                 losses[k].update(v.item())
