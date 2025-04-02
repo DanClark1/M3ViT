@@ -396,10 +396,7 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=10):
 
     # Normalize by the number of pairs and layers
     num_pairs = num_experts * (num_experts - 1) / 2 * num_layers
-    total_similarity /= num_pairs
-
-    # divide by dimension of the output
-    total_similarity /= clients_tensor.size(1)
+    total_cosine /= num_pairs
 
     # Reset expert outputs for each block
     for block in backbone.blocks:
@@ -409,7 +406,7 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=10):
     # Optionally, log the total similarity for debugging (consider logging less frequently)
     # print(total_similarity, ', end')
 
-    return coefficient * total_similarity
+    return coefficient * total_cosine
 
 
 def calculate_moe_diversity_loss(model, coefficient=10):
