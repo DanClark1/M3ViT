@@ -255,7 +255,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 main_loss = loss_dict['total']
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
-                # diversity_loss = calculate_moe_diversity_loss(model)
+                diversity_loss = calculate_moe_diversity_loss(model)
                 # diversity_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
 
                 #loss_dict['total'] += (diversity_loss * diversity_loss_coeff)
@@ -267,7 +267,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze()
                 loss_total = loss_dict['total'].squeeze() + similarity_loss
                 loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
-                wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
+                wandb.log({"diversity loss":diversity_loss, "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
                     
             for k, v in loss_dict.items():
                 losses[k].update(v.item())
