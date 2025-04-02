@@ -399,9 +399,7 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=10):
         total_cosine += layer_cosine / pair_count
 
 
-    # Normalize by the number of pairs and layers
-    num_pairs = num_experts * (num_experts - 1) / 2 * num_layers
-    total_cosine /= num_pairs
+    total_cosine
 
     # Reset expert outputs for each block
     for block in backbone.blocks:
@@ -410,7 +408,7 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=10):
     
     # Optionally, log the total similarity for debugging (consider logging less frequently)
     # print(total_similarity, ', end')
-    return torch.tensor(coefficient * total_cosine, device ='cuda')
+    return torch.abs(coefficient * total_cosine)
 
 
 def calculate_moe_diversity_loss(model, coefficient=10):
