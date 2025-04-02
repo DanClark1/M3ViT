@@ -258,7 +258,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 diversity_loss = calculate_moe_diversity_loss(model)
                 diversity_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
 
-                loss_dict['total'] += (diversity_loss * diversity_loss_coeff)
+                #loss_dict['total'] += (diversity_loss * diversity_loss_coeff)
                 
                 wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "diversity loss": diversity_loss.item(), "gating_loss": gating_loss.item()})
                 #print(loss_dict['total'])

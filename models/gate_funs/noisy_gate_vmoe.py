@@ -11,6 +11,7 @@ import math
 import numpy as np
 from collections import Counter
 from pdb import set_trace
+import wandb
 
 class NoisyGate_VMoE(BaseGate):
     def __init__(self, d_model, num_expert, world_size, top_k=2, noise_std=1, no_noise=False,
