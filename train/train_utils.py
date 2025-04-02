@@ -249,13 +249,13 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
                 loss_dict['total'] += collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
-                # loss_dict['total'] += calculate_moe_diversity_loss(model)
+                loss_dict['total'] += calculate_moe_diversity_loss(model)
                 #print(loss_dict['total'])
                 #print(calculate_moe_cosine_similarity_loss(model).shape)
                 # Force both to be scalars before summing, then restore shape if necessary
-                similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze()
-                loss_total = loss_dict['total'].squeeze() + similarity_loss
-                loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
+                # similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze()
+                # loss_total = loss_dict['total'].squeeze() + similarity_loss
+                # loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
 
                     
             for k, v in loss_dict.items():
@@ -390,7 +390,7 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=0.1):
         layer_cosine = 0.0
         pair_count = 0
         for i in range(num_experts):
-            # ensuring column are orthornormal
+            # ensuring column are orthornoar
             layer_cosine += F.cosine_similarity(clients_flat[i].unsqueeze(0), clients_flat[i].unsqueeze(0), dim=1)
             for j in range(i + 1, num_experts):
                 # F.cosine_similarity returns a 1-element tensor when inputs are 1D
@@ -413,7 +413,7 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=0.1):
     return torch.abs(coefficient * total_cosine)
 
 
-def calculate_moe_diversity_loss(model, coefficient=10):
+def calculate_moe_diversity_loss(model, coefficient=0):
     '''
     Takes the an image in a batch and computes the diversity loss (assuming model is moe)
 
@@ -441,17 +441,17 @@ def calculate_moe_diversity_loss(model, coefficient=10):
         clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0)
         clients_tensor = F.normalize(clients_tensor, dim=1)  
         
-        # Batched QR decomposition (in reduced mode), Q: (num_experts, d, r)
         eps = 1e-6
-        U, _, _ = torch.linalg.svd(clients_tensor + eps, full_matrices=False)
-        Q = U  # Use left-singular vectors as basis
-        
+        # Adding eps for numerical stability if needed
+        Q, _ = torch.linalg.qr(clients_tensor + eps, mode='reduced')
+        # Q now has shape (num_experts, d, r) where r = min(d, b)
+
         # Compute pairwise similarity between the orthonormal bases
-        # Q: (N, d, r) -> transpose Q for inner product: (N, r, d)
+        # Transpose Q for inner product: (num_experts, r, d)
         Q_T = Q.transpose(1, 2)
-        # Compute inner products for each pair: shape (N, N, r, r)
+        # Compute inner products for each pair: shape (num_experts, num_experts, r, r)
         inner = torch.matmul(Q_T.unsqueeze(1), Q.unsqueeze(0))
-        # Squared Frobenius norm of each inner product matrix: (N, N)
+        # Squared Frobenius norm of each inner product matrix: (num_experts, num_experts)
         pairwise_similarity = inner.pow(2).sum(dim=(-1, -2))
         
         # Use only upper triangle (exclude diagonal) and sum
