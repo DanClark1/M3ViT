@@ -255,7 +255,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 main_loss = loss_dict['total']
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
-                diversity_loss = calculate_moe_diversity_loss(model)
+                diversity_loss = calculate_moe_diversity_loss(model).cpu().detach()
                 # diversity_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
 
                 #loss_dict['total'] += (diversity_loss * diversity_loss_coeff)
