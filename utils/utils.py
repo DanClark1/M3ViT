@@ -6,6 +6,7 @@ import os
 import torch
 import torch.nn.functional as F
 import errno
+import wandb
 def mkdir_if_missing(directory):
     if not os.path.exists(directory):
         try:
@@ -38,6 +39,9 @@ class AverageMeter(object):
     def __str__(self):
         fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
         return fmtstr.format(**self.__dict__)
+    
+    def __int__(self):
+        return int(self.val)
 
 
 class ProgressMeter(object):
@@ -47,6 +51,10 @@ class ProgressMeter(object):
         self.prefix = prefix
 
     def display(self, batch):
+        # log to wandb too
+        for meter in self.meters:
+            if isinstance(meter, AverageMeter):
+                wandb.log({meter.name: meter.val})
         entries = [self.prefix + self.batch_fmtstr.format(batch)]
         entries += [str(meter) for meter in self.meters]
         print('\t'.join(entries))
