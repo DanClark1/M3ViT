@@ -355,7 +355,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
 
 #     return (coefficient * total_cosine).unsqueeze(0)
 
-def calculate_moe_cosine_similarity_loss(model, coefficient=10):
+def calculate_moe_cosine_similarity_loss(model, coefficient=0.1):
     '''
     Takes the an image in a batch and computes the diversity loss (assuming model is moe)
 
@@ -390,6 +390,8 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=10):
         layer_cosine = 0.0
         pair_count = 0
         for i in range(num_experts):
+            # ensuring column are orthornormal
+            layer_cosine += F.cosine_similarity(clients_flat[i].unsqueeze(0), clients_flat[i].unsqueeze(0), dim=1)
             for j in range(i + 1, num_experts):
                 # F.cosine_similarity returns a 1-element tensor when inputs are 1D
                 cos_sim = F.cosine_similarity(clients_flat[i].unsqueeze(0), clients_flat[j].unsqueeze(0), dim=1)
