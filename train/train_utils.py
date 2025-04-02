@@ -249,11 +249,12 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             matricies = []
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
+                diversity_loss_coeff = 0.01 # might be too high tbf
                 main_loss = loss_dict['total']
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
                 diversity_loss = calculate_moe_diversity_loss(model)
-                loss_dict['total'] += diversity_loss
+                loss_dict['total'] += (diversity_loss * diversity_loss_coeff)
                 
                 wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "diversity loss": diversity_loss.item(), "gating_loss": gating_loss.item()})
                 #print(loss_dict['total'])
@@ -419,7 +420,7 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=0.1):
     return torch.abs(coefficient * total_cosine)
 
 
-def calculate_moe_diversity_loss(model, coefficient=0.1):
+def calculate_moe_diversity_loss(model):
     '''
     Takes the an image in a batch and computes the diversity loss (assuming model is moe)
 
@@ -485,4 +486,4 @@ def calculate_moe_diversity_loss(model, coefficient=0.1):
     
     # Optionally, log the total similarity for debugging (consider logging less frequently)
     # print(total_similarity, ', end')
-    return coefficient * total_similarity
+    return total_similarity
