@@ -252,7 +252,10 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 # loss_dict['total'] += calculate_moe_diversity_loss(model)
                 #print(loss_dict['total'])
                 #print(calculate_moe_cosine_similarity_loss(model).shape)
-                loss_dict['total'] += calculate_moe_cosine_similarity_loss(model)
+                # Force both to be scalars before summing, then restore shape if necessary
+                loss_total = loss_dict['total'].squeeze() + calculate_moe_cosine_similarity_loss(model).squeeze()
+                loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
+
                     
             for k, v in loss_dict.items():
                 losses[k].update(v.item())
