@@ -241,7 +241,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             #     output = model(images,sem=targets['semseg'])
             # else:
             output = model(images, isval=True)
-            
+            rank = torch.distributed.get_rank()
             if rank == 0:
                 # log the max and min value in the output
                 wandb.log({"max output": output['semseg'].max(), "min output": output['semseg'].min()})
