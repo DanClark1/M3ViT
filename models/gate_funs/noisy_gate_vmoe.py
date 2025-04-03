@@ -12,6 +12,7 @@ import numpy as np
 from collections import Counter
 from pdb import set_trace
 import wandb
+import random
 
 class NoisyGate_VMoE(BaseGate):
     def __init__(self, d_model, num_expert, world_size, top_k=2, noise_std=1, no_noise=False,
@@ -135,6 +136,8 @@ class NoisyGate_VMoE(BaseGate):
         Returns:
         a `Scalar`.
         """
+        if random.random() < 0.01:
+            print(x) # debugging
         eps = 1e-10
         # if only num_expert = 1
         if x.shape[0] == 1:
