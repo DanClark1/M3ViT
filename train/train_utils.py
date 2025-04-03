@@ -242,9 +242,10 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             # else:
             output = model(images, isval=True)
             
-            # log the max and min value in the output
-            wandb.log({"max output": output['semseg'].max(), "min output": output['semseg'].min()})
-            
+            if rank == 0:
+                # log the max and min value in the output
+                wandb.log({"max output": output['semseg'].max(), "min output": output['semseg'].min()})
+                
             # Measure loss and performance
             loss_dict = criterion(output, targets)
 

@@ -198,9 +198,10 @@ if "LOCAL_RANK" not in os.environ:
     os.environ["LOCAL_RANK"] = str(args.local_rank)
     # print(os.environ["LOCAL_RANK"])
 
-wandb.init(project='m3vit_diss')
-
 def main():
+    rank = args.local_rank
+    if rank == 0:
+        wandb.init(project='m3vit_diss')
     cv2.setNumThreads(0)
     p = create_config(args.config_env, args.config_exp, local_rank=args.local_rank, args=args)
     args.num_tasks = len(p.TASKS.NAMES)
@@ -477,7 +478,8 @@ def main():
 
     date_string = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-    wandb.watch(model, log='all', log_freq=100)
+    if rank == 0:
+        wandb.watch(model, log='all', log_freq=100)
 
 
     # SAVE
