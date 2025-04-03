@@ -803,22 +803,6 @@ class VisionTransformerMoE(nn.Module):
                     print(f'sample cosine similarity between clients: {F.cosine_similarity(clients[0], clients[1], dim=1).mean().item()}')    
 
 
-                    # Create reconstruction error plot for global components
-                    clients = torch.stack(clients, dim=0)
-                    clients = clients.swapaxes(-1, -2)
-                    clients = clients.to('cuda')
-                    print(f'clients shape: {clients.shape}')
-                    U, S, Vh = torch.linalg.svd(clients, full_matrices=False)
-                    k = 5
-                    expert_subspaces = Vh[:, :k, :].transpose(1, 2)
-                    M = torch.einsum('idk,jdk->ijab', expert_subspaces, expert_subspaces)
-                    overlap = torch.einsum('ijab,ijab->ij', M, M)
-                    total_overlap = overlap.sum() - torch.diag(overlap).sum()
-                    num_off_diagonals = N * (N - 1)
-                    scalar_overlap = total_overlap / num_off_diagonals
-
-                    print("Scalar Overlap:", scalar_overlap.item())
-
 
                     import itertools
                     r_values = [0,1,2,3,4,5]
