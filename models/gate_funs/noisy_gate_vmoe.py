@@ -189,6 +189,9 @@ class NoisyGate_VMoE(BaseGate):
             raw_noise_stddev = self.noise_std / self.tot_expert
         noise_stddev = raw_noise_stddev * self.training
 
+
+        print('zeros in clean_logits',torch.sum(clean_logits==0))
+
         if self.regu_sem and (sem is not None):
             batch = sem.shape[0]
             prior_selection = clean_logits.reshape(batch,-1,self.num_expert)[:,1:,:]
