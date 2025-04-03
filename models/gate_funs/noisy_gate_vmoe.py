@@ -191,6 +191,7 @@ class NoisyGate_VMoE(BaseGate):
 
 
         print('zeros in clean_logits',torch.sum(clean_logits==0))
+        print('clean logits', clean_logits)
 
         if self.regu_sem and (sem is not None):
             batch = sem.shape[0]
