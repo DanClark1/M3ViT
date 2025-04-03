@@ -252,7 +252,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             matricies = []
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
-                diversity_loss_coeff = 0.0001 # might be too high tbf
+                diversity_loss_coeff = 0.000000001 # might be too high tbf
                 main_loss = loss_dict['total']
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
@@ -425,7 +425,7 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=0.1):
     return torch.abs(coefficient * total_cosine)
 
 
-def calculate_moe_diversity_loss(model, alpha=10):
+def calculate_moe_diversity_loss(model):
     '''
     Takes the an image in a batch and computes the diversity loss (assuming model is moe)
 
