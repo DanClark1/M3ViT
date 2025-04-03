@@ -404,13 +404,6 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=0.1):
         clients_tensor = F.normalize(clients_tensor, dim=1)
         # Flatten each expert output to a vector of shape (d*b,)
         clients_flat = clients_tensor.view(num_experts, -1)
-
-
-        
-        # print the number of zeros in the vector
-        print((clients_flat == 0).sum())
-        
-
         
         # Compute pairwise cosine similarity for each pair of experts
         layer_cosine = 0.0
