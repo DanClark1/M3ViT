@@ -21,6 +21,7 @@ from models.gate_funs.noisy_gate_vmoe import NoisyGate_VMoE
 from models.gate_funs.noisy_gate_vmoe_global import NoisyGlobalGate_VMoE
 
 from utils.perpca import PerPCA
+import wandb
 
 from pdb import set_trace
 import numpy as np
@@ -83,6 +84,10 @@ class _Expert(nn.Module):
                 self.outputs = out
             elif self.outputs.shape[1] < self.outputs_size_limit:
                 self.outputs = torch.cat((self.outputs, out), dim=1)
+
+        rank = torch.distributed.get_rank()
+        if rank == 0:
+            wandb.log({'max expert output': x.max(), 'min expert output': x.min()})
         return x
     
     def get_components(self, num_components=50):

@@ -179,7 +179,6 @@ class NoisyGate_VMoE(BaseGate):
         other_dim = shape_input[:-1]
         inp = inp.reshape(-1, channel)
 
-        print('zero count: ', torch.sum(inp==0))
 
         if self.regu_experts_fromtask and (task_id is not None):
             clean_logits = inp @ self.w_gate[:,self.start_experts_id[task_id]:self.start_experts_id[task_id]+self.num_experts_pertask]
@@ -190,8 +189,6 @@ class NoisyGate_VMoE(BaseGate):
         noise_stddev = raw_noise_stddev * self.training
 
 
-        print('zeros in clean_logits',torch.sum(clean_logits==0))
-        print('clean logits', clean_logits)
 
         if self.regu_sem and (sem is not None):
             batch = sem.shape[0]
