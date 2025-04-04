@@ -443,6 +443,7 @@ def calculate_moe_diversity_loss(model):
     layers = [block.mlp.get_output_matrix() for block in backbone.blocks if block.moe]
     
     theta_total = 0.0
+    layer_count = 0.0
 
     for layer_idx in range(num_layers):
         # `clients` is assumed to be a list with length = num_experts,
