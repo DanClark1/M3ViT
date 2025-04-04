@@ -256,19 +256,19 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 main_loss = loss_dict['total']
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
-                similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze()
-                diversity_loss = calculate_moe_diversity_loss(model).cpu().detach()
-                # diversity_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
+                similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze().cpu().detach()
+                diversity_loss = calculate_moe_diversity_loss(model)
+                diversity_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
 
-                # loss_dict['total'] += (diversity_loss * diversity_loss_coeff)
+                loss_dict['total'] += (diversity_loss * diversity_loss_coeff)
                 
                 # wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "diversity loss": diversity_loss.item(), "gating_loss": gating_loss.item()})
                 #print(loss_dict['total'])
                 #print(calculate_moe_cosine_similarity_loss(model).shape)
                 # Force both to be scalars before summing, then restore shape if necessary
                 
-                loss_total = loss_dict['total'].squeeze() + similarity_loss
-                loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
+                # loss_total = loss_dict['total'].squeeze() + similarity_loss
+                # loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
                 rank = torch.distributed.get_rank()
                 if rank == 1:
                     wandb.log({"diversity loss":diversity_loss, "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
@@ -442,7 +442,7 @@ def calculate_moe_diversity_loss(model):
     # Assuming that for each block, block.mlp.get_output_matrix() returns a list or tensor for each expert.
     layers = [block.mlp.get_output_matrix() for block in backbone.blocks if block.moe]
     
-    theta_total = 0.0
+    lambda_total = 0.0
     layer_count = 0.0
 
     for layer_idx in range(num_layers):
@@ -477,10 +477,9 @@ def calculate_moe_diversity_loss(model):
         lambda_max = eigvals[-1]
         
         # Calculate theta for this layer
-        theta_layer = 1 - lambda_max
-        theta_total += theta_layer
+        lambda_total += lambda_max
         layer_count += 1
 
     # Average theta across layers
-    avg_theta = theta_total / layer_count if layer_count > 0 else 0.0
-    return avg_theta
+    avg_lambda = lambda_total / layer_count if layer_count > 0 else 0.0
+    return avg_lambda
