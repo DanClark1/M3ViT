@@ -86,7 +86,7 @@ class _Expert(nn.Module):
                 self.outputs = torch.cat((self.outputs, out), dim=1)
 
         rank = torch.distributed.get_rank()
-        if rank == 0:
+        if rank == 1:
             wandb.log({'max expert output': x.max(), 'min expert output': x.min()})
         x = x.clamp(min=-0.1, max=0.1)
         return x

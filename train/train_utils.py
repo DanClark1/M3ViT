@@ -242,7 +242,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             # else:
             output = model(images, isval=True)
             rank = torch.distributed.get_rank()
-            if rank == 0:
+            if rank == 1:
                 # log the max and min value in the output
                 wandb.log({"max output": output['semseg'].max(), "min output": output['semseg'].min()})
                 
@@ -270,7 +270,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 loss_total = loss_dict['total'].squeeze() + similarity_loss
                 loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
                 rank = torch.distributed.get_rank()
-                if rank == 0:
+                if rank == 1:
                     wandb.log({"diversity loss":diversity_loss, "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
 
                 for block in model.module.backbone.blocks:

@@ -200,7 +200,7 @@ if "LOCAL_RANK" not in os.environ:
 
 def main():
     rank = args.local_rank
-    if rank == 0:
+    if rank == 1:
         wandb.init(project='m3vit_diss')
     cv2.setNumThreads(0)
     p = create_config(args.config_env, args.config_exp, local_rank=args.local_rank, args=args)
@@ -478,7 +478,7 @@ def main():
 
     date_string = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-    if rank == 0:
+    if rank == 1:
         wandb.watch(model, log='all', log_freq=100)
 
 

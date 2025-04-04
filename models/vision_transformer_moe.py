@@ -807,7 +807,36 @@ class VisionTransformerMoE(nn.Module):
 
                     print(f'sample cosine similarity between clients: {F.cosine_similarity(clients[0], clients[1], dim=1).mean().item()}')    
 
+                    # Stack expert outputs to create tensor of shape (num_experts, d, b)
+                    clients_tensor = torch.stack([clients[e] for e in range(16)], dim=0)
 
+
+                    if torch.isnan(clients_tensor).any():
+                        raise ValueError(f"NaNs detected in clients_tensor after normalization.")
+                
+                    eps = 1e-6
+                    # Adding eps for numerical stability if needed
+                    Q, _ = torch.linalg.qr(clients_tensor + eps, mode='reduced')
+                    # Q now has shape (num_experts, d, r) where r = min(d, b)
+
+                    if torch.isnan(Q).any():
+                        raise ValueError("NaNs detected in Q matrix after QR decomposition.")
+
+
+                    projs = torch.matmul(Q, Q.transpose(1, 2))
+
+
+                    # Compute the average projection across experts: shape (d, d)
+                    avg_proj = torch.mean(projs, dim=0)
+                    
+                    # Compute the eigenvalues of the averaged projection (avg_proj is symmetric)
+                    eigvals = torch.linalg.eigvalsh(avg_proj)
+                    lambda_max = eigvals[-1]
+                    
+                    # Calculate theta for this layer
+                    theta_layer = 1 - lambda_max
+
+                    print(f'theta approximation for layer {layer_idx}: {theta_layer} (lambda_max: {lambda_max})')
 
                     import itertools
                     r_values = [0,1,2,3,4,5]
