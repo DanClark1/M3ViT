@@ -252,7 +252,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             matricies = []
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
-                diversity_loss_coeff = 0.001 # might be too high tbf
+                diversity_loss_coeff = 0.000001 # might be too high tbf
                 main_loss = loss_dict['total']
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
@@ -482,4 +482,4 @@ def calculate_moe_diversity_loss(model):
 
     # Average theta across layers
     avg_lambda = lambda_total / layer_count if layer_count > 0 else 0.0
-    return avg_lambda
+    return (avg_lambda ** 2)
