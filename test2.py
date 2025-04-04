@@ -1,94 +1,56 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
 
-# ---------------------------
-# Step 1: Simulate Homogeneous Data
-# ---------------------------
-np.random.seed(0)
-n_samples = 1000  # total number of samples
-d = 50            # dimensionality of data
-
-# Create data from a standard normal distribution (covariance = I)
-data = np.random.multivariate_normal(np.zeros(d), np.eye(d), size=n_samples)
-
-# ---------------------------
-# Step 2: Standard PCA on Pooled Data
-# ---------------------------
-pca = PCA()
-pca.fit(data)
-explained_variance = pca.explained_variance_ratio_
-
-plt.figure(figsize=(8, 6))
-plt.plot(range(1, d + 1), explained_variance, 'o-', label="Standard PCA")
-plt.xlabel("Principal Component")
-plt.ylabel("Explained Variance Ratio")
-plt.title("Scree Plot for Standard PCA on Homogeneous Data")
-plt.legend()
-plt.grid(True)
-plt.show()
-
-# ---------------------------
-# Step 3: Simulate Federated Setting
-# ---------------------------
-n_clients = 5
-client_data = np.array_split(data, n_clients)
-
-def compute_local_PCs(client_data, n_components=10):
+def compute_theta(local_bases):
     """
-    Compute the top n_components local principal components for each client.
-    Returns a list of local PC matrices of shape (d, n_components).
+    Given a list of local bases (each with orthonormal columns),
+    compute the average projection matrix and return:
+      - theta = 1 - lambda_max(average projection)
+      - lambda_max, and the average projection matrix.
     """
-    local_PCs = []
-    for client in client_data:
-        # Compute the sample covariance matrix for the client data.
-        cov_mat = np.cov(client.T)
-        # Eigen-decomposition (eigh returns sorted eigenvalues in ascending order)
-        eigenvals, eigenvecs = np.linalg.eigh(cov_mat)
-        # Sort eigenvectors in descending order of eigenvalues
-        idx = np.argsort(eigenvals)[::-1]
-        eigenvecs = eigenvecs[:, idx]
-        local_PCs.append(eigenvecs[:, :n_components])
-    return local_PCs
+    N = len(local_bases)
+    # Each local projection matrix is B @ B.T.
+    proj_matrices = [B @ B.T for B in local_bases]
+    avg_proj = sum(proj_matrices) / N
+    # Use eigen-decomposition (since avg_proj is symmetric) to compute the maximum eigenvalue.
+    eigvals = np.linalg.eigvalsh(avg_proj)
+    lambda_max = np.max(eigvals)
+    theta = 1 - lambda_max
+    return theta, lambda_max, avg_proj
 
-local_PCs = compute_local_PCs(client_data, n_components=10)
+# Set the ambient dimension (e.g., 400)
+d = 400
+# Number of clients
+N = 3
+# For simplicity, assume each client has a single local direction (rank 1).
 
-# ---------------------------
-# Step 4: Compute Misalignment Parameter (θ)
-# ---------------------------
-def compute_avg_projection(V_list):
-    """
-    Computes the average projection matrix from a list of local PC matrices.
-    """
-    d = V_list[0].shape[0]
-    P_avg = np.zeros((d, d))
-    for V in V_list:
-        # Projection matrix for V (V must be orthonormal: V.T @ V = I)
-        P_avg += V @ V.T
-    P_avg /= len(V_list)
-    return P_avg
+# Scenario 1: Identical local PCs (all clients use the same direction)
+v = np.random.randn(d, 1)
+v, _ = np.linalg.qr(v)  # Orthonormalize
+local_bases_same = [v for _ in range(N)]
+theta_same, lambda_max_same, _ = compute_theta(local_bases_same)
+print("Scenario 1: Identical local PCs")
+print("  lambda_max =", lambda_max_same)
+print("  theta =", theta_same)
+print("  (Expect theta ~ 0, since all projections are identical.)\n")
 
-P_avg = compute_avg_projection(local_PCs)
-eigvals_avg = np.linalg.eigvalsh(P_avg)  # ascending order
-lambda_max = np.max(eigvals_avg)
-theta = 1 - lambda_max
-print("Misalignment parameter (theta):", theta)
-print("Largest eigenvalue of average projection (lambda_max):", lambda_max)
+# Scenario 2: Mutually orthogonal local PCs across clients
+# We generate N mutually orthogonal unit vectors in R^d.
+# One way is to generate a d x N matrix and orthonormalize its columns.
+Q, _ = np.linalg.qr(np.random.randn(d, N))
+local_bases_orthogonal = [Q[:, [i]] for i in range(N)]
+theta_orth, lambda_max_orth, _ = compute_theta(local_bases_orthogonal)
+print("Scenario 2: Mutually orthogonal local PCs")
+print("  lambda_max =", lambda_max_orth)
+print("  theta =", theta_orth)
+print("  (For N =", N, "clients, we expect lambda_max ~ 1/N and theta ~", 1 - 1/N, ".)\n")
 
-# ---------------------------
-# Step 5: Compare with Pooled PCA (Global Components)
-# ---------------------------
-# Compute the pooled covariance matrix from the entire dataset
-pooled_cov = np.cov(data.T)
-eigenvals_pooled, _ = np.linalg.eigh(pooled_cov)
-eigenvals_pooled = eigenvals_pooled[::-1]  # sort in descending order
-explained_variance_pooled = eigenvals_pooled / np.sum(eigenvals_pooled)
-
-plt.figure(figsize=(8, 6))
-plt.plot(range(1, d + 1), explained_variance_pooled, 'o-', label="Pooled PCA")
-plt.xlabel("Principal Component")
-plt.ylabel("Explained Variance Ratio")
-plt.title("Scree Plot for Pooled PCA on Homogeneous Data")
-plt.legend()
-plt.grid(True)
-plt.show()
+# Scenario 3: Random independent local PCs (each client has an independently generated unit vector)
+local_bases_random = []
+for i in range(N):
+    A = np.random.randn(d, 1)
+    Q, _ = np.linalg.qr(A)
+    local_bases_random.append(Q)
+theta_rand, lambda_max_rand, _ = compute_theta(local_bases_random)
+print("Scenario 3: Random independent local PCs")
+print("  lambda_max =", lambda_max_rand)
+print("  theta =", theta_rand)

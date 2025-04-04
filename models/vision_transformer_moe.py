@@ -681,7 +681,9 @@ class VisionTransformerMoE(nn.Module):
         # Compute the average projection matrix: P_avg = (1/N) * sum(V @ V.T)
         P_avg = torch.zeros(d, d, device=device)
         for V in V_list:
-            P_avg += V @ V.T
+            P = V @ V.T
+            P_avg += P
+            print(f'')
         P_avg /= N
 
         # Compute eigenvalues of the average projection matrix.
@@ -813,7 +815,6 @@ class VisionTransformerMoE(nn.Module):
                         # Compute misalignment
                         theta, lambda_max = self.compute_misalignment(V_list)
                         print(f'theta: {theta}, lambda_max: {lambda_max}, r1 = {combination[0]}, r2 = {combination[1]}')
-
                     exit()
 
                     # generate all subsets of clients

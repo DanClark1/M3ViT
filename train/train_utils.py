@@ -256,19 +256,19 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 main_loss = loss_dict['total']
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
-                similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze().cpu().detach()
-                diversity_loss = calculate_moe_diversity_loss(model)
-                diversity_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
+                similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze()
+                diversity_loss = calculate_moe_diversity_loss(model).cpu().detach()
+                # diversity_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
 
-                loss_dict['total'] += (diversity_loss * diversity_loss_coeff)
+                # loss_dict['total'] += (diversity_loss * diversity_loss_coeff)
                 
                 # wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "diversity loss": diversity_loss.item(), "gating_loss": gating_loss.item()})
                 #print(loss_dict['total'])
                 #print(calculate_moe_cosine_similarity_loss(model).shape)
                 # Force both to be scalars before summing, then restore shape if necessary
                 
-                # loss_total = loss_dict['total'].squeeze() + similarity_loss
-                # loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
+                loss_total = loss_dict['total'].squeeze() + similarity_loss
+                loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
                 rank = torch.distributed.get_rank()
                 if rank == 0:
                     wandb.log({"diversity loss":diversity_loss, "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
@@ -465,27 +465,21 @@ def calculate_moe_diversity_loss(model):
             raise ValueError("NaNs detected in Q matrix after QR decomposition.")
 
 
-        # Compute pairwise similarity between the orthonormal bases
-        # Transpose Q for inner product: (num_experts, r, d)
-        Q_T = Q.transpose(1, 2)
-        # Compute inner products for each pair: shape (num_experts, num_experts, r, r)
-        inner = torch.matmul(Q_T.unsqueeze(1), Q.unsqueeze(0))
-        # Squared Frobenius norm of each inner product matrix: (num_experts, num_experts)
-        pairwise_similarity = inner.pow(2).sum(dim=(-1, -2))
+        projs = torch.matmul(Q, Q.transpose(1, 2))
+
+
+        # Compute the average projection across experts: shape (d, d)
+        avg_proj = torch.mean(projs, dim=0)
         
-        # Use only upper triangle (exclude diagonal) and sum
-        total_similarity += pairwise_similarity.triu(diagonal=1).sum()
+        # Compute the eigenvalues of the averaged projection (avg_proj is symmetric)
+        eigvals = torch.linalg.eigvalsh(avg_proj)
+        lambda_max = eigvals[-1]
+        
+        # Calculate theta for this layer
+        theta_layer = 1 - lambda_max
+        theta_total += theta_layer
+        layer_count += 1
 
-    # Normalize by the number of pairs and layers
-    num_pairs = num_experts * (num_experts - 1) / 2 * num_layers
-    total_similarity /= num_pairs
-
-    # divide by dimension of the output
-    total_similarity /= clients_tensor.size(1)
-
-    # Reset expert outputs for each block
-    
-    
-    # Optionally, log the total similarity for debugging (consider logging less frequently)
-    # print(total_similarity, ', end')
-    return total_similarity
+    # Average theta across layers
+    avg_theta = theta_total / layer_count if layer_count > 0 else 0.0
+    return avg_theta
