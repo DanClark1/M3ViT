@@ -13,6 +13,7 @@ import scipy.io as sio
 from utils.utils import get_output, mkdir_if_missing
 import numpy as np
 from collections import Counter
+import wandb
 
 class PerformanceMeter(object):
     """ A general performance meter which shows performance across one or more tasks """
@@ -38,7 +39,9 @@ class PerformanceMeter(object):
         eval_dict = {}
         for t in self.tasks:
             eval_dict[t] = self.meters[t].get_score(verbose)
-
+            rank = torch.distributed.get_rank()
+            if rank == 1:
+                wandb.log({eval_dict[t]})
         return eval_dict
 
 
