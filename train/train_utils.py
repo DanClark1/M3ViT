@@ -531,7 +531,7 @@ def calculate_power_iteration_diversity_loss(model):
     '''
 
 
-    def batched_power_iteration(cov, num_iters=20):
+    def batched_power_iteration(cov, num_iters=100):
         """
         Perform batched power iteration on a batch of covariance matrices.
         cov: tensor of shape (N, d, d)
