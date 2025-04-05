@@ -546,6 +546,16 @@ def calculate_power_iteration_diversity_loss(model):
             v = torch.bmm(cov, v)      # Batched matrix multiplication: (N, d, d) x (N, d, 1) -> (N, d, 1)
             v = v / v.norm(dim=1, keepdim=True)
         return v
+    
+
+    def batched_svd(cov):
+        """
+        Compute the SVD of a batch of matrices.
+        cov: tensor of shape (N, d, d)
+        Returns: tensor of shape (N, d, 1) containing the top eigenvector.
+        """
+        U, _, _ = torch.linalg.svd(cov)
+        return U[:, :, 0]
 
     def compute_avg_projection(Y, num_iters=20):
         """
@@ -560,6 +570,11 @@ def calculate_power_iteration_diversity_loss(model):
         cov = torch.bmm(Y, Y.transpose(1, 2)) / n  # shape (N, d, d)
         # Compute top eigenvectors using batched power iteration.
         v = batched_power_iteration(cov, num_iters=num_iters)  # shape (N, d, 1)
+        v_other = batched_svd(cov)  # shape (N, d, 1)
+        # Check if the two methods give similar results
+        if torch.allclose(v, v_other, atol=1e-6):
+            print("Both methods yield similar results.")
+        v = v_other
         # Build projection matrices for each client: Pi = v v^T.
         proj = torch.bmm(v, v.transpose(1, 2))  # shape (N, d, d)
         # Average the projection matrices over all clients.
