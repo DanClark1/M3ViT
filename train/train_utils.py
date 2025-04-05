@@ -557,7 +557,7 @@ def calculate_power_iteration_diversity_loss(model):
         Returns: tensor of shape (N, d, 1) containing the top eigenvector.
         """
         U, _, _ = torch.linalg.svd(cov)
-        return torch.expand_dims(U[:, :, 0], axis=-1)
+        return U[:, :, 0].unsqueeze(-1)
 
     def compute_avg_projection(Y, num_iters=20):
         """
