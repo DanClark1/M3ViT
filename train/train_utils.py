@@ -595,7 +595,7 @@ def calculate_power_iteration_diversity_loss(model):
     # Assuming that for each block, block.mlp.get_output_matrix() returns a list or tensor for each expert.
     layers = [block.mlp.get_output_matrix() for block in backbone.blocks if block.moe]
     
-    lambda_total = 0.0
+    avg_lambda = 0.0
     layer_count = 0.0
 
     for layer_idx in range(num_layers):
