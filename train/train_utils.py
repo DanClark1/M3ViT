@@ -545,6 +545,8 @@ def calculate_power_iteration_diversity_loss(model):
         for _ in range(num_iters):
             v = torch.bmm(cov, v)      # Batched matrix multiplication: (N, d, d) x (N, d, 1) -> (N, d, 1)
             v = v / v.norm(dim=1, keepdim=True)
+
+        print('power iteration: ',v.shape)
         return v
     
 
@@ -555,7 +557,7 @@ def calculate_power_iteration_diversity_loss(model):
         Returns: tensor of shape (N, d, 1) containing the top eigenvector.
         """
         U, _, _ = torch.linalg.svd(cov)
-        print('svd: ',U.shape)
+        print('svd: ',U[:, :, 0].shape)
         return U[:, :, 0]
 
     def compute_avg_projection(Y, num_iters=20):
