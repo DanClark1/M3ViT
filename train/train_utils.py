@@ -257,7 +257,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
                 similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze().cpu().detach()
-                diversity_loss = calculate_moe_diversity_loss(model)
+                diversity_loss = calculate_power_iteration_diversity_loss(model)
                 diversity_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
 
                 loss_dict['total'] += (diversity_loss * diversity_loss_coeff)
@@ -271,7 +271,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 # loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
                 rank = torch.distributed.get_rank()
                 if rank == 1:
-                    wandb.log({"diversity loss":diversity_loss, "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
+                    wandb.log({ "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
 
                 for block in model.module.backbone.blocks:
                     if block.moe:
@@ -425,6 +425,35 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=0.1):
     return torch.abs(coefficient * total_cosine)
 
 
+
+def power_iteration(A, num_iters=20):
+    """
+    Compute the dominant eigenvector of a square matrix A using power iteration.
+    A: square matrix of shape (d, d)
+    Returns a unit vector of shape (d, 1) approximating the top eigenvector.
+    """
+    d = A.shape[0]
+    v = torch.randn(d, 1, device=A.device)
+    v = v / v.norm()
+    for _ in range(num_iters):
+        v = A @ v
+        v = v / v.norm()
+    return v
+
+
+
+def compute_local_basis(Y, num_iters=20):
+    """
+    Compute the dominant eigenvector (local basis) from data matrix Y.
+    Y: data matrix for a client of shape (d, n)
+    Returns a unit vector v (d x 1) approximating the top eigenvector of S = Y Y^T / n.
+    """
+    n = Y.shape[1]
+    S = Y @ Y.t() / n
+    v = power_iteration(S, num_iters=num_iters)
+    return v
+
+
 def calculate_moe_diversity_loss(model):
     '''
     Takes the an image in a batch and computes the diversity loss (assuming model is moe)
@@ -489,3 +518,104 @@ def calculate_moe_diversity_loss(model):
     loss_below = alpha * torch.square(torch.maximum(target - avg_lambda, torch.tensor(0, device='cuda')))
     loss_above = torch.square(torch.maximum(avg_lambda - target, torch.tensor(0, device='cuda')))
     return loss_below + loss_above
+
+
+
+
+def calculate_power_iteration_diversity_loss(model):
+    '''
+    Same as diversity loss but trying to estimate without doing any matrix decomposition
+    '''
+
+
+    def batched_power_iteration(cov, num_iters=20):
+        """
+        Perform batched power iteration on a batch of covariance matrices.
+        cov: tensor of shape (N, d, d)
+        Returns: tensor of shape (N, d, 1) containing the top eigenvector for each matrix.
+        """
+        N, d, _ = cov.shape
+        # Initialize a random vector for each client (batch element)
+        v = torch.randn(N, d, 1, device=cov.device)
+        # Normalize along the d-dimension
+        v = v / v.norm(dim=1, keepdim=True)
+        for _ in range(num_iters):
+            v = torch.bmm(cov, v)      # Batched matrix multiplication: (N, d, d) x (N, d, 1) -> (N, d, 1)
+            v = v / v.norm(dim=1, keepdim=True)
+        return v
+
+    def compute_avg_projection(Y, num_iters=20):
+        """
+        Given a batch of data matrices Y of shape (N, d, n),
+        compute the average projection matrix from the top eigenvectors of the covariance matrices.
+        Returns:
+        avg_proj: averaged projection matrix of shape (d, d)
+        v: tensor of shape (N, d, 1) with the top eigenvector for each client.
+        """
+        N, d, n = Y.shape
+        # Compute the covariance matrix for each client: S = Y Y^T / n.
+        cov = torch.bmm(Y, Y.transpose(1, 2)) / n  # shape (N, d, d)
+        # Compute top eigenvectors using batched power iteration.
+        v = batched_power_iteration(cov, num_iters=num_iters)  # shape (N, d, 1)
+        # Build projection matrices for each client: Pi = v v^T.
+        proj = torch.bmm(v, v.transpose(1, 2))  # shape (N, d, d)
+        # Average the projection matrices over all clients.
+        avg_proj = proj.mean(dim=0)  # shape (d, d)
+        return avg_proj, v
+
+    def batched_power_iteration_single(A, num_iters=20):
+        """
+        Run power iteration on a single matrix A (d x d) to compute its top eigenvector.
+        Returns the top eigenvalue (scalar) as (v^T A v).
+        """
+        d = A.shape[0]
+        v = torch.randn(d, 1, device=A.device)
+        v = v / v.norm()
+        for _ in range(num_iters):
+            v = A @ v
+            v = v / v.norm()
+        lambda_max = (v.transpose(0, 1) @ A @ v).squeeze()
+        return lambda_max
+
+    def asymmetric_loss(lambda_max, N, alpha=10.0):
+        """
+        Compute the asymmetric loss on lambda_max.
+        Target value is 1/N. Values below 1/N are penalized by a factor of alpha.
+        """
+        target = 1.0 / N
+        loss_below = alpha * torch.square(torch.clamp(target - lambda_max, min=0))
+        loss_above = torch.square(torch.clamp(lambda_max - target, min=0))
+        return loss_below + loss_above
+    
+
+    backbone = model.module.backbone
+    num_experts = 16
+    num_layers = 6
+
+    # Assuming that for each block, block.mlp.get_output_matrix() returns a list or tensor for each expert.
+    layers = [block.mlp.get_output_matrix() for block in backbone.blocks if block.moe]
+    
+    lambda_total = 0.0
+    layer_count = 0.0
+
+    for layer_idx in range(num_layers):
+        # `clients` is assumed to be a list with length = num_experts,
+        # each element shape (d, b)
+        clients = layers[layer_idx]
+
+        # Stack expert outputs to create tensor of shape (num_experts, d, b)
+        clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0)
+
+        avg_proj, v = compute_avg_projection(clients_tensor, num_iters=50)
+        # Compute the largest eigenvalue of the averaged projection matrix via power iteration.
+        lambda_max = batched_power_iteration_single(avg_proj, num_iters=50)
+
+        avg_lambda += lambda_max
+        layer_count += 1
+    
+    avg_lambda /= layer_count
+
+    rank = torch.distributed.get_rank()
+    if rank == 1:
+        wandb.log({"lambda_max": lambda_max.item()})
+    return asymmetric_loss(lambda_max, num_experts, alpha=10.0)
