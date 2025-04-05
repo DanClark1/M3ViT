@@ -272,7 +272,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 # loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
                 rank = torch.distributed.get_rank()
                 if rank == 1:
-                    wandb.log({"diversity loss":diversity_loss, "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
+                    wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
 
                 for block in model.module.backbone.blocks:
                     if block.moe:
@@ -513,7 +513,9 @@ def calculate_moe_diversity_loss(model):
     # Average theta across layers
     avg_lambda = lambda_total / layer_count if layer_count > 0 else 0.0
 
-
+    rank = torch.distributed.get_rank()
+    if rank == 1:
+        wandb.log({"diversity loss": lambda_max.item()})
     target = 1.0 / 16 # Assuming num_experts = 16
     alpha = 10
     loss_below = alpha * torch.square(torch.maximum(target - avg_lambda, torch.tensor(0, device='cuda')))
@@ -609,8 +611,7 @@ def calculate_power_iteration_diversity_loss(model):
 
         avg_proj, v = compute_avg_projection(clients_tensor, num_iters=50)
         # Compute the largest eigenvalue of the averaged projection matrix via power iteration.
-        lambda_max = batched_power_iteration_single(avg_proj, num_iters=50)
-
+        lambda_max = torch.linalg.torch.linalg.svdvals(avg_proj)[0] 
         avg_lambda += lambda_max
         layer_count += 1
     
