@@ -261,7 +261,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 lambda_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
                 diversity_loss = calculate_moe_diversity_loss(model)
 
-                loss_dict['total'] += (lambda_loss * diversity_loss_coeff)
+                loss_dict['total'] += (diversity_loss * diversity_loss_coeff)
                 
                 # wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "diversity loss": diversity_loss.item(), "gating_loss": gating_loss.item()})
                 #print(loss_dict['total'])
@@ -492,6 +492,9 @@ def calculate_moe_diversity_loss(model):
         Q, _ = torch.linalg.qr(clients_tensor + eps, mode='reduced')
         # Q now has shape (num_experts, d, r) where r = min(d, b)
 
+        # alternatively, try this but with svd
+        U, _, _ = torch.linalg.svd(clients_tensor + eps)
+        Q = U
         if torch.isnan(Q).any():
             raise ValueError("NaNs detected in Q matrix after QR decomposition.")
 
