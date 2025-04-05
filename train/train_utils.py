@@ -486,6 +486,6 @@ def calculate_moe_diversity_loss(model):
 
     target = 1.0 / 16 # Assuming num_experts = 16
     alpha = 10
-    loss_below = alpha * np.square(np.maximum(target - avg_lambda, 0))
-    loss_above = np.square(np.maximum(avg_lambda - target, 0))
+    loss_below = alpha * torch.square(torch.maximum(target - avg_lambda, 0))
+    loss_above = torch.square(torch.maximum(avg_lambda - target, 0))
     return loss_below + loss_above
