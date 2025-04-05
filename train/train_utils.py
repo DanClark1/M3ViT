@@ -482,4 +482,4 @@ def calculate_moe_diversity_loss(model):
 
     # Average theta across layers
     avg_lambda = lambda_total / layer_count if layer_count > 0 else 0.0
-    return (avg_lambda ** 2)
+    return (avg_lambda - 1/num_experts) ** 2
