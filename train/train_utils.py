@@ -363,7 +363,7 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=0.1):
             for j in range(i + 1, num_experts):
                 # F.cosine_similarity returns a 1-element tensor when inputs are 1D
                 sim_matrix = torch.matmul(clients_tensor, clients_tensor.transpose(1, 2))
-                mask = ~torch.eye(2, dtype=bool, device=x.device).unsqueeze(0).expand(n, -1, -1)
+                mask = ~torch.eye(2, dtype=bool, device=clients_tensor.device).unsqueeze(0).expand(clients_tensor.shape[0], -1, -1)
                 sim_sum = sim_matrix[mask].view(clients_tensor.shape[0], -1).sum(dim=1)
                 layer_cosine += sim_sum / 2
                 pair_count += 1
