@@ -86,9 +86,9 @@ class _Expert(nn.Module):
             )
             n = int(x.shape[0] / self.top_k)
             new_shape = (n, self.top_k) + x.shape[1:]
-            x = x.view(new_shape)
+            x_reshaped = x.view(new_shape)
 
-            normalised_x = F.normalize(x, p=2, dim=-1)
+            normalised_x = F.normalize(x_reshaped, p=2, dim=-1)
             sim_matrix = torch.matmul(normalised_x, normalised_x.transpose(1, 2))
             # ignore self-similarity (in diagonal)
             mask = ~torch.eye(self.top_k, dtype=bool, device=x.device).unsqueeze(0).expand(n, -1, -1)
