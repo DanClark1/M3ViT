@@ -418,6 +418,8 @@ def calculate_moe_diversity_loss(model):
     # Assuming that for each block, block.mlp.get_output_matrix() returns a list or tensor for each expert.
     layers = [block.mlp.get_output_matrix() for block in backbone.blocks if block.moe]
     layers_input = [block.mlp.experts.inputs for block in backbone.blocks if block.moe]
+    print('layers_input',layers_input[0].shape)
+    print('layers',layers[0].shape)
     lambda_total = 0.0
     layer_count = 0.0
 
@@ -496,8 +498,6 @@ def calculate_power_iteration_diversity_loss(model):
         for _ in range(num_iters):
             v = torch.bmm(cov, v)      # Batched matrix multiplication: (N, d, d) x (N, d, 1) -> (N, d, 1)
             v = v / v.norm(dim=1, keepdim=True)
-
-        print('power iteration: ',v.shape)
         return v
     
 
