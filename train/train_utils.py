@@ -269,7 +269,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                         layer_n += 1
 
                 
-                loss_dict['total'] += per_token_cosine_loss / layer_n
+                # loss_dict['total'] += per_token_cosine_loss / layer_n
                 # # lambda_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
                 # diversity_loss = calculate_moe_diversity_loss(model)
 
@@ -280,8 +280,8 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 #print(calculate_moe_cosine_similarity_loss(model).shape)
                 # Force both to be scalars before summing, then restore shape if necessary
                 
-                # loss_total = loss_dict['total'].squeeze() + similarity_loss
-                # loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
+                loss_total = loss_dict['total'].squeeze() + similarity_loss
+                loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
                 rank = torch.distributed.get_rank()
                 if rank == 1:
                     wandb.log({"per token cosine":(per_token_cosine_loss / layer_n), "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
@@ -353,19 +353,19 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=0.1):
         clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0)
         # Normalize along the feature dimension for cosine similarity (here dim=1)
         clients_tensor = F.normalize(clients_tensor, dim=1)
-        # Flatten each expert output to a vector of shape (d*b,)
-        clients_flat = clients_tensor.view(num_experts, -1)
-        
+
+
+
         # Compute pairwise cosine similarity for each pair of experts
         layer_cosine = 0.0
         pair_count = 0
         for i in range(num_experts):
-            # ensuring column are orthornoar
-            layer_cosine += F.cosine_similarity(clients_flat[i].unsqueeze(0), clients_flat[i].unsqueeze(0), dim=1)
             for j in range(i + 1, num_experts):
                 # F.cosine_similarity returns a 1-element tensor when inputs are 1D
-                cos_sim = F.cosine_similarity(clients_flat[i].unsqueeze(0), clients_flat[j].unsqueeze(0), dim=1)
-                layer_cosine += cos_sim
+                sim_matrix = torch.matmul(clients_tensor, clients_tensor.transpose(1, 2))
+                mask = ~torch.eye(2, dtype=bool, device=x.device).unsqueeze(0).expand(n, -1, -1)
+                sim_sum = sim_matrix[mask].view(clients_tensor.shape[0], -1).sum(dim=1)
+                layer_cosine += sim_sum / 2
                 pair_count += 1
         # Average cosine similarity for the current layer
         total_cosine += layer_cosine / pair_count
