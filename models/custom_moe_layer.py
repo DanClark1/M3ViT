@@ -91,6 +91,8 @@ class _Expert(nn.Module):
             normalised_x = F.normalize(x, p=2, dim=-1)
             sim_matrix = torch.matmul(normalised_x, normalised_x.transpose(1, 2))
 
+            print('sim_matrix', sim_matrix.shape)
+
             # ignore self-similarity (in diagonal)
             mask = ~torch.eye(self.top_k, dtype=bool, device=x.device).unsqueeze(0)
             sim_sum = sim_matrix[mask].view(n, -1).sum(dim=1)  # sum over off-diagonal
