@@ -280,7 +280,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 # loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
                 rank = torch.distributed.get_rank()
                 if rank == 1:
-                    wandb.log({"per token cosine":loss['total'].item(), "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
+                    wandb.log({"per token cosine":loss_dict['total'].item(), "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
 
                 for block in model.module.backbone.blocks:
                     if block.moe:
