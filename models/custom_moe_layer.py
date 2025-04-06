@@ -95,6 +95,7 @@ class _Expert(nn.Module):
 
             # ignore self-similarity (in diagonal)
             mask = ~torch.eye(self.top_k, dtype=bool, device=x.device).unsqueeze(0)
+            print('mask', mask.shape)
             sim_sum = sim_matrix[mask].view(n, -1).sum(dim=1)  # sum over off-diagonal
             avg_sim = sim_sum / (self.top_k * (self.top_k - 1))  
             loss += torch.abs(avg_sim.unsqueeze(1))
