@@ -50,12 +50,12 @@ class _Expert(nn.Module):
         self.top_k = top_k
 
     def reset_loss(self):
-        self.inputs = None
         self.loss = 0
         self.loss_normalise_weight = 0
 
     def reset_outputs(self):
         self.outputs = None
+        self.inputs = None
 
     def forward(self, inp, fwd_expert_count):
         r"""
