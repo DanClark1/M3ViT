@@ -101,7 +101,7 @@ class _Expert(nn.Module):
             self.loss_normalise_weight += 1
             splits = torch.split(x, fwd_expert_count.tolist(), dim=0)
             min_count = int(fwd_expert_count.min().item())
-            inp = torch.stack([x for i in range(self.top_k)], dim=0)
+            inp = torch.stack([x for _ in range(self.top_k)], dim=0)
             out = torch.stack([chunk[:min_count] for chunk in splits], dim=0)
             if self.outputs is None:
                 self.outputs = out
