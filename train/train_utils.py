@@ -265,8 +265,6 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 for block in model.module.backbone.blocks:
                     if block.moe:
                         per_token_cosine_loss += block.mlp.experts.loss / block.mlp.experts.loss_normalise_weight
-                        print('cosine: ', block.mlp.experts.loss / block.mlp.experts.loss_normalise_weight)
-
                         block.mlp.experts.reset_loss()
                         layer_n += 1
 
