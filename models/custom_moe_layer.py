@@ -9,6 +9,7 @@ from functools import partial
 import tree
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from fmoe.functions import prepare_forward, ensure_comm
 from fmoe.functions import MOEScatter, MOEGather
@@ -34,7 +35,7 @@ class _Expert(nn.Module):
     within one worker.
     """
 
-    def __init__(self, num_expert, d_model, d_hidden, activation, rank=0):
+    def __init__(self, num_expert, d_model, d_hidden, activation, rank=0, top_k=4):
         super().__init__()
         self.htoh4 = FMoELinear(num_expert, d_model, d_hidden, bias=True, rank=rank)
         self.h4toh = FMoELinear(num_expert, d_hidden, d_model, bias=True, rank=rank)
@@ -44,6 +45,11 @@ class _Expert(nn.Module):
         self.num_experts = num_expert
         self.stage = 0 # set this to 1 once components are calculated
         self.outputs_size_limit = 1000
+        self.loss = 0
+        self.top_k = top_k
+
+    def reset_loss(self):
+        self.loss = 0
 
     def reset_outputs(self):
         self.outputs = None
@@ -56,6 +62,7 @@ class _Expert(nn.Module):
         # make sure everything is on cuda
         if inp.device != 'cuda':
             inp = inp.to('cuda')
+
         inp_flat = inp.view(-1, inp.size(-1))
 
         # sanity checks
@@ -68,15 +75,28 @@ class _Expert(nn.Module):
             f"Sum of counts ({fwd_expert_count.sum().item()}) != rows ({inp_flat.shape[0]})"
         )
         x = self.htoh4(inp, fwd_expert_count)
-
-        # testing something
-        other_fwd_expert_count = fwd_expert_count.clone()
-        for i in range(len(other_fwd_expert_count)):
-            other_fwd_expert_count[i] = fwd_expert_count[i-1]
-        other_x = self.htoh4(inp, other_fwd_expert_count)
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
+
         if self.record_output and self.stage == 0:
+
+            # reshaping into top_k
+            assert x.shape[0] % self.top_k == 0, (
+                f"Expected {self.top_k} experts, got {x.shape[0]} rows"
+            )
+            n = int(x.shape[0] / self.top_k)
+            new_shape = (n, self.top_k) + x.shape[1:]
+            x = x.view(new_shape)
+
+            normalised_x = F.normalize(x, p=2, dim=-1)
+            sim_matrix = torch.matmul(normalised_x, normalised_x.transpose(1, 2))
+
+            # ignore self-similarity (in diagonal)
+            mask = ~torch.eye(self.top_k, dtype=bool, device=x.device).unsqueeze(0)
+            sim_sum = sim_matrix[mask].view(n, -1).sum(dim=1)  # sum over off-diagonal
+            avg_sim = sim_sum / (self.top_k * (self.top_k - 1))  
+            loss += torch.abs(avg_sim.unsqueeze(1))
+            
             splits = torch.split(x, fwd_expert_count.tolist(), dim=0)
             min_count = int(fwd_expert_count.min().item())
             out = torch.stack([chunk[:min_count] for chunk in splits], dim=0)
@@ -207,7 +227,7 @@ class FMoETransformerMLP(FMoE):
             print('self.start_experts_id',self.start_experts_id)
 
         self.experts = _Expert(
-            num_expert, d_model, d_hidden, activation, rank=expert_rank
+            num_expert, d_model, d_hidden, activation, rank=expert_rank, top_k=top_k
         )
         self.gate_task_specific_dim = gate_task_specific_dim
         self.multi_gate=multi_gate

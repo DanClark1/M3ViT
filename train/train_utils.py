@@ -258,6 +258,14 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 loss_dict['total'] += gating_loss
                 similarity_loss= calculate_moe_cosine_similarity_loss(model)
                 lambda_loss = calculate_power_iteration_diversity_loss(model).squeeze().cpu().detach()
+
+
+                per_token_cosine_loss = 0
+                for block in model.module.backbone.blocks:
+                    if block.moe:
+                        per_token_cosine_loss += block.mlp.loss
+                        block.mlp.reset_loss()
+                loss_dict['total'] += per_token_cosine_loss
                 # # lambda_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
                 # diversity_loss = calculate_moe_diversity_loss(model)
 
@@ -268,11 +276,11 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 #print(calculate_moe_cosine_similarity_loss(model).shape)
                 # Force both to be scalars before summing, then restore shape if necessary
                 
-                loss_total = loss_dict['total'].squeeze() + similarity_loss
-                loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
+                # loss_total = loss_dict['total'].squeeze() + similarity_loss
+                # loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
                 rank = torch.distributed.get_rank()
                 if rank == 1:
-                    wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
+                    wandb.log({"per token cosine":loss['total'].item(), "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
 
                 for block in model.module.backbone.blocks:
                     if block.moe:
@@ -312,68 +320,6 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
     eval_results = performance_meter.get_score(verbose = True)
 
     return eval_results
-
-# def calculate_moe_cosine_similarity_loss(model, coefficient=1):
-#     '''
-#     Computes a diversity loss based on cosine similarity between the outputs of experts.
-    
-#     For each MoE layer in the backbone, this function stacks the expert outputs,
-#     normalizes them, flattens each expert’s output, and then computes the pairwise
-#     cosine similarity. High cosine similarity indicates less diversity, so the loss
-#     encourages the experts to have lower (or more negative) similarity.
-    
-#     Args:
-#         model: The model containing a MoE backbone.
-#         coefficient: A scaling coefficient for the loss.
-    
-#     Returns:
-#         A scalar loss encouraging diversity between expert outputs.
-#     '''
-#     backbone = model.module.backbone
-#     num_experts = 16  # Adjust if needed
-#     num_layers = 6    # Adjust if needed
-
-#     # Get output matrices from each MoE block in the backbone
-#     layers = [block.mlp.get_output_matrix() for block in backbone.blocks if block.moe]
-    
-#     total_cosine = 0.0
-
-#     for layer_idx in range(num_layers):
-#         # `clients` is assumed to be a list with length = num_experts,
-#         # each element with shape (d, b) (d: feature dimension, b: batch size or other dimension)
-#         clients = layers[layer_idx]
-#         # Stack expert outputs to create a tensor of shape (num_experts, d, b)
-#         clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0)
-#         # Normalize along the feature dimension for cosine similarity (here dim=1)
-#         clients_tensor = F.normalize(clients_tensor, dim=1)
-#         # Flatten each expert output to a vector of shape (d*b,)
-#         clients_flat = clients_tensor.view(num_experts, -1)
-        
-#         # Compute pairwise cosine similarity for each pair of experts
-#         layer_cosine = 0.0
-#         pair_count = 0
-#         for i in range(num_experts):
-#             for j in range(i + 1, num_experts):
-#                 # F.cosine_similarity returns a 1-element tensor when inputs are 1D
-#                 cos_sim = F.cosine_similarity(clients_flat[i].unsqueeze(0), clients_flat[j].unsqueeze(0), dim=1)
-#                 layer_cosine += cos_sim
-#                 pair_count += 1
-#         # Average cosine similarity for the current layer
-#         total_cosine += layer_cosine / pair_count
-
-#     # Average over all layers
-#     total_cosine /= num_layers
-
-#     # Reset expert outputs for each block
-#     for block in backbone.blocks:
-#         if block.moe:
-#             block.mlp.experts.reset_outputs()
-    
-#     # Return the loss scaled by the coefficient.
-#     # If the experts are highly similar (cosine close to 1), the loss is high.
-#     print(total_cosine)
-
-#     return (coefficient * total_cosine).unsqueeze(0)
 
 def calculate_moe_cosine_similarity_loss(model, coefficient=0.1):
     '''
