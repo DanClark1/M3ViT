@@ -96,7 +96,6 @@ class _Expert(nn.Module):
             mask = ~torch.eye(self.top_k, dtype=bool, device=x.device).unsqueeze(0).expand(n, -1, -1)
             sim_sum = sim_matrix[mask].view(n, -1).sum(dim=1)  # sum over off-diagonal
             avg_sim = sim_sum / (self.top_k * (self.top_k - 1))  
-            print('avg_sim', torch.sum(torch.abs(avg_sim.unsqueeze(1))) / n)
             self.loss += torch.sum(torch.abs(avg_sim.unsqueeze(1))) / n
             self.loss_normalise_weight += 1
             splits = torch.split(x, fwd_expert_count.tolist(), dim=0)
