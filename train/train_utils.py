@@ -362,6 +362,7 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=0.1):
                 # F.cosine_similarity returns a 1-element tensor when inputs are 1D
                 similarity = F.cosine_similarity(clients_tensor[:, :, i], clients_tensor[:, :, j], dim=1)
                 print('similarity', similarity.mean())
+                print('similarity 2 ', F.cosine_similarity(clients_tensor[1, :, i], clients_tensor[1, :, j], dim=0))
                 layer_cosine += similarity.mean() / 2
                 pair_count += 1
         # Average cosine similarity for the current layer
