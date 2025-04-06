@@ -325,7 +325,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
 
     return eval_results
 
-def calculate_moe_cosine_similarity_loss(model, coefficient=100):
+def calculate_moe_cosine_similarity_loss(model, coefficient=1):
     '''
     Takes the an image in a batch and computes the diversity loss (assuming model is moe)
 
