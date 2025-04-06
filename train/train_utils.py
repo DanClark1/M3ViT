@@ -271,7 +271,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 
                 # loss_dict['total'] += per_token_cosine_loss / layer_n
                 # # lambda_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
-                diversity_loss = calculate_moe_diversity_loss(model)
+                diversity_loss = calculate_moe_diversity_loss(model).cpu().detach()
 
                 # loss_dict['total'] += (diversity_loss * diversity_loss_coeff)
                 
