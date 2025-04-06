@@ -46,10 +46,12 @@ class _Expert(nn.Module):
         self.stage = 0 # set this to 1 once components are calculated
         self.outputs_size_limit = 1000
         self.loss = 0
+        self.loss_normalise_weight = 0
         self.top_k = top_k
 
     def reset_loss(self):
         self.loss = 0
+        self.loss_normalise_weight = 0
 
     def reset_outputs(self):
         self.outputs = None
@@ -94,8 +96,8 @@ class _Expert(nn.Module):
             mask = ~torch.eye(self.top_k, dtype=bool, device=x.device).unsqueeze(0).expand(n, -1, -1)
             sim_sum = sim_matrix[mask].view(n, -1).sum(dim=1)  # sum over off-diagonal
             avg_sim = sim_sum / (self.top_k * (self.top_k - 1))  
-            self.loss += torch.sum(torch.abs(avg_sim.unsqueeze(1)))
-            
+            self.loss += torch.sum(torch.abs(avg_sim.unsqueeze(1))) / n
+            self.loss_normalise_weight += 1
             splits = torch.split(x, fwd_expert_count.tolist(), dim=0)
             min_count = int(fwd_expert_count.min().item())
             out = torch.stack([chunk[:min_count] for chunk in splits], dim=0)

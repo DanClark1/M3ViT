@@ -261,11 +261,15 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
 
 
                 per_token_cosine_loss = 0
+                n = 0
                 for block in model.module.backbone.blocks:
                     if block.moe:
-                        per_token_cosine_loss += block.mlp.experts.loss
+                        per_token_cosine_loss += block.mlp.experts.loss / block.mlp.experts.loss_normalise_weight
                         block.mlp.experts.reset_loss()
-                loss_dict['total'] += per_token_cosine_loss
+                        n += 1
+
+                
+                loss_dict['total'] += per_token_cosine_loss / n
                 # # lambda_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
                 # diversity_loss = calculate_moe_diversity_loss(model)
 
