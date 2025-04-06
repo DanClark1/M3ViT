@@ -256,7 +256,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 main_loss = loss_dict['total']
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
-                similarity_loss= calculate_moe_cosine_similarity_loss(model)
+                similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze().cpu().detach()
                 lambda_loss = calculate_power_iteration_diversity_loss(model).squeeze().cpu().detach()
 
 
