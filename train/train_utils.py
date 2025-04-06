@@ -417,7 +417,7 @@ def calculate_moe_diversity_loss(model):
 
     # Assuming that for each block, block.mlp.get_output_matrix() returns a list or tensor for each expert.
     layers = [block.mlp.get_output_matrix() for block in backbone.blocks if block.moe]
-    
+    layers_input = [block.mlp.experts.inputs for block in backbone.blocks if block.moe]
     lambda_total = 0.0
     layer_count = 0.0
 
@@ -428,7 +428,9 @@ def calculate_moe_diversity_loss(model):
 
         # Stack expert outputs to create tensor of shape (num_experts, d, b)
         clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0)
-
+        # add on the inputs to the layer
+        clients_input = layers_input[layer_idx]
+        clients_tensor = torch.cat([clients_tensor, clients_input], dim=1)
 
         if torch.isnan(clients_tensor).any():
             raise ValueError(f"NaNs detected in clients_tensor after normalization.")

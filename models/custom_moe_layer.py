@@ -50,6 +50,7 @@ class _Expert(nn.Module):
         self.top_k = top_k
 
     def reset_loss(self):
+        self.inputs = None
         self.loss = 0
         self.loss_normalise_weight = 0
 
@@ -100,10 +101,13 @@ class _Expert(nn.Module):
             self.loss_normalise_weight += 1
             splits = torch.split(x, fwd_expert_count.tolist(), dim=0)
             min_count = int(fwd_expert_count.min().item())
+            inp = torch.stack([x for i in range(self.top_k)], dim=0)
             out = torch.stack([chunk[:min_count] for chunk in splits], dim=0)
             if self.outputs is None:
                 self.outputs = out
+                self.inputs = inp
             elif self.outputs.shape[1] < self.outputs_size_limit:
+                self.inputs = torch.cat((self.inputs, inp), dim=1)
                 self.outputs = torch.cat((self.outputs, out), dim=1)
 
         rank = torch.distributed.get_rank()
