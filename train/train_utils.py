@@ -260,13 +260,13 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 lambda_loss = calculate_power_iteration_diversity_loss(model).squeeze().cpu().detach()
 
 
-                # per_token_cosine_loss = 0
-                # layer_n = 0
-                # for block in model.module.backbone.blocks:
-                #     if block.moe:
-                #         per_token_cosine_loss += block.mlp.experts.loss / block.mlp.experts.loss_normalise_weight
-                #         block.mlp.experts.reset_loss()
-                #         layer_n += 1
+                per_token_cosine_loss = 0
+                layer_n = 0
+                for block in model.module.backbone.blocks:
+                    if block.moe:
+                        per_token_cosine_loss += block.mlp.experts.loss / block.mlp.experts.loss_normalise_weight
+                        block.mlp.experts.reset_loss()
+                        layer_n += 1
 
                 
                 # loss_dict['total'] += per_token_cosine_loss / layer_n
