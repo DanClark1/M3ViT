@@ -89,7 +89,7 @@ class _Expert(nn.Module):
 
         print('x',x.shape)
 
-        if self.record_output:
+        if self.record_output: # not doing this for now
 
             # reshaping into top_k
             assert x.shape[0] % self.top_k == 0, (
@@ -153,7 +153,6 @@ class _Expert(nn.Module):
         # components = torch.cat((global_comp.unsqueeze(0), local_comp), dim=0)
         # # make sure components are float
         # components = components.float()
-        self.htoh4 = FMoELinearProj(prev_experts=self.htoh4)
         self.h4toh = FMoELinearProj(prev_experts=self.h4toh)
         self.stage = 1
         self.num_experts += 1

@@ -268,7 +268,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                         block.mlp.experts.reset_loss()
                         layer_n += 1
 
-                
+                per_token_cosine_loss = (per_token_cosine_loss / layer_n).detach().cpu()
                 # loss_dict['total'] += per_token_cosine_loss / layer_n
                 # # lambda_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
                 # diversity_loss = calculate_moe_diversity_loss(model).cpu().detach()
@@ -592,3 +592,32 @@ def calculate_power_iteration_diversity_loss(model):
     if rank == 1:
         wandb.log({"lambda_max": lambda_max.item()})
     return asymmetric_loss(lambda_max, num_experts, alpha=10.0)
+
+
+def projection_matrix_loss(model):
+
+    mlps = [model.module.backbone.blocks[i].mlp for i in range(len(model.module.backbone.blocks)) if model.module.backbone.blocks[i].moe]
+
+    loss = 0
+    count = 0
+    for mlp in mlps:
+        projs = mlp.h4toh.projection_matricies
+
+        for i in range(projs.shape[0]):
+            for j in range(i, projs.shape[0]):
+                P_i = projs[i]
+                P_j = projs[j]
+                dot = torch.sum(P_i * P_j)
+                norm_i = torch.norm(P_i, p='fro')
+                norm_j = torch.norm(P_j, p='fro')
+                # Cosine similarity:
+                cos_sim = dot / (norm_i * norm_j + 1e-8)
+                loss += cos_sim ** 2  # Square the cosine similarity as penalty
+                count += 1
+
+    loss = loss / count if count > 0 else 0.0
+
+    rank = torch.distributed.get_rank()
+    if rank == 1:
+        wandb.log({"projection loss": loss.item()})
+    return loss
