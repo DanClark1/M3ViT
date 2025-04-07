@@ -432,7 +432,7 @@ def calculate_moe_diversity_loss(model):
         clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0)
         # add on the inputs to the layer
         clients_input = layers_input[layer_idx]
-        clients_tensor = torch.cat([clients_tensor, clients_input[:, :clients_tensor.shape[-1], :]], dim=0)
+        clients_tensor = torch.cat([clients_tensor, clients_input[:, :, :clients_tensor.shape[-1]]], dim=0)
 
         if torch.isnan(clients_tensor).any():
             raise ValueError(f"NaNs detected in clients_tensor after normalization.")
