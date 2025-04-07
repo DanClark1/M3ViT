@@ -157,6 +157,7 @@ class _Expert(nn.Module):
         self.h4toh = FMoELinearProj(prev_experts=self.h4toh)
         self.stage = 1
         self.num_experts += 1
+        self.top_k += 1
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., norm_layer= partial(nn.LayerNorm, eps=1e-6)):
