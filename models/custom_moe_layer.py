@@ -153,6 +153,7 @@ class _Expert(nn.Module):
         # components = torch.cat((global_comp.unsqueeze(0), local_comp), dim=0)
         # # make sure components are float
         # components = components.float()
+        self.htoh4 = FMoELinearProj(prev_experts=self.htoh4, use_projection_matrix=False)
         self.h4toh = FMoELinearProj(prev_experts=self.h4toh)
         self.stage = 1
         self.num_experts += 1
