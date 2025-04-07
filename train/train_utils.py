@@ -603,7 +603,7 @@ def calculate_projection_matrix_loss(model, coeff=0.1):
     loss = 0
     count = 0
     for mlp in mlps:
-        projs = mlp.h4toh.projection_matricies
+        projs = mlp.experts.h4toh.projection_matricies
 
         for i in range(projs.shape[0]):
             for j in range(i, projs.shape[0]):
