@@ -77,6 +77,9 @@ class _Expert(nn.Module):
         assert fwd_expert_count.sum().item() == inp_flat.shape[0], (
             f"Sum of counts ({fwd_expert_count.sum().item()}) != rows ({inp_flat.shape[0]})"
         )
+
+        print('fwd_expert_count',fwd_expert_count.shape)
+        print('inp_flat',inp_flat.shape)
         x = self.htoh4(inp, fwd_expert_count)
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
