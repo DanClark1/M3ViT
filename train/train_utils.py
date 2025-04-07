@@ -256,7 +256,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 main_loss = loss_dict['total']
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
-                similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze()
+                similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze().detach().cpu()
                 # lambda_loss = calculate_power_iteration_diversity_loss(model).squeeze().cpu().detach()
 
 
@@ -269,6 +269,8 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                         layer_n += 1
 
                 per_token_cosine_loss = (per_token_cosine_loss / layer_n).detach().cpu()
+                projection_matrix_loss = projection_matrix_loss(model)
+                loss_dict['total'] += projection_matrix_loss
                 # loss_dict['total'] += per_token_cosine_loss / layer_n
                 # # lambda_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
                 # diversity_loss = calculate_moe_diversity_loss(model).cpu().detach()
@@ -280,8 +282,8 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 #print(calculate_moe_cosine_similarity_loss(model).shape)
                 # Force both to be scalars before summing, then restore shape if necessary
                 
-                loss_total = loss_dict['total'].squeeze() + similarity_loss
-                loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
+                # loss_total = loss_dict['total'].squeeze() + similarity_loss
+                # loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
                 rank = torch.distributed.get_rank()
                 if rank == 1:
                     wandb.log({"per token cosine":(per_token_cosine_loss / layer_n), "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
@@ -594,7 +596,7 @@ def calculate_power_iteration_diversity_loss(model):
     return asymmetric_loss(lambda_max, num_experts, alpha=10.0)
 
 
-def projection_matrix_loss(model):
+def projection_matrix_loss(model, coeff=0.1):
 
     mlps = [model.module.backbone.blocks[i].mlp for i in range(len(model.module.backbone.blocks)) if model.module.backbone.blocks[i].moe]
 
@@ -620,4 +622,4 @@ def projection_matrix_loss(model):
     rank = torch.distributed.get_rank()
     if rank == 1:
         wandb.log({"projection loss": loss.item()})
-    return loss
+    return loss * coeff
