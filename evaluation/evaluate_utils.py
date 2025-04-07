@@ -41,7 +41,7 @@ class PerformanceMeter(object):
             eval_dict[t] = self.meters[t].get_score(verbose)
             rank = torch.distributed.get_rank()
             if rank == 1:
-                wandb.log({eval_dict[t]})
+                wandb.log({t:eval_dict[t]})
         return eval_dict
 
 

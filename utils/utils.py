@@ -52,11 +52,11 @@ class ProgressMeter(object):
 
     def display(self, batch):
         # log to wandb too
-        rank = torch.distributed.get_rank()
-        if rank == 1:
-            for meter in self.meters:
-                if isinstance(meter, AverageMeter):
-                    wandb.log({meter.name: meter.val})
+        # rank = torch.distributed.get_rank()
+        # if rank == 1:
+        #     for meter in self.meters:
+        #         if isinstance(meter, AverageMeter):
+        #             wandb.log({meter.name: meter.val})
         entries = [self.prefix + self.batch_fmtstr.format(batch)]
         entries += [str(meter) for meter in self.meters]
         print('\t'.join(entries))
