@@ -256,7 +256,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 main_loss = loss_dict['total']
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
-                similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze().detach().cpu()
+                #similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze().detach().cpu()
                 # lambda_loss = calculate_power_iteration_diversity_loss(model).squeeze().cpu().detach()
 
 
@@ -286,7 +286,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 # loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
                 rank = torch.distributed.get_rank()
                 if rank == 1:
-                    wandb.log({"per token cosine":(per_token_cosine_loss / layer_n), "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "similarity loss": similarity_loss.item(), "gating_loss": gating_loss.item()})
+                    wandb.log({"per token cosine":(per_token_cosine_loss / layer_n), "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(),"gating_loss": gating_loss.item()})
 
                 for block in model.module.backbone.blocks:
                     if block.moe:
