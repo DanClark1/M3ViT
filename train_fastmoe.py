@@ -488,7 +488,7 @@ def main():
     # # LOAD for training
     # model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
 
-    # factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
+    factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
     for epoch in range(start_epoch, p['epochs']):
         print(colored('Epoch %d/%d' %(epoch+1, p['epochs']), 'yellow'))
         print(colored('-'*10, 'yellow'))
