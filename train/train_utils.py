@@ -269,7 +269,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                         layer_n += 1
 
                 per_token_cosine_loss = (per_token_cosine_loss / layer_n).detach().cpu()
-                projection_matrix_loss = projection_matrix_loss(model)
+                projection_matrix_loss = calculate_projection_matrix_loss(model)
                 loss_dict['total'] += projection_matrix_loss
                 # loss_dict['total'] += per_token_cosine_loss / layer_n
                 # # lambda_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
@@ -596,7 +596,7 @@ def calculate_power_iteration_diversity_loss(model):
     return asymmetric_loss(lambda_max, num_experts, alpha=10.0)
 
 
-def projection_matrix_loss(model, coeff=0.1):
+def calculate_projection_matrix_loss(model, coeff=0.1):
 
     mlps = [model.module.backbone.blocks[i].mlp for i in range(len(model.module.backbone.blocks)) if model.module.backbone.blocks[i].moe]
 
