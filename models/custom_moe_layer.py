@@ -44,7 +44,7 @@ class _Expert(nn.Module):
         self.record_output = False
         self.num_experts = num_expert
         self.stage = 0 # set this to 1 once components are calculated
-        self.outputs_size_limit = 1000
+        self.outputs_size_limit = 100
         self.loss = 0
         self.loss_normalise_weight = 0
         self.top_k = top_k
