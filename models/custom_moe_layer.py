@@ -78,16 +78,9 @@ class _Expert(nn.Module):
             f"Sum of counts ({fwd_expert_count.sum().item()}) != rows ({inp_flat.shape[0]})"
         )
 
-        print('fwd_expert_count',fwd_expert_count.shape)
-        print('inp_flat',inp_flat.shape)
-        print('bias', self.htoh4.bias.shape)
-        print('weights', self.htoh4.weight.shape)
-
         x = self.htoh4(inp, fwd_expert_count)
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
-
-        print('x',x.shape)
 
         if self.record_output: # not doing this for now
 
