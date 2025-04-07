@@ -417,7 +417,7 @@ def calculate_moe_diversity_loss(model):
 
     # Assuming that for each block, block.mlp.get_output_matrix() returns a list or tensor for each expert.
     layers = [block.mlp.get_output_matrix() for block in backbone.blocks if block.moe]
-    layers_input = [block.mlp.experts.inputs[0, :layers[0].shape[-1], :].swapaxes(-2, -1) for block in backbone.blocks if block.moe]
+    layers_input = [block.mlp.experts.inputs[0, :layers[0].shape[-1], :].swapaxes(-2, -1).unsqueeze(0) for block in backbone.blocks if block.moe]
     print('layers_input',layers_input[0].shape)
     print('layers',layers[0].shape)
     lambda_total = 0.0
