@@ -257,7 +257,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
                 similarity_loss= calculate_moe_cosine_similarity_loss(model).squeeze()
-                lambda_loss = calculate_power_iteration_diversity_loss(model).squeeze().cpu().detach()
+                # lambda_loss = calculate_power_iteration_diversity_loss(model).squeeze().cpu().detach()
 
 
                 per_token_cosine_loss = 0
@@ -271,7 +271,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 
                 # loss_dict['total'] += per_token_cosine_loss / layer_n
                 # # lambda_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
-                diversity_loss = calculate_moe_diversity_loss(model).cpu().detach()
+                # diversity_loss = calculate_moe_diversity_loss(model).cpu().detach()
 
                 # loss_dict['total'] += (diversity_loss * diversity_loss_coeff)
                 
