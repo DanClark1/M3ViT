@@ -87,6 +87,8 @@ class _Expert(nn.Module):
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
 
+        print('x',x.shape)
+
         if self.record_output:
 
             # reshaping into top_k
