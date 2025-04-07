@@ -80,7 +80,7 @@ class _Expert(nn.Module):
 
         print('fwd_expert_count',fwd_expert_count.shape)
         print('inp_flat',inp_flat.shape)
-
+        print('bias', self.htoh4.bias.shape)
         print('weights', self.htoh4.weight.shape)
 
         x = self.htoh4(inp, fwd_expert_count)
