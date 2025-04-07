@@ -313,7 +313,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             
             
         if i % 25 == 0:
-            print('similarity_loss',similarity_loss)
+            # print('similarity_loss',similarity_loss)
             progress.display(i)
             # for name, param in model.named_parameters():
             #     if 'gamma' in name:
