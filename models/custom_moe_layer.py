@@ -87,7 +87,7 @@ class _Expert(nn.Module):
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
 
-        if self.record_output and self.stage == 0:
+        if self.record_output:
 
             # reshaping into top_k
             assert x.shape[0] % self.top_k == 0, (
