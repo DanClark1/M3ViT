@@ -222,6 +222,9 @@ class FMoETransformerMLP(FMoE):
         self.forced_expert = None
         self.diversity_loss_weight = diversity_loss_weight
         self.expert_outputs = None
+        self.outputs_size_limit = 200
+        self.loss = 0
+        self.loss_normalise_weight = 0
 
         if self.sem_force:
             self.force_id=[[0],[1,17,18,19,20],[2,12,13,14,15,16],[3,9,10,11],[4,5],[6,7,8,38],[21,22,23,24,25,26,39],[27,28,29,30,31,32,33,34,35,36,37]]
@@ -271,6 +274,10 @@ class FMoETransformerMLP(FMoE):
         else:
             raise ValueError("No such gating type")
         self.mark_parallel_comm(expert_dp_comm)
+
+    def reset_loss(self):
+        self.loss = 0
+        self.loss_normalise_weight = 0
 
     def factorise_block(self):
         """
@@ -432,7 +439,7 @@ class FMoETransformerMLP(FMoE):
             gate_top_k_idx = gate_top_k_idx[mask == 0, :]
 
         # no idea how to actually pass this into the experts
-        if record_outputs:
+        if record_outputs and False: # disable for now
             self.experts.record_output = True
 
         fwd = _fmoe_general_global_forward(
@@ -496,8 +503,78 @@ class FMoETransformerMLP(FMoE):
 
         if self.factorised:
             gate_score = gate_score.view(-1, 1, self.top_k + 1)
+            expert_ids = gate_top_k_idx.view(-1, 1, self.top_k + 1)
         else:
             gate_score = gate_score.view(-1, 1, self.top_k)
+            expert_ids = gate_top_k_idx.view(-1, 1, self.top_k)
+
+
+        if record_outputs:
+                # moe_outp shape here is (batch_positions, top_k, dim) for non-factorised
+                # or (batch_positions, top_k + 1, dim) if factorised
+                # We'll assume non-factorised for simplicity
+                batch_positions = moe_outp.shape[0]
+                dim = moe_outp.shape[-1]
+                device = moe_outp.device
+
+                # Create zero matrix of shape (batch_positions, num_expert, dim)
+                expert_out_matrix = torch.zeros(
+                    batch_positions, self.num_expert, dim, device=device
+                )
+
+                # Fill only the top-k expert positions; others remain zero
+                for i in range(batch_positions):
+                    for k_idx in range(self.top_k):
+                        e_id = gate_top_k_idx[i, k_idx].item()
+                        expert_out_matrix[i, e_id] = moe_outp[i, k_idx]
+
+                # Now expert_out_matrix holds each expert's output or zero if not in top-k
+                # You can store it for logging or pass it to ot
+
+                # if self.output_matrix is None:
+                #     self.output_matrix = expert_out_matrix
+                # elif self.output_matrix.shape[0] < self.outputs_size_limit:
+                #     self.output_matrix = torch.cat((self.output_matrix, expert_out_matrix), dim=0)
+
+
+                # ignore the global expert if needed
+                if self.factorised:
+                    clients_tensor = expert_out_matrix[:, :(self.top_k-1), :]
+                else:
+                    clients_tensor = expert_out_matrix
+
+                # clients_tensor shape is (batch_positions, n_experts, dim)
+                # that needs to be reshaped
+
+                clients_tensor = clients_tensor.swapaxes(-1, -2)
+                # clients_tensor shape is (batch_positions, dim, n_experts)
+
+                
+                if torch.isnan(clients_tensor).any():
+                    raise ValueError(f"NaNs detected in clients_tensor after normalization.")
+                
+                eps = 1e-6
+                # Adding eps for numerical stability if needed
+                Q, _ = torch.linalg.qr(clients_tensor + eps, mode='reduced')
+                # Q now has shape (num_experts, d, r) where r = min(d, b)
+
+                # alternatively, try this but with svd
+                U, _, _ = torch.linalg.svd(clients_tensor + eps)
+                Q = U
+                if torch.isnan(Q).any():
+                    raise ValueError("NaNs detected in Q matrix after QR decomposition.")
+
+                projs = torch.matmul(Q, Q.transpose(1, 2))
+
+                # Compute the average projection across experts: shape (d, d)
+                avg_proj = torch.mean(projs, dim=0)
+                
+                # Compute the eigenvalues of the averaged projection (avg_proj is symmetric)
+                eigvals = torch.linalg.eigvalsh(avg_proj)
+                lambda_max = eigvals[-1]
+                
+                self.loss += lambda_max
+                self.loss_normalise_weight += 1
 
         def bmm_func(tensor):
             dim = tensor.shape[-1]

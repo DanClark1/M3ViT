@@ -260,17 +260,18 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 # lambda_loss = calculate_power_iteration_diversity_loss(model).squeeze().cpu().detach()
 
 
-                per_token_cosine_loss = 0
-                layer_n = 0
-                for block in model.module.backbone.blocks:
-                    if block.moe:
-                        per_token_cosine_loss += block.mlp.experts.loss / block.mlp.experts.loss_normalise_weight
-                        block.mlp.experts.reset_loss()
-                        layer_n += 1
+
+                # per_token_cosine_loss = 0
+                # layer_n = 0
+                # for block in model.module.backbone.blocks:
+                #     if block.moe:
+                #         per_token_cosine_loss += block.mlp.experts.loss / block.mlp.experts.loss_normalise_weight
+                #         block.mlp.experts.reset_loss()
+                #         layer_n += 1
 
                 per_token_cosine_loss = (per_token_cosine_loss / layer_n).detach().cpu()
-                projection_matrix_loss = calculate_projection_matrix_loss(model)
-                loss_dict['total'] += projection_matrix_loss
+                # projection_matrix_loss = calculate_projection_matrix_loss(model)
+                # loss_dict['total'] += projection_matrix_loss
                 # loss_dict['total'] += per_token_cosine_loss / layer_n
                 # # lambda_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
                 # diversity_loss = calculate_moe_diversity_loss(model).cpu().detach()
@@ -286,7 +287,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 # loss_dict['total'] = loss_total.unsqueeze(0)  # If downstream code expects shape [1]
                 rank = torch.distributed.get_rank()
                 if rank == 1:
-                    wandb.log({"per token cosine":(per_token_cosine_loss / layer_n), "overall loss": loss_dict['total'].item(), "main loss": main_loss.item(),"gating_loss": gating_loss.item()})
+                    wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(),"gating_loss": gating_loss.item()})
 
                 for block in model.module.backbone.blocks:
                     if block.moe:
@@ -342,7 +343,7 @@ def calculate_moe_cosine_similarity_loss(model, coefficient=1):
     num_layers = 6
 
     # Assuming that for each block, block.mlp.get_output_matrix() returns a list or tensor for each expert.
-    layers = [block.mlp.get_output_matrix() for block in backbone.blocks if block.moe]
+    layers = [block.mlp.output_matrix for block in backbone.blocks if block.moe]
     
     total_cosine = 0.0
 
@@ -418,64 +419,18 @@ def calculate_moe_diversity_loss(model):
     num_layers = 6
 
     # Assuming that for each block, block.mlp.get_output_matrix() returns a list or tensor for each expert.
-    layers = [block.mlp.get_output_matrix() for block in backbone.blocks if block.moe]
-    layers_input = [block.mlp.experts.inputs[0, :, :].swapaxes(-2, -1).unsqueeze(0) for block in backbone.blocks if block.moe]
-    print('layers_input',layers_input[0].shape)
-    print('layers',layers[0].shape)
-    lambda_total = 0.0
-    layer_count = 0.0
+    layers = [block.mlp for block in backbone.blocks if block.moe]
+    loss = 0.0
 
-    for layer_idx in range(num_layers):
-        # `clients` is assumed to be a list with length = num_experts,
-        # each element shape (d, b)
-        clients = layers[layer_idx]
-
-        # Stack expert outputs to create tensor of shape (num_experts, d, b)
-        clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0)
-        # add on the inputs to the layer
-        clients_input = layers_input[layer_idx]
-        clients_tensor = torch.cat([clients_tensor, clients_input[:, :, :clients_tensor.shape[-1]]], dim=0)
-
-        if torch.isnan(clients_tensor).any():
-            raise ValueError(f"NaNs detected in clients_tensor after normalization.")
-        
-        eps = 1e-6
-        # Adding eps for numerical stability if needed
-        Q, _ = torch.linalg.qr(clients_tensor + eps, mode='reduced')
-        # Q now has shape (num_experts, d, r) where r = min(d, b)
-
-        # alternatively, try this but with svd
-        U, _, _ = torch.linalg.svd(clients_tensor + eps)
-        Q = U
-        if torch.isnan(Q).any():
-            raise ValueError("NaNs detected in Q matrix after QR decomposition.")
-
-
-        projs = torch.matmul(Q, Q.transpose(1, 2))
-
-
-        # Compute the average projection across experts: shape (d, d)
-        avg_proj = torch.mean(projs, dim=0)
-        
-        # Compute the eigenvalues of the averaged projection (avg_proj is symmetric)
-        eigvals = torch.linalg.eigvalsh(avg_proj)
-        lambda_max = eigvals[-1]
-        
-        # Calculate theta for this layer
-        lambda_total += lambda_max
-        layer_count += 1
-
-    # Average theta across layers
-    avg_lambda = lambda_total / layer_count if layer_count > 0 else 0.0
-
+    for layer in layers:
+        loss += layer.loss / layer.loss_normalise_weight
+        layer.reset_loss()
+    
     rank = torch.distributed.get_rank()
     if rank == 1:
-        wandb.log({"diversity loss": lambda_max.item()})
-    target = 1.0 / 16 # Assuming num_experts = 16
-    alpha = 10
-    loss_below = alpha * torch.square(torch.maximum(target - avg_lambda, torch.tensor(0, device='cuda')))
-    loss_above = torch.square(torch.maximum(avg_lambda - target, torch.tensor(0, device='cuda')))
-    return loss_below + loss_above
+        wandb.log({"diversity loss": loss.item()})
+
+    return loss
 
 
 

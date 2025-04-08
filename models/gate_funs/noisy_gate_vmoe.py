@@ -136,8 +136,6 @@ class NoisyGate_VMoE(BaseGate):
         Returns:
         a `Scalar`.
         """
-        if random.random() < 0.01:
-            print(x) # debugging
         eps = 1e-10
         # if only num_expert = 1
         if x.shape[0] == 1:
