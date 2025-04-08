@@ -147,7 +147,7 @@ class _Expert(nn.Module):
         # # make sure components are float
         # components = components.float()
         self.htoh4 = FMoELinearProj(prev_experts=self.htoh4, use_projection_matrix=False)
-        self.h4toh = FMoELinearProj(prev_experts=self.h4toh)
+        self.h4toh = FMoELinearProj(prev_experts=self.h4toh, use_projection_matrix=False)
         self.stage = 1
         self.num_experts += 1
         self.top_k += 1
