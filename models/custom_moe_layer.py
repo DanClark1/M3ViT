@@ -539,9 +539,9 @@ class FMoETransformerMLP(FMoE):
 
                 # ignore the global expert if needed
                 if self.factorised:
-                    clients_tensor = expert_out_matrix[:, :(self.top_k-1), :]
+                    clients_tensor = expert_out_matrix[:, :(self.top_k-1), :self.outputs_size_limit]
                 else:
-                    clients_tensor = expert_out_matrix
+                    clients_tensor = expert_out_matrix[:, :, :self.outputs_size_limit]
 
                 # clients_tensor shape is (batch_positions, n_experts, dim)
                 # that needs to be reshaped
