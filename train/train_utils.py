@@ -425,6 +425,8 @@ def calculate_moe_diversity_loss(model):
     for layer in layers:
         loss += layer.loss / layer.loss_normalise_weight
         layer.reset_loss()
+
+    loss = loss / len(layers)
     
     rank = torch.distributed.get_rank()
     if rank == 1:
