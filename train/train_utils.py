@@ -252,7 +252,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             matricies = []
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
-                diversity_loss_coeff = 1 # might be too high tbf
+                diversity_loss_coeff = 5 # might be too high tbf
                 main_loss = loss_dict['total']
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
@@ -433,6 +433,7 @@ def calculate_moe_diversity_loss(model):
         wandb.log({"diversity loss": loss.item()})
 
     return loss
+
 
 
 
