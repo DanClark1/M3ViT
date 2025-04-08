@@ -269,14 +269,14 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 #         block.mlp.experts.reset_loss()
                 #         layer_n += 1
 
-                per_token_cosine_loss = (per_token_cosine_loss / layer_n).detach().cpu()
+                # per_token_cosine_loss = (per_token_cosine_loss / layer_n).detach().cpu()
                 # projection_matrix_loss = calculate_projection_matrix_loss(model)
                 # loss_dict['total'] += projection_matrix_loss
                 # loss_dict['total'] += per_token_cosine_loss / layer_n
                 # # lambda_loss.register_hook(lambda grad: grad.clamp(-0.5, 0.5))
-                # diversity_loss = calculate_moe_diversity_loss(model).cpu().detach()
+                diversity_loss = calculate_moe_diversity_loss(model)
 
-                # loss_dict['total'] += (diversity_loss * diversity_loss_coeff)
+                loss_dict['total'] += (diversity_loss * diversity_loss_coeff)
                 
                 # wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(), "diversity loss": diversity_loss.item(), "gating_loss": gating_loss.item()})
                 #print(loss_dict['total'])
