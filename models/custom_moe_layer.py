@@ -523,10 +523,8 @@ class FMoETransformerMLP(FMoE):
                 )
 
                 # Fill only the top-k expert positions; others remain zero
-                for i in range(batch_positions):
-                    for k_idx in range(self.top_k):
-                        e_id = gate_top_k_idx[i, k_idx].item()
-                        expert_out_matrix[i, e_id] = moe_outp[i, k_idx]
+                rows = torch.arange(batch_positions, device=device).unsqueeze(-1)  # shape (batch_positions, 1)
+                expert_out_matrix[rows, gate_top_k_idx, :] = moe_outp
 
                 # Now expert_out_matrix holds each expert's output or zero if not in top-k
                 # You can store it for logging or pass it to ot
