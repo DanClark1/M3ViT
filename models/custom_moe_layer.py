@@ -510,6 +510,7 @@ class FMoETransformerMLP(FMoE):
 
 
         if record_outputs:
+                print('a')
                 # moe_outp shape here is (batch_positions, top_k, dim) for non-factorised
                 # or (batch_positions, top_k + 1, dim) if factorised
                 # We'll assume non-factorised for simplicity
@@ -573,6 +574,7 @@ class FMoETransformerMLP(FMoE):
                 
                 self.loss += lambda_max
                 self.loss_normalise_weight += 1
+                print('b')
 
         def bmm_func(tensor):
             dim = tensor.shape[-1]
