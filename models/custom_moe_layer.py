@@ -222,7 +222,7 @@ class FMoETransformerMLP(FMoE):
         self.forced_expert = None
         self.diversity_loss_weight = diversity_loss_weight
         self.expert_outputs = None
-        self.outputs_size_limit = 20
+        self.outputs_size_limit = 50
         self.loss = 0
         self.loss_normalise_weight = 0
 
