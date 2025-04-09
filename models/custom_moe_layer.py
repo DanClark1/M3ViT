@@ -635,6 +635,7 @@ class FMoETransformerMLP(FMoE):
 
         cos_sim_matrix = torch.matmul(norm_tokens, norm_tokens.transpose(0, 1))
 
+        print('cosine_sim', cos_sim_matrix.shape)
         diag_mask = torch.eye(cos_sim_matrix.shape[0], device=cos_sim_matrix.device).bool()
         cos_sim_matrix = cos_sim_matrix.masked_fill(diag_mask, 0)
 
