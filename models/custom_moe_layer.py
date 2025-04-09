@@ -628,23 +628,29 @@ class FMoETransformerMLP(FMoE):
         '''
         moe output has shape (batch_positions, top_k, dim)
         '''
-        batch_positions, num_tokens, dim = moe_outp.shape
-        flat_tokens = moe_outp.view(batch_positions * num_tokens, dim)
-
-        norm_tokens = F.normalize(flat_tokens, p=2, dim=-1)
-
-        cos_sim_matrix = torch.matmul(norm_tokens, norm_tokens.transpose(0, 1))
-
-        print('cosine_sim', cos_sim_matrix.shape)
-        diag_mask = torch.eye(cos_sim_matrix.shape[0], device=cos_sim_matrix.device).bool()
+        # Normalize the tokens along the feature dimension:
+        norm_tokens = F.normalize(moe_outp, p=2, dim=-1)  # shape: (batch_positions, top_k, dim)
+        
+        # Compute cosine similarity matrix for each sample:
+        # This produces a (batch_positions, top_k, top_k) tensor where each [i] contains the pairwise similarities.
+        cos_sim_matrix = torch.bmm(norm_tokens, norm_tokens.transpose(1, 2))
+        
+        # Create a mask to remove self-similarities (the diagonal elements for each sample)
+        top_k = moe_outp.size(1)
+        diag_mask = torch.eye(top_k, device=moe_outp.device, dtype=torch.bool).unsqueeze(0)
+        diag_mask = diag_mask.expand_as(cos_sim_matrix)
         cos_sim_matrix = cos_sim_matrix.masked_fill(diag_mask, 0)
-
-
-        cosine_loss = cos_sim_matrix.mean()
-
+        
+        # Calculate the mean cosine similarity loss per sample.
+        # Since each sample has top_k tokens, there are top_k * (top_k - 1) off-diagonals.
+        # Sum across the top_k x top_k matrix (which now contains zeros on the diagonal), then average.
+        cosine_loss = cos_sim_matrix.sum(dim=(1, 2)) / (top_k * (top_k - 1))
+        
+        # Finally, take the mean over all batch positions.
+        cosine_loss = cosine_loss.mean()
+        
+        # Record the loss
         self.cosine_loss += cosine_loss
         self.cosine_normalise_weight += 1
-
-
 
 
