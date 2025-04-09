@@ -633,7 +633,7 @@ class FMoETransformerMLP(FMoE):
         
         # Compute cosine similarity matrix for each sample:
         # This produces a (batch_positions, top_k, top_k) tensor where each [i] contains the pairwise similarities.
-        cos_sim_matrix = torch.bmm(norm_tokens, norm_tokens.transpose(1, 2))
+        cos_sim_matrix = torch.abs(torch.bmm(norm_tokens, norm_tokens.transpose(1, 2)))
         
         # Create a mask to remove self-similarities (the diagonal elements for each sample)
         top_k = moe_outp.size(1)

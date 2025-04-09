@@ -328,7 +328,7 @@ def get_lambda_loss(model, coeff=0.1, detach=False):
     return loss * coeff
 
 
-def get_cosine_loss(model, coeff=0.1, detach=False):
+def get_cosine_loss(model, coeff=10.0, detach=False):
 
     backbone = model.module.backbone
 
