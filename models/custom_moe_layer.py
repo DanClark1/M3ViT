@@ -225,6 +225,8 @@ class FMoETransformerMLP(FMoE):
         self.outputs_size_limit = 50
         self.loss = 0
         self.loss_normalise_weight = 0
+        self.cosine_loss = 0
+        self.cosine_normalise_weight = 0
 
         if self.sem_force:
             self.force_id=[[0],[1,17,18,19,20],[2,12,13,14,15,16],[3,9,10,11],[4,5],[6,7,8,38],[21,22,23,24,25,26,39],[27,28,29,30,31,32,33,34,35,36,37]]
@@ -275,9 +277,13 @@ class FMoETransformerMLP(FMoE):
             raise ValueError("No such gating type")
         self.mark_parallel_comm(expert_dp_comm)
 
-    def reset_loss(self):
+    def reset_lambda_loss(self):
         self.loss = 0
         self.loss_normalise_weight = 0
+
+    def reset_cosine_loss(self):
+        self.cosine_loss = 0
+        self.cosine_normalise_weight = 0
 
     def factorise_block(self):
         """
@@ -510,6 +516,8 @@ class FMoETransformerMLP(FMoE):
 
 
         if record_outputs:
+                self.calculate_cosine_loss(moe_outp)
+
                 # moe_outp shape here is (batch_positions, top_k, dim) for non-factorised
                 # or (batch_positions, top_k + 1, dim) if factorised
                 # We'll assume non-factorised for simplicity
@@ -550,6 +558,8 @@ class FMoETransformerMLP(FMoE):
                 # normalize the tensor
                 clients_tensor = F.normalize(clients_tensor, p=2, dim=-1)
 
+                # calculate cosine similarity for each row
+                # clients_tensor shape is (batch_positions, dim, n_experts)
                 
                 if torch.isnan(clients_tensor).any():
                     raise ValueError(f"NaNs detected in clients_tensor after normalization.")
@@ -613,3 +623,27 @@ class FMoETransformerMLP(FMoE):
             self.diversity_losses.append(diversity_loss)
 
         return moe_outp
+
+    def calculate_cosine_loss(self, moe_outp):
+        '''
+        moe output has shape (batch_positions, top_k, dim)
+        '''
+        batch_positions, num_tokens, dim = moe_outp.shape
+        flat_tokens = moe_outp.view(batch_positions * num_tokens, dim)
+
+        norm_tokens = F.normalize(flat_tokens, p=2, dim=-1)
+
+        cos_sim_matrix = torch.matmul(norm_tokens, norm_tokens.transpose(0, 1))
+
+        diag_mask = torch.eye(cos_sim_matrix.shape[0], device=cos_sim_matrix.device).bool()
+        cos_sim_matrix = cos_sim_matrix.masked_fill(diag_mask, 0)
+
+
+        cosine_loss = cos_sim_matrix.mean()
+
+        self.cosine_loss += cosine_loss
+        self.cosine_normalise_weight += 1
+
+
+
+
