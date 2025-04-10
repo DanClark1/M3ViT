@@ -256,8 +256,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
                 diversity_loss = get_lambda_loss(model, detach=True)
-                cosine_loss = get_cosine_loss(model)
-                loss_dict['total'] += cosine_loss
+                cosine_loss = get_cosine_loss(model, detach=True)
                 
                 rank = torch.distributed.get_rank()
                 if rank == 1:
