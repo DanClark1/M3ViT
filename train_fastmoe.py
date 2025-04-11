@@ -498,7 +498,7 @@ def main():
     val_dataloader = torch.utils.data.DataLoader(subset, batch_size=val_dataloader.batch_size, shuffle=False)
 
     # save_model_predictions(p, val_dataloader, model, args)
-    eval_model(p, val_dataloader, model)
+    #eval_model(p, val_dataloader, model)
     # if args.distributed:
     #     torch.distributed.barrier()
     # curr_result = eval_all_results(p)
@@ -517,7 +517,9 @@ def main():
         # factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
         eval_train = train_vanilla_distributed(args, p, train_dataloader, model, criterion, optimizer, epoch)
 
-        save_checkpoint(model, optimizer, 0, f"/app/checkpoint_{epoch}_{date_string}.pt")
+        
+        if epoch % 10 == 0:
+            save_checkpoint(model, optimizer, 0, f"/app/checkpoint_{epoch}_{date_string}.pt")
 
 
         # Evaluate
@@ -537,36 +539,37 @@ def main():
         
         if eval_bool:
             print('Evaluate ...')
+            eval_model(p, val_dataloader, model)
             
-            # If visualization is requested
-            if args.visualize_features and hasattr(model.module, 'visualize_features'):
-                # Create visualization directory with epoch number
-                viz_save_dir = os.path.join(args.viz_dir, f'epoch_{epoch}')
+            # # If visualization is requested
+            # if args.visualize_features and hasattr(model.module, 'visualize_features'):
+            #     # Create visualization directory with epoch number
+            #     viz_save_dir = os.path.join(args.viz_dir, f'epoch_{epoch}')
                 
-                # Get one batch for visualization
-                viz_batch = next(iter(val_dataloader))
-                viz_inputs = viz_batch['image'].cuda(non_blocking=True)
+            #     # Get one batch for visualization
+            #     viz_batch = next(iter(val_dataloader))
+            #     viz_inputs = viz_batch['image'].cuda(non_blocking=True)
                 
-                # Forward pass to get intermediate features
-                with torch.no_grad():
-                    _ = model(viz_inputs)
+            #     # Forward pass to get intermediate features
+            #     with torch.no_grad():
+            #         _ = model(viz_inputs)
                     
-                    # Pass the input image to the visualization function
-                    model.module.backbone.visualize_features(
-                        save_dir=viz_save_dir,
-                        input_image=viz_inputs
-                    )
-                    print(f'Saved feature visualizations to {viz_save_dir}')
+            #         # Pass the input image to the visualization function
+            #         model.module.backbone.visualize_features(
+            #             save_dir=viz_save_dir,
+            #             input_image=viz_inputs
+            #         )
+            #         print(f'Saved feature visualizations to {viz_save_dir}')
                     
-                    # Clear features to free memory
-                    model.module.clear_intermediate_features()
+            #         # Clear features to free memory
+            #         model.module.clear_intermediate_features()
             
-            # Continue with normal evaluation
-            save_model_predictions(p, val_dataloader, model, args)
-            if args.distributed:
-                torch.distributed.barrier()
-            curr_result = eval_all_results(p)
-            improves, best_result = validate_results_v2(p, curr_result, best_result)
+            # # Continue with normal evaluation
+            # save_model_predictions(p, val_dataloader, model, args)
+            # if args.distributed:
+            #     torch.distributed.barrier()
+            # curr_result = eval_all_results(p)
+            # improves, best_result = validate_results_v2(p, curr_result, best_result)
 
         # factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
             
