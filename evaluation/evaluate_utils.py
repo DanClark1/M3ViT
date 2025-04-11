@@ -276,6 +276,17 @@ def eval_model(p, val_loader, model):
 def save_model_predictions(p, val_loader, model, args=None):
     """ Save model predictions for all tasks """
 
+    # this takes way too long so limit to 400 samples
+    import random
+    subset_size = 300
+    val_dataset = val_loader.dataset
+    random_indices = random.sample(range(len(val_dataset)), subset_size)
+    subset = torch.utils.data.Subset(val_dataset, random_indices)
+    val_loader = torch.utils.data.DataLoader(subset, batch_size=val_loader.batch_size, shuffle=False)
+
+
+
+
     print('Save model predictions to {}'.format(p['save_dir']))
     model.eval()
     print(p['backbone'])
@@ -299,15 +310,9 @@ def save_model_predictions(p, val_loader, model, args=None):
                     else:
                         output.update(model(inputs,single_task=single_task))
             else:
-                if p['backbone']=='VisionTransformer_moe':
-                    output = model(inputs)
-                else:
-                    output = model(inputs)
-        else:
-            if p['backbone']=='VisionTransformer_moe':
-                    output = model(inputs)
-            else:
                 output = model(inputs)
+        else:
+            output = model(inputs)
         if ii%50==0:
             print('has saved samples',ii,len(val_loader))
         for task in p.TASKS.NAMES:
