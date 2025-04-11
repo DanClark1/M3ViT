@@ -275,11 +275,19 @@ def eval_model(p, val_loader, model):
 @torch.no_grad()
 def save_model_predictions(p, val_loader, model, args=None):
     """ Save model predictions for all tasks """
-    print('Save model predictions to {}'.format(p['save_dir']))
     model.eval()
-    print(p['backbone'])
     tasks = p.TASKS.NAMES
-    save_dirs = {task: os.path.join(p['save_dir'], task) for task in tasks}
+    # get date string using datetime
+    from datetime import datetime
+    now = datetime.now()
+    date_string = now.strftime("%Y-%m-%d_%H-%M-%S")
+    p['save_dir'] = os.path.join(p['save_dir'], date_string)
+
+
+    save_dirs = {task: os.path.join(p['save_dir'],task) for task in tasks}
+
+    print('Save model predictions to {}'.format(p['save_dir']))
+
     for save_dir in save_dirs.values():
         mkdir_if_missing(save_dir)
 
@@ -383,7 +391,7 @@ def eval_all_results(p):
 
         results['multi_task_performance'] = calculate_multi_task_performance(results, single_task_test_dict)  
 
-        wandb.log({'multi task performance': results['multi_task_performance'], 'depth rmse': results['depth']['rmse'], 'semseg mIoU': results['semseg']['mIoU'], 'normals mean': results['normals']['mean'], 'human_parts mIoU': results['human_parts']['mIoU'], 'sal mIoU': results['sal']['mIoU']}) 
+        wandb.log({'multi task performance': results['multi_task_performance'], 'depth rmse': single_task_test_dict['depth']['rmse'], 'semseg mIoU': single_task_test_dict['semseg']['mIoU'], 'normals mean': single_task_test_dict['normals']['mean'], 'human_parts mIoU': single_task_test_dict['human_parts']['mIoU'], 'sal mIoU': single_task_test_dict['sal']['mIoU']}) 
         print('Multi-task learning performance on test set is %.2f' %(100*results['multi_task_performance']))
 
     return results
