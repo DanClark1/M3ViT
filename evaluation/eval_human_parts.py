@@ -41,6 +41,11 @@ def eval_human_parts(loader, folder, n_parts=6):
 
         # Load result
         filename = os.path.join(folder, sample['meta']['image'] + '.png')
+        if not os.path.exists(filename):
+            warnings.warn(f'File {filename} not found, skipping sample.')
+            continue  # Skip this iteration
+
+        
         mask = np.array(Image.open(filename)).astype(float)
 
         # Case of a binary (probability) result

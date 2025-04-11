@@ -34,50 +34,53 @@ CITYSCAPES_CATEGORY_NAMES = ['wall', 'floor', 'cabinet', 'bed', 'chair',
                       'sofa', 'table']
 
 def eval_semseg(loader, folder, n_classes=20, has_bg=True):
-
     n_classes = n_classes + int(has_bg)
 
-    # Iterate
+    # Initialize counts
     tp = [0] * n_classes
     fp = [0] * n_classes
     fn = [0] * n_classes
 
     for i, sample in enumerate(loader):
-        # print(i,len(loader))
         if i % 50 == 0:
             print('Evaluating: {} of {} objects'.format(i, len(loader)))
 
-        # Load result
+        # Construct filename and check if it exists
         filename = os.path.join(folder, sample['meta']['image'] + '.png')
+        if not os.path.exists(filename):
+            warnings.warn(f'File {filename} not found, skipping sample.')
+            continue  # Skip this iteration
+
+        # Load prediction mask
         mask = np.array(Image.open(filename)).astype(float)
 
         gt = sample['semseg']
         valid = (gt != 255)
 
         if mask.shape != gt.shape:
-            warnings.warn('Prediction and ground truth have different size. Resizing Prediction..')
+            warnings.warn('Prediction and ground truth have different size. Resizing Prediction.')
             mask = cv2.resize(mask, gt.shape[::-1], interpolation=cv2.INTER_NEAREST)
 
-        # TP, FP, and FN evaluation
-        for i_part in range(0, n_classes):
+        # Evaluate TP, FP, and FN
+        for i_part in range(n_classes):
             tmp_gt = (gt == i_part)
             tmp_pred = (mask == i_part)
             tp[i_part] += np.sum(tmp_gt & tmp_pred & valid)
             fp[i_part] += np.sum(~tmp_gt & tmp_pred & valid)
             fn[i_part] += np.sum(tmp_gt & ~tmp_pred & valid)
-        if i+1==len(loader):
-            break
 
+    # Compute Jaccard index (IoU)
     jac = [0] * n_classes
-    for i_part in range(0, n_classes):
+    for i_part in range(n_classes):
         jac[i_part] = float(tp[i_part]) / max(float(tp[i_part] + fp[i_part] + fn[i_part]), 1e-8)
 
-    # Write results
-    eval_result = dict()
-    eval_result['jaccards_all_categs'] = jac
-    eval_result['mIoU'] = np.mean(jac)
+    eval_result = {
+        'jaccards_all_categs': jac,
+        'mIoU': np.mean(jac)
+    }
 
     return eval_result
+
 
 
 class SemsegMeter(object):

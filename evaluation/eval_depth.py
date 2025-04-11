@@ -29,6 +29,10 @@ def eval_depth(loader, folder):
 
         # Load result
         filename = os.path.join(folder, sample['meta']['image'] + '.mat')
+        if not os.path.exists(filename):
+            warnings.warn(f'File {filename} not found, skipping sample.')
+            continue  # Skip this iteration
+
         pred = sio.loadmat(filename)['depth'].astype(float)
         label = sample['depth']
         
@@ -120,6 +124,8 @@ def eval_depth_predictions(database, save_dir, overfit=False):
 
     base_name = database + '_' + 'test' + '_depth'
     fname = os.path.join(save_dir, base_name + '.json')
+
+    
 
     # Eval the model
     print('Evaluate the saved images (depth)')
