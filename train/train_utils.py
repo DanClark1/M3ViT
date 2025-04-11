@@ -307,7 +307,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
 
 
 
-def get_lambda_loss(model, coeff=1.0, detach=False):
+def get_lambda_loss(model, coeff=30.0, detach=False):
     '''
     Gets the lambda_max loss for the model from the mdoel 
     '''
