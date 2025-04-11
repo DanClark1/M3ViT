@@ -489,10 +489,10 @@ def main():
 
     factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
 
-    # this takes way too long so limit to 400 samples
+    # this takes way too long so limit 
     import random
     val_dataset = val_dataloader.dataset
-    subset_size = int(len(val_dataset) / 10)
+    subset_size = int(len(val_dataset) / 70) 
     random_indices = random.sample(range(len(val_dataset)), subset_size)
     subset = torch.utils.data.Subset(val_dataset, random_indices)
     val_dataloader = torch.utils.data.DataLoader(subset, batch_size=val_dataloader.batch_size, shuffle=False)
