@@ -21,6 +21,7 @@ def eval_depth(loader, folder):
     total_rmses = 0.0
     total_log_rmses = 0.0
     n_valid = 0.0
+    skipped = 0
 
     for i, sample in enumerate(loader):
 
@@ -30,7 +31,7 @@ def eval_depth(loader, folder):
         # Load result
         filename = os.path.join(folder, sample['meta']['image'] + '.mat')
         if not os.path.exists(filename):
-            warnings.warn(f'File {filename} not found, skipping sample.')
+            skipped += 1
             continue  # Skip this iteration
 
         pred = sio.loadmat(filename)['depth'].astype(float)
@@ -54,6 +55,8 @@ def eval_depth(loader, folder):
 
         if i+1==len(loader):
             break
+    
+    print('Skipped {} images as they weren\'t found'.format(skipped))
 
     eval_result = dict()
     eval_result['rmse'] = np.sqrt(total_rmses / n_valid)

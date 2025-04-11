@@ -24,6 +24,7 @@ def normal_ize(arr):
 def eval_normals(loader, folder):
 
     deg_diff = []
+    skipped = 0
     for i, sample in enumerate(loader):
         if i % 500 == 0:
             print('Evaluating Surface Normals: {} of {} objects'.format(i, len(loader)))
@@ -38,10 +39,10 @@ def eval_normals(loader, folder):
         filename = os.path.join(folder, sample['meta']['image'] + '.png')
 
         if not os.path.exists(filename):
-            warnings.warn(f'File {filename} not found, skipping sample.')
+            skipped += 1
             continue  # Skip this iteration
 
-        
+
         pred = 2. * cv2.imread(filename).astype(float)[..., ::-1] / 255. - 1
         pred = normal_ize(pred)
 
@@ -56,6 +57,8 @@ def eval_normals(loader, folder):
 
         deg_diff_tmp = np.rad2deg(np.arccos(np.clip(np.sum(pred * label, axis=2), a_min=-1, a_max=1)))
         deg_diff.extend(deg_diff_tmp[valid_mask])
+
+    print('Skipped {} images as they weren\'t found'.format(skipped))
 
     deg_diff = np.array(deg_diff)
     eval_result = dict()

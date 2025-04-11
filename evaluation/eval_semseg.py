@@ -40,6 +40,7 @@ def eval_semseg(loader, folder, n_classes=20, has_bg=True):
     tp = [0] * n_classes
     fp = [0] * n_classes
     fn = [0] * n_classes
+    skipped = 0
 
     for i, sample in enumerate(loader):
         if i % 50 == 0:
@@ -48,7 +49,7 @@ def eval_semseg(loader, folder, n_classes=20, has_bg=True):
         # Construct filename and check if it exists
         filename = os.path.join(folder, sample['meta']['image'] + '.png')
         if not os.path.exists(filename):
-            warnings.warn(f'File {filename} not found, skipping sample.')
+            skipped += 1
             continue  # Skip this iteration
 
         # Load prediction mask
@@ -78,6 +79,8 @@ def eval_semseg(loader, folder, n_classes=20, has_bg=True):
         'jaccards_all_categs': jac,
         'mIoU': np.mean(jac)
     }
+
+    print('Skipped {} images as they weren\'t found'.format(skipped))
 
     return eval_result
 

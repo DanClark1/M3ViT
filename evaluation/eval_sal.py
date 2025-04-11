@@ -26,7 +26,7 @@ def eval_sal(loader, folder, mask_thres=None):
     eval_result['all_jaccards'] = np.zeros((len(loader), len(mask_thres)))
     eval_result['prec'] = np.zeros((len(loader), len(mask_thres)))
     eval_result['rec'] = np.zeros((len(loader), len(mask_thres)))
-
+    skipped = 0
     for i, sample in enumerate(loader):
 
         if i % 500 == 0:
@@ -36,9 +36,9 @@ def eval_sal(loader, folder, mask_thres=None):
         filename = os.path.join(folder, sample["meta"]["image"] + '.png')
 
         if not os.path.exists(filename):
-            warnings.warn(f'File {filename} not found, skipping sample.')
+            skipped += 1
             continue  # Skip this iteration
-        
+
         mask = np.array(Image.open(filename)).astype(float) / 255.
 
         gt = sample["sal"]
@@ -52,6 +52,9 @@ def eval_sal(loader, folder, mask_thres=None):
             mask_eval = (mask > thres).astype(float)
             eval_result['all_jaccards'][i, j] = evaluation.jaccard(gt, mask_eval)
             eval_result['prec'][i, j], eval_result['rec'][i, j] = evaluation.precision_recall(gt, mask_eval)
+
+
+    print('Skipped {} images as they weren\'t found'.format(skipped))
 
     # Average for each thresholds
     eval_result['mIoUs'] = np.mean(eval_result['all_jaccards'], 0)

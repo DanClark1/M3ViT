@@ -25,6 +25,7 @@ def eval_human_parts(loader, folder, n_parts=6):
     fn = [0] * (n_parts + 1)
 
     counter = 0
+    skipped = 0
     for i, sample in enumerate(loader):
 
         if i % 500 == 0:
@@ -42,10 +43,10 @@ def eval_human_parts(loader, folder, n_parts=6):
         # Load result
         filename = os.path.join(folder, sample['meta']['image'] + '.png')
         if not os.path.exists(filename):
-            warnings.warn(f'File {filename} not found, skipping sample.')
+            skipped += 1
             continue  # Skip this iteration
 
-        
+
         mask = np.array(Image.open(filename)).astype(float)
 
         # Case of a binary (probability) result
@@ -66,6 +67,8 @@ def eval_human_parts(loader, folder, n_parts=6):
             tp[i_part] += np.sum(tmp_gt & tmp_pred & (valid))
             fp[i_part] += np.sum(~tmp_gt & tmp_pred & (valid))
             fn[i_part] += np.sum(tmp_gt & ~tmp_pred & (valid))
+
+    print('Skipped {} images as they weren\'t found'.format(skipped))
 
     print('Successful evaluation for {} images'.format(counter))
     jac = [0] * (n_parts + 1)
