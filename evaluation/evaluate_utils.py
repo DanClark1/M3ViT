@@ -377,21 +377,26 @@ def eval_all_results(p):
                 
         if 'depth' in single_task_test_dict: # rmse lower is better
             print('single_task_test_dict: ',single_task_test_dict['depth']['rmse'])
+            wandb.log({'depth val': single_task_test_dict['depth']['rmse']})
         if 'semseg' in single_task_test_dict: # rmse lower is better
             print('single_task_test_dict: ',single_task_test_dict['semseg']['mIoU'])
+            wandb.log({'semseg val': single_task_test_dict['semseg']['mIoU']})
         if 'normals' in single_task_test_dict: # rmse lower is better
             print('single_task_test_dict: ',single_task_test_dict['normals']['mean'])
-        
+            wandb.log({'normals val': single_task_test_dict['normals']['mean']})
         if 'human_parts' in single_task_test_dict: # rmse lower is better
             print('single_task_test_dict: ',single_task_test_dict['human_parts']['mIoU'])
+            wandb.log({'human_parts val': single_task_test_dict['human_parts']['mIoU']})
         if 'edge' in single_task_test_dict: # rmse lower is better
             print('single_task_test_dict: ',single_task_test_dict['edge']['odsF'])
+            wandb.log({'edge val': single_task_test_dict['edge']['odsF']})
         if 'sal' in single_task_test_dict: # rmse lower is better
             print('single_task_test_dict: ',single_task_test_dict['sal']['mIoU'])
+            wandb.log({'sal val': single_task_test_dict['sal']['mIoU']})
 
         results['multi_task_performance'] = calculate_multi_task_performance(results, single_task_test_dict)  
 
-        wandb.log({'multi task performance': results['multi_task_performance'], 'depth rmse': single_task_test_dict['depth']['rmse'], 'semseg mIoU': single_task_test_dict['semseg']['mIoU'], 'normals mean': single_task_test_dict['normals']['mean'], 'human_parts mIoU': single_task_test_dict['human_parts']['mIoU'], 'sal mIoU': single_task_test_dict['sal']['mIoU']}) 
+        wandb.log({'multi task performance': results['multi_task_performance']})
         print('Multi-task learning performance on test set is %.2f' %(100*results['multi_task_performance']))
 
     return results
