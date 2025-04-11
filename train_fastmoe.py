@@ -491,8 +491,8 @@ def main():
 
     # this takes way too long so limit to 400 samples
     import random
-    subset_size = 200
     val_dataset = val_dataloader.dataset
+    subset_size = int(len(val_dataset) / 100)
     random_indices = random.sample(range(len(val_dataset)), subset_size)
     subset = torch.utils.data.Subset(val_dataset, random_indices)
     val_dataloader = torch.utils.data.DataLoader(subset, batch_size=val_dataloader.batch_size, shuffle=False)
