@@ -489,6 +489,13 @@ def main():
     # model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
 
     factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
+
+    save_model_predictions(p, val_dataloader, model, args)
+    if args.distributed:
+        torch.distributed.barrier()
+    curr_result = eval_all_results(p)
+    
+
     for epoch in range(start_epoch, p['epochs']):
         print(colored('Epoch %d/%d' %(epoch+1, p['epochs']), 'yellow'))
         print(colored('-'*10, 'yellow'))
@@ -514,6 +521,9 @@ def main():
                 eval_bool = False
         else:
             eval_bool = True
+
+
+        eval_bool = True # hardcoding for now
 
         
         

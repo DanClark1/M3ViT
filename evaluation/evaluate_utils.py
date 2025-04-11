@@ -39,9 +39,6 @@ class PerformanceMeter(object):
         eval_dict = {}
         for t in self.tasks:
             eval_dict[t] = self.meters[t].get_score(verbose)
-            rank = torch.distributed.get_rank()
-            if rank == 1:
-                wandb.log({t:eval_dict[t]})
         return eval_dict
 
 
@@ -391,7 +388,9 @@ def eval_all_results(p):
         if 'sal' in single_task_test_dict: # rmse lower is better
             print('single_task_test_dict: ',single_task_test_dict['sal']['mIoU'])
 
-        results['multi_task_performance'] = calculate_multi_task_performance(results, single_task_test_dict)            
+        results['multi_task_performance'] = calculate_multi_task_performance(results, single_task_test_dict)  
+
+        wandb.log({'multi task performance': results['multi_task_performance'], 'depth rmse': results['depth']['rmse'], 'semseg mIoU': results['semseg']['mIoU'], 'normals mean': results['normals']['mean'], 'human_parts mIoU': results['human_parts']['mIoU'], 'sal mIoU': results['sal']['mIoU']}) 
         print('Multi-task learning performance on test set is %.2f' %(100*results['multi_task_performance']))
 
     return results
