@@ -264,7 +264,7 @@ def eval_model(p, val_loader, model):
         # Forward pass
         images = batch['image'].cuda(non_blocking=True)
         targets = {task: batch[task].cuda(non_blocking=True) for task in tasks}
-        output = model(images).detach().cpu()
+        output = model(images)
 
         # Measure performance
         performance_meter.update({t: get_output(output[t], t) for t in tasks}, targets)
