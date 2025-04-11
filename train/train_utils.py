@@ -242,9 +242,8 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             # else:
             output = model(images, isval=True)
             rank = torch.distributed.get_rank()
-            if rank == 1:
                 # log the max and min value in the output
-                wandb.log({"max output": output['semseg'].max(), "min output": output['semseg'].min()})
+            wandb.log({"max output": output['semseg'].max(), "min output": output['semseg'].min()})
                 
             # Measure loss and performance
             loss_dict = criterion(output, targets)
@@ -259,8 +258,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 cosine_loss = get_cosine_loss(model, detach=True)
                 
                 rank = torch.distributed.get_rank()
-                if rank == 1:
-                    wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(),"gating_loss": gating_loss.item()})
+                wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(),"gating_loss": gating_loss.item()})
 
                 for block in model.module.backbone.blocks:
                     if block.moe:
@@ -321,8 +319,8 @@ def get_lambda_loss(model, coeff=0.1, detach=False):
     loss = loss / len(layers)
     
     rank = torch.distributed.get_rank()
-    if rank == 1:
-        wandb.log({"lambda loss": loss.item()})
+
+    wandb.log({"lambda loss": loss.item()})
 
     return loss * coeff
 
@@ -344,8 +342,7 @@ def get_cosine_loss(model, coeff=1.0, detach=False):
     loss = loss / len(layers)
     
     rank = torch.distributed.get_rank()
-    if rank == 1:
-        wandb.log({"cosine loss": loss.item()})
+    wandb.log({"cosine loss": loss.item()})
 
     return loss * coeff
 
