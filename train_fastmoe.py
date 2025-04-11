@@ -492,10 +492,10 @@ def main():
     # this takes way too long so limit to 400 samples
     import random
     subset_size = 200
-    val_dataset = val_loader.dataset
+    val_dataset = val_dataloader.dataset
     random_indices = random.sample(range(len(val_dataset)), subset_size)
     subset = torch.utils.data.Subset(val_dataset, random_indices)
-    val_loader = torch.utils.data.DataLoader(subset, batch_size=val_loader.batch_size, shuffle=False)
+    val_dataloader = torch.utils.data.DataLoader(subset, batch_size=val_dataloader.batch_size, shuffle=False)
 
     save_model_predictions(p, val_dataloader, model, args)
     if args.distributed:
