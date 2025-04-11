@@ -270,6 +270,7 @@ def eval_model(p, val_loader, model):
         performance_meter.update({t: get_output(output[t], t) for t in tasks}, targets)
 
     eval_results = performance_meter.get_score(verbose = True)
+    print(eval_results)
     return eval_results
 
 
