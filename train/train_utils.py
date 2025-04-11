@@ -295,6 +295,11 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             #     print('regu_subimage_loss',regu_subimage_loss)
 
     eval_results = performance_meter.get_score(verbose = True)
+    wandb.log({'train semseg mean iou': eval_results['semseg']['mIoU']})
+    wandb.log({'train human_parts mean iou': eval_results['human_parts']['mIoU']})
+    wandb.log({'train normals mean error': eval_results['normals']['mean']})
+    wandb.log({'train sal mean iou': eval_results['sal']['mIoU']})
+    wandb.log({'train edge loss': eval_results['edge']['loss']})
 
     return eval_results
 

@@ -270,13 +270,11 @@ def eval_model(p, val_loader, model):
         performance_meter.update({t: get_output(output[t], t) for t in tasks}, targets)
 
     eval_results = performance_meter.get_score(verbose = True)
-    print(eval_results)
-
-    wandb.log({'semseg mean iou': eval_results['semseg']['mIoU']})
-    wandb.log({'human_parts mean iou': eval_results['human_parts']['mIoU']})
-    wandb.log({'normals mean error': eval_results['normals']['mean']})
-    wandb.log({'sal mean iou': eval_results['sal']['mIoU']})
-    wandb.log({'edge loss': eval_results['edge']['loss']})
+    wandb.log({'val semseg mean iou': eval_results['semseg']['mIoU']})
+    wandb.log({'val human_parts mean iou': eval_results['human_parts']['mIoU']})
+    wandb.log({'val normals mean error': eval_results['normals']['mean']})
+    wandb.log({'val sal mean iou': eval_results['sal']['mIoU']})
+    wandb.log({'val edge loss': eval_results['edge']['loss']})
     return eval_results
 
 
