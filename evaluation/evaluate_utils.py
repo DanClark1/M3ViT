@@ -275,18 +275,6 @@ def eval_model(p, val_loader, model):
 @torch.no_grad()
 def save_model_predictions(p, val_loader, model, args=None):
     """ Save model predictions for all tasks """
-
-    # this takes way too long so limit to 400 samples
-    import random
-    subset_size = 300
-    val_dataset = val_loader.dataset
-    random_indices = random.sample(range(len(val_dataset)), subset_size)
-    subset = torch.utils.data.Subset(val_dataset, random_indices)
-    val_loader = torch.utils.data.DataLoader(subset, batch_size=val_loader.batch_size, shuffle=False)
-
-
-
-
     print('Save model predictions to {}'.format(p['save_dir']))
     model.eval()
     print(p['backbone'])
