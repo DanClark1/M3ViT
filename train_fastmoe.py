@@ -199,9 +199,8 @@ if "LOCAL_RANK" not in os.environ:
     # print(os.environ["LOCAL_RANK"])
 
 def main():
-    rank = args.local_rank
-    if rank == 1:
-        wandb.init(project='m3vit_diss')
+
+    wandb.init(project='m3vit_diss')
     cv2.setNumThreads(0)
     p = create_config(args.config_env, args.config_exp, local_rank=args.local_rank, args=args)
     args.num_tasks = len(p.TASKS.NAMES)
@@ -489,6 +488,14 @@ def main():
     # model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
 
     factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
+
+    # this takes way too long so limit to 400 samples
+    import random
+    subset_size = 200
+    val_dataset = val_loader.dataset
+    random_indices = random.sample(range(len(val_dataset)), subset_size)
+    subset = torch.utils.data.Subset(val_dataset, random_indices)
+    val_loader = torch.utils.data.DataLoader(subset, batch_size=val_loader.batch_size, shuffle=False)
 
     save_model_predictions(p, val_dataloader, model, args)
     if args.distributed:
