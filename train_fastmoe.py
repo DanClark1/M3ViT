@@ -497,10 +497,11 @@ def main():
     subset = torch.utils.data.Subset(val_dataset, random_indices)
     val_dataloader = torch.utils.data.DataLoader(subset, batch_size=val_dataloader.batch_size, shuffle=False)
 
-    save_model_predictions(p, val_dataloader, model, args)
-    if args.distributed:
-        torch.distributed.barrier()
-    curr_result = eval_all_results(p)
+    # save_model_predictions(p, val_dataloader, model, args)
+    eval_model(p, val_dataloader, model)
+    # if args.distributed:
+    #     torch.distributed.barrier()
+    # curr_result = eval_all_results(p)
     
 
     for epoch in range(start_epoch, p['epochs']):
