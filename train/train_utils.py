@@ -254,10 +254,10 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 main_loss = loss_dict['total'].clone()
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
-                lambda_loss = get_lambda_loss(model, detach=True)
-                cosine_loss = get_cosine_loss(model)
+                lambda_loss = get_lambda_loss(model)
+                cosine_loss = get_cosine_loss(model, detach=True)
 
-                loss_dict['total'] += cosine_loss
+                loss_dict['total'] += lambda_loss
                 
                 rank = torch.distributed.get_rank()
                 wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(),"gating_loss": gating_loss.item()})
@@ -307,7 +307,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
 
 
 
-def get_lambda_loss(model, coeff=0.1, detach=False):
+def get_lambda_loss(model, coeff=1.0, detach=False):
     '''
     Gets the lambda_max loss for the model from the mdoel 
     '''
