@@ -327,10 +327,13 @@ def get_lambda_loss(model, coeff=30.0, T=0.85, detach=False):
     backbone = model.module.backbone
     layers = [block.mlp for block in backbone.blocks if block.moe]
     loss = 0.0
+    total_lambda_val = 0.0
 
     for layer in layers:
         # Compute the normalized lambda value for this layer:
         lambda_val = layer.loss / layer.loss_normalise_weight
+
+        total_lambda_val += lambda_val
         # Compute the excess over the threshold T:
         excess = torch.clamp(lambda_val - T, min=0.0)
         # Use squared penalty on the excess:
@@ -341,10 +344,13 @@ def get_lambda_loss(model, coeff=30.0, T=0.85, detach=False):
         # Reset the stored lambda loss for the next forward pass
         layer.reset_lambda_loss()
 
+    total_lambda_val = total_lambda_val / len(layers)
+
     loss = loss / len(layers)
     
     # Log the loss (you could also log the individual lambda value if needed)
-    wandb.log({"lambda loss": loss.item()})
+    wandb.log({"lambda loss": total_lambda_val.item()})
+    wandb.log({"thresholded lambda loss": loss.item()})
 
     return loss * coeff
 
