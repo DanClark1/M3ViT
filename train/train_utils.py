@@ -307,29 +307,47 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
 
 
 
-def get_lambda_loss(model, coeff=30.0, detach=False):
+def get_lambda_loss(model, coeff=30.0, T=0.85, detach=False):
     '''
-    Gets the lambda_max loss for the model from the mdoel 
+    Computes the lambda_max loss for the model using a thresholded squared penalty.
+    
+    Instead of directly using the layer.loss values, we calculate the excess over T
+    and square that. This gives a stronger gradient when the loss is above T, but no
+    penalty when the value is below T.
+    
+    Args:
+        model: The model with a backbone that contains MoE blocks.
+        coeff (float): Coefficient to scale the loss.
+        T (float): The threshold below which no penalty is applied (e.g. 0.85).
+        detach (bool): Whether to detach the computed loss.
+    
+    Returns:
+        The aggregated lambda loss multiplied by coeff.
     '''
     backbone = model.module.backbone
-
     layers = [block.mlp for block in backbone.blocks if block.moe]
     loss = 0.0
 
     for layer in layers:
+        # Compute the normalized lambda value for this layer:
+        lambda_val = layer.loss / layer.loss_normalise_weight
+        # Compute the excess over the threshold T:
+        excess = torch.clamp(lambda_val - T, min=0.0)
+        # Use squared penalty on the excess:
         if detach:
-            loss += (layer.loss / layer.loss_normalise_weight).detach().cpu()
+            loss += (excess.detach().cpu()) ** 2
         else:
-            loss += layer.loss / layer.loss_normalise_weight
+            loss += excess ** 2
+        # Reset the stored lambda loss for the next forward pass
         layer.reset_lambda_loss()
 
     loss = loss / len(layers)
     
-    rank = torch.distributed.get_rank()
-
+    # Log the loss (you could also log the individual lambda value if needed)
     wandb.log({"lambda loss": loss.item()})
 
     return loss * coeff
+
 
 
 def get_cosine_loss(model, coeff=1.0, detach=False):
