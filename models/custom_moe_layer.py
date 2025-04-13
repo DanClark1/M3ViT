@@ -685,5 +685,6 @@ class FMoETransformerMLP(FMoE):
         # Compute the Frobenius loss via mean squared error between G and the target.
         loss = F.mse_loss(G, target)
         
-        return loss
+        self.frobenius_loss += loss
+        self.frobenius_normalise_weight += 1
 
