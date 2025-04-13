@@ -653,7 +653,7 @@ class FMoETransformerMLP(FMoE):
         self.cosine_normalise_weight += 1
 
     
-    def calculate_frobenius_loss(moe_outp):
+    def calculate_frobenius_loss(self, moe_outp):
         """
         Compute the Frobenius loss in a memory-efficient manner by leveraging the Gram matrix.
         
