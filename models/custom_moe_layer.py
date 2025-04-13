@@ -283,6 +283,10 @@ class FMoETransformerMLP(FMoE):
         self.cosine_loss = 0
         self.cosine_normalise_weight = 0
 
+    def reset_frobenius_loss(self):
+        self.frobenius_loss = 0
+        self.frobenius_normalise_weight = 0
+
     def factorise_block(self):
         """
         Create a new global expert and factorise the current expert into local components

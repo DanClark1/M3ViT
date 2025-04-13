@@ -400,9 +400,10 @@ def get_frobenius_loss(model, coeff=0.1, detach=False):
     
     total_loss = 0.0
     num_layers = 0
-    for mlp in layers:
+    for layer in layers:
         # Compute the Frobenius loss for this layer.
-        loss = mlp.frobenius_loss / mlp.frobenius_normalise_weight
+        loss = layer.frobenius_loss / layer.frobenius_normalise_weight
+        layer.reset_frobenius_loss()
         total_loss += loss
         num_layers += 1
 
