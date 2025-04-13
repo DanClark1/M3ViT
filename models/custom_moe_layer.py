@@ -587,8 +587,8 @@ class FMoETransformerMLP(FMoE):
                 fro_loss = F.mse_loss(avg_proj, target)
 
                 # Log and accumulate the loss as before
-                self.loss += fro_loss
-                self.loss_normalise_weight += 1
+                self.frobenius_loss += fro_loss
+                self.frobenius_normalise_weight += 1
 
 
                 # ----- lambda max calculation ------
