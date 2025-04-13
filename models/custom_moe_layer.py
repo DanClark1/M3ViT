@@ -554,7 +554,6 @@ class FMoETransformerMLP(FMoE):
 
                 # clients_tensor shape is (batch_positions, n_experts, dim)
                 # that needs to be reshaped
-                self.calculate_frobenius_loss(clients_tensor)
 
                 clients_tensor = clients_tensor.swapaxes(-1, -2)
                 # clients_tensor shape is (batch_positions, dim, n_experts)
@@ -667,35 +666,4 @@ class FMoETransformerMLP(FMoE):
         # Record the loss
         self.cosine_loss += cosine_loss
         self.cosine_normalise_weight += 1
-
-
-    def calculate_frobenius_loss(self, moe_outp):
-        """
-        Compute the Frobenius loss in a memory-efficient manner by leveraging the Gram matrix.
-        
-        moe_outp: Tensor of shape (batch_positions, num_experts, dim)
-        
-        The loss is computed as:
-        
-            loss = || P_avg - (1/d)*I ||_F^2
-            
-        where P_avg is the empirical covariance matrix estimated from moe_outp.
-        """    
-        batch_positions, num_experts, dim = moe_outp.shape
-        # Flatten moe_outp along batch and expert dimensions: shape (N, dim), where N = batch_positions * num_experts
-        X = moe_outp.reshape(-1, dim)
-        N = X.shape[0]
-        
-        # Compute the Gram matrix (empirical covariance) for the outputs.
-        # Note: Dividing by N gives the empirical average.
-        G = torch.matmul(X.t(), X) / N  # shape: (dim, dim)
-        
-        # Define target matrix as an isotropic projection: 1/d times identity.
-        target = torch.eye(dim, device=moe_outp.device) / dim
-        
-        # Compute the Frobenius loss via mean squared error between G and the target.
-        loss = F.mse_loss(G, target)
-        
-        self.frobenius_loss += loss
-        self.frobenius_normalise_weight += 1
 
