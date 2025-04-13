@@ -379,7 +379,7 @@ def get_cosine_loss(model, coeff=1.0, detach=False):
     return loss * coeff
 
 
-def get_frobenius_loss(model, coeff=100, detach=False):
+def get_frobenius_loss(model, coeff=2000, detach=False):
     """
     Aggregates the Frobenius norm regularisation loss over all MoE layers in the model.
     
