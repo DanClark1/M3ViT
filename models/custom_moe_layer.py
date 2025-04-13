@@ -691,4 +691,5 @@ class FMoETransformerMLP(FMoE):
         
         # Average over the batch
         final_loss = torch.stack(losses).mean()
-        return final_loss
+        self.frobenius_loss += final_loss
+        self.frobenius_normalise_weight += 1
