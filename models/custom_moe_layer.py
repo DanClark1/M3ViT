@@ -581,7 +581,18 @@ class FMoETransformerMLP(FMoE):
                 # Compute the average projection across experts: shape (d, d)
                 avg_proj = torch.mean(projs, dim=0)
                 
-                # Compute the eigenvalues of the averaged projection (avg_proj is symmetric)
+
+                #  ----- Frobenius loss calculation ------
+                dim = avg_proj.shape[0]
+                target = torch.eye(dim, device=avg_proj.device) / dim
+                fro_loss = F.mse_loss(avg_proj, target)
+
+                # Log and accumulate the loss as before
+                self.loss += fro_loss
+                self.loss_normalise_weight += 1
+
+
+                # ----- lambda max calculation ------
                 eigvals = torch.linalg.eigvalsh(avg_proj)
                 lambda_max = eigvals[-1]
                 
