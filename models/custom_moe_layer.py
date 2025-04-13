@@ -653,42 +653,42 @@ class FMoETransformerMLP(FMoE):
         self.cosine_normalise_weight += 1
 
     
-    def calculate_frobenius_loss(self, moe_outp):
+    def calculate_frobenius_loss_mem_efficient(moe_outp):
         """
-        Compute the Frobenius norm loss for this MoE layer.
+        Compute the Frobenius loss in a memory-efficient manner by leveraging the Gram matrix.
         
-        Assumes moe_outp has shape (batch_positions, top_k, dim).
-        For each sample, we compute its projection matrix:
+        moe_outp: Tensor of shape (batch_positions, top_k, dim)
         
-            P = (X^T X) / top_k,  where X is the (top_k x dim) expert outputs
-            
-        and compare it against the ideal isotropic projection:
+        For each sample, we avoid constructing a (dim x dim) matrix by using:
         
-            P_target = I / dim.
-            
-        The loss is the mean squared error between P and P_target, averaged
-        over the batch.
+            Y = X X^T   (shape: (top_k, top_k))
+        
+        and then computing:
+        
+            loss = 1/(top_k^2) * trace(Y^2) - 2/(top_k * dim) * ||X||_F^2 + 1/dim
+        
+        The final loss is averaged over the batch.
         """
-        # moe_outp: (batch_positions, top_k, dim)
-        batch_positions, top_k, dim = moe_outp.shape
-
-        # Compute each sample's projection matrix: shape (batch_positions, dim, dim)
-        # Note: X.transpose(1,2) is of shape (batch_positions, dim, top_k)
-        P = torch.bmm(moe_outp.transpose(1, 2), moe_outp) / top_k
-
-        # Create the target projection matrix: shape (dim, dim)
-        P_target = torch.eye(dim, device=moe_outp.device) / dim
-        # Expand P_target over the batch dimension to match P's shape
-        P_target = P_target.unsqueeze(0).expand(batch_positions, -1, -1)
-
-        # Compute the MSE loss (equivalent to Frobenius norm squared)
-        fro_loss = F.mse_loss(P, P_target, reduction='mean')
-
-        # Record the loss in the same style as cosine loss
-        self.frobenius_loss += fro_loss
-        self.frobenius_normalise_weight += 1
-
-        return fro_loss
-
-
-
+        batch_positions, top_k, d = moe_outp.shape
+        losses = []
+        
+        for i in range(batch_positions):
+            X = moe_outp[i]  # shape (top_k, d)
+            # Compute the Gram matrix Y of shape (top_k, top_k)
+            Y = torch.matmul(X, X.t())
+            
+            # Compute trace(Y^2) from the small (top_k x top_k) matrix.
+            term1 = torch.trace(torch.matmul(Y, Y)) / (top_k ** 2)
+            
+            # Compute the squared Frobenius norm of X: ||X||_F^2 = trace(X X^T)
+            term2 = 2 * (torch.norm(X, p='fro') ** 2) / (top_k * d)
+            
+            # The target term ||I/d||_F^2 equals 1/d.
+            term3 = 1.0 / d
+            
+            loss_sample = term1 - term2 + term3
+            losses.append(loss_sample)
+        
+        # Average over the batch
+        final_loss = torch.stack(losses).mean()
+        return final_loss
