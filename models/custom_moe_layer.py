@@ -649,4 +649,43 @@ class FMoETransformerMLP(FMoE):
         self.cosine_loss += cosine_loss
         self.cosine_normalise_weight += 1
 
+    
+    def calculate_frobenius_loss(self, moe_outp):
+        """
+        Compute the Frobenius norm loss for this MoE layer.
+        
+        Assumes moe_outp has shape (batch_positions, top_k, dim).
+        For each sample, we compute its projection matrix:
+        
+            P = (X^T X) / top_k,  where X is the (top_k x dim) expert outputs
+            
+        and compare it against the ideal isotropic projection:
+        
+            P_target = I / dim.
+            
+        The loss is the mean squared error between P and P_target, averaged
+        over the batch.
+        """
+        # moe_outp: (batch_positions, top_k, dim)
+        batch_positions, top_k, dim = moe_outp.shape
+
+        # Compute each sample's projection matrix: shape (batch_positions, dim, dim)
+        # Note: X.transpose(1,2) is of shape (batch_positions, dim, top_k)
+        P = torch.bmm(moe_outp.transpose(1, 2), moe_outp) / top_k
+
+        # Create the target projection matrix: shape (dim, dim)
+        P_target = torch.eye(dim, device=moe_outp.device) / dim
+        # Expand P_target over the batch dimension to match P's shape
+        P_target = P_target.unsqueeze(0).expand(batch_positions, -1, -1)
+
+        # Compute the MSE loss (equivalent to Frobenius norm squared)
+        fro_loss = F.mse_loss(P, P_target, reduction='mean')
+
+        # Record the loss in the same style as cosine loss
+        self.frobenius_loss += fro_loss
+        self.frobenius_normalise_weight += 1
+
+        return fro_loss
+
+
 

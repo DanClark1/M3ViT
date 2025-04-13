@@ -254,10 +254,11 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 main_loss = loss_dict['total'].clone()
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
-                lambda_loss = get_lambda_loss(model)
+                lambda_loss = get_lambda_loss(model, detach=True)
                 cosine_loss = get_cosine_loss(model, detach=True)
+                frobenius_loss = get_frobenius_loss(model)
 
-                loss_dict['total'] += lambda_loss
+                loss_dict['total'] += frobenius_loss
                 
                 rank = torch.distributed.get_rank()
                 wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(),"gating_loss": gating_loss.item()})
@@ -376,6 +377,47 @@ def get_cosine_loss(model, coeff=1.0, detach=False):
     wandb.log({"cosine loss": loss.item()})
 
     return loss * coeff
+
+
+def get_frobenius_loss(model, coeff=0.1, detach=False):
+    """
+    Aggregates the Frobenius norm regularisation loss over all MoE layers in the model.
+    
+    For each MoE layer in model.module.backbone.blocks with MoE enabled,
+    it calls the layer's calculate_frobenius_loss() method and then averages the losses.
+    
+    Args:
+        model: The overall model (assumed to have model.module.backbone.blocks).
+        coeff (float): Coefficient to scale the aggregated loss.
+        detach (bool): If True, the loss is detached from the graph.
+        
+    Returns:
+        A scalar tensor representing the aggregated Frobenius loss multiplied by coeff.
+    """
+    backbone = model.module.backbone
+    # Gather the MLP modules from the blocks that are MoE layers.
+    layers = [block.mlp for block in backbone.blocks if block.moe]
+    
+    total_loss = 0.0
+    num_layers = 0
+    for mlp in layers:
+        # Compute the Frobenius loss for this layer.
+        loss = mlp.calculate_frobenius_loss()
+        total_loss += loss
+        num_layers += 1
+
+    if num_layers > 0:
+        avg_loss = total_loss / num_layers
+    else:
+        # If no MoE layers, return zero.
+        avg_loss = torch.tensor(0.0, device=model.module.backbone.blocks[0].mlp.experts.htoh4.weight.device)
+
+    if detach:
+        avg_loss = avg_loss.detach().cpu()
+
+    wandb.log({"frobenius loss": avg_loss.item()})
+    return avg_loss * coeff
+
 
 
 
