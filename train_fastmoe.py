@@ -380,6 +380,8 @@ def main():
             print(f'Saved feature visualizations to {viz_save_dir}')
             model.module.backbone.clear_intermediate_features()
 
+        
+
 
     if args.flops:
         for ii, sample in enumerate(val_dataloader):

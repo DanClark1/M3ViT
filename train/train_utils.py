@@ -353,7 +353,7 @@ def get_lambda_loss(model, coeff=1.0, T=0.85, detach=False):
     wandb.log({"lambda loss": total_lambda_val.item()})
     # wandb.log({"thresholded lambda loss": loss.item()})
 
-    return loss * coeff
+    return total_lambda_val * coeff
 
 
 
