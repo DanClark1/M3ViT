@@ -102,6 +102,8 @@ def str2bool(v):
 
 # Parser
 parser = argparse.ArgumentParser(description='Vanilla Training')
+
+
 parser.add_argument('--config_env',
                     help='Config file for the environment')
 parser.add_argument('--config_exp',
@@ -185,6 +187,7 @@ parser.add_argument('--visualize_features', action='store_true',
                    help='whether to visualize intermediate features')
 parser.add_argument('--viz_dir', type=str, default='feature_visualizations',
                    help='directory to save feature visualizations')
+parser.add_argument('--analyse', action='store_true')
 parser.add_argument('--diversity_loss_weight', default=0.0, type=float,
                    help='Weight for expert diversity loss (0.0 to disable)')
 parser.add_argument('--train_accumulation_steps', default=1, type=int, help='Number of steps to accumulate gradients')
@@ -353,6 +356,30 @@ def main():
     print(train_transforms)
     print('Val transformations:')
     print(val_transforms)
+
+    if args.analyse:
+        model, optimizer, start_epoch = load_for_training(model, optimizer, args.ckp, 'cuda')
+
+
+        # 1. Visualise features
+
+        viz_save_dir = os.path.join(args.viz_dir, 'inference')
+        viz_batch = next(iter(val_dataloader))
+        viz_inputs = viz_batch['image'].cuda(non_blocking=True)
+        
+        with torch.no_grad():
+            # First do normal forward pass
+            _ = model(viz_inputs)
+            
+            # Then visualize with forced experts
+            model.module.backbone.visualize_features(
+                save_dir=viz_save_dir,
+                input_image=viz_inputs,
+                expert_indices=range(16)  # Visualize all 16 experts
+            )
+            print(f'Saved feature visualizations to {viz_save_dir}')
+            model.module.backbone.clear_intermediate_features()
+
 
     if args.flops:
         for ii, sample in enumerate(val_dataloader):
