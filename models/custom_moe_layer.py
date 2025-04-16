@@ -579,6 +579,7 @@ class FMoETransformerMLP(FMoE):
                 eps = 1e-6
 
                 rank = torch.linalg.matrix_rank(clients_tensor + eps)
+                print(rank)
                 if rank < clients_tensor.shape[1]:
                     raise ValueError(f"Rank of clients_tensor {rank} is less than the number of experts.")
 
