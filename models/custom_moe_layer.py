@@ -599,8 +599,7 @@ class FMoETransformerMLP(FMoE):
 
                 # --- 1) Compute the numeric rank of the ORIGINAL tensor, with tolerance=eps
                 rank = torch.min(torch.linalg.matrix_rank(clients_tensor, tol=eps))
-                print(f"Computed rank = {rank}")
-
+                
                 # decide how many basis vectors we’ll actually take
                 k = int(min(rank.item(), self.num_expert))
 
