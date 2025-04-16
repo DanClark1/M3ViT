@@ -515,7 +515,7 @@ def main():
     # # LOAD for training
     # model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
 
-    factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
+    # factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
 
     # this takes way too long so limit 
     import random
