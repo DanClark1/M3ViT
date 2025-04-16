@@ -601,13 +601,6 @@ class FMoETransformerMLP(FMoE):
                 rank = torch.min(torch.linalg.matrix_rank(clients_tensor, tol=eps))
                 print(f"Computed rank = {rank}")
 
-                # If you *really* want to error out when rank < num_expert, you can still do so:
-                if rank < self.num_expert:
-                    # instead of raising, we just warn and *shrink* the basis size
-                    print(
-                        f"Warning: rank {rank} < num_expert {self.num_expert}; "
-                        f"reducing basis size to {rank}."
-                    )
                 # decide how many basis vectors we’ll actually take
                 k = int(min(rank.item(), self.num_expert))
 
