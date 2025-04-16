@@ -598,7 +598,7 @@ class FMoETransformerMLP(FMoE):
                 m, n = clients_tensor.shape[-2], clients_tensor.shape[-1]
 
                 # --- 1) Compute the numeric rank of the ORIGINAL tensor, with tolerance=eps
-                rank = torch.linalg.matrix_rank(clients_tensor, tol=eps)
+                rank = torch.min(torch.linalg.matrix_rank(clients_tensor, tol=eps))
                 print(f"Computed rank = {rank}")
 
                 # If you *really* want to error out when rank < num_expert, you can still do so:
