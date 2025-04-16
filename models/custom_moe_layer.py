@@ -577,6 +577,11 @@ class FMoETransformerMLP(FMoE):
                     raise ValueError(f"NaNs detected in clients_tensor after normalization.")
                 
                 eps = 1e-6
+
+                rank = torch.linalg.matrix_rank(clients_tensor + eps)
+                if rank < clients_tensor.shape[1]:
+                    raise ValueError(f"Rank of clients_tensor {rank} is less than the number of experts.")
+
                 # Adding eps for numerical stability if needed
                 Q, _ = torch.linalg.qr(clients_tensor + eps, mode='reduced')
                 # Q now has shape (num_experts, d, r) where r = min(d, b)
