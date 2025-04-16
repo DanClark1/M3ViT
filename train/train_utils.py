@@ -261,10 +261,10 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
                 lambda_loss = get_lambda_loss(model, step, detach=True)
-                cosine_loss = get_cosine_loss(model, step)
-                frobenius_loss = get_frobenius_loss(model, step, detach=True)
+                cosine_loss = get_cosine_loss(model, step, detach=True)
+                frobenius_loss = get_frobenius_loss(model, step)
 
-                loss_dict['total'] += cosine_loss
+                loss_dict['total'] += frobenius_loss
                 
                 rank = torch.distributed.get_rank()
                 wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(),"gating_loss": gating_loss.item()}, step=step)
@@ -341,19 +341,10 @@ def get_lambda_loss(model, step,  coeff=1.0, T=0.85, detach=False):
         lambda_val = layer.loss / layer.loss_normalise_weight
 
         total_lambda_val += lambda_val
-        # Compute the excess over the threshold T:
-        excess = torch.clamp(lambda_val - T, min=0.0)
-        # Use squared penalty on the excess:
-        if detach:
-            loss += (excess.detach().cpu()) ** 2
-        else:
-            loss += excess ** 2
         # Reset the stored lambda loss for the next forward pass
         layer.reset_lambda_loss()
 
-    total_lambda_val = total_lambda_val / len(layers)
-
-    loss = loss / len(layers)
+    total_lambda_val = (total_lambda_val / len(layers)).detach().cpu()
     
     # Log the loss (you could also log the individual lambda value if needed)
     wandb.log({"lambda loss": total_lambda_val.item()}, step=step, commit=False)
