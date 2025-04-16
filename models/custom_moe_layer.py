@@ -622,6 +622,7 @@ class FMoETransformerMLP(FMoE):
                     raise ValueError(
                         f"Top {k} singular values ≤ {eps}; "
                         "subspace will be ill‐conditioned."
+                        f"{S[:k]}"
                     )
 
                 # --- 4) Extract your orthonormal basis Q ∈ ℝ^{m×k}
