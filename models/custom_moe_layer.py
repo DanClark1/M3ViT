@@ -601,7 +601,7 @@ class FMoETransformerMLP(FMoE):
                 Q, R = torch.linalg.qr(A_reg, mode="reduced")
 
                 r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
-                k = torch.min(int((r_diag.abs() > eps).sum()))
+                k = torch.min((r_diag.abs() > eps).sum())
 
                 # --- 4) Extract your orthonormal basis Q ∈ ℝ^{m×k}
                 Q = Q[:, :k]
