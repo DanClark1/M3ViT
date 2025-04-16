@@ -598,9 +598,7 @@ class FMoETransformerMLP(FMoE):
                 eye = torch.eye(m, n, device=clients_tensor.device, dtype=clients_tensor.dtype)
                 A_reg = clients_tensor + eps * eye
 
-                Q, _= torch.linalg.qr(A_reg)
-
-                Q, R, pivots = torch.linalg.qr(A, mode="reduced", pivoting=True)
+                Q, R, pivots = torch.linalg.qr(A_reg, mode="reduced", pivoting=True)
 
                 r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
                 k = torch.min(int((r_diag.abs() > eps).sum()))
