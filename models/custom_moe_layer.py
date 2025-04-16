@@ -111,6 +111,12 @@ class _Expert(nn.Module):
                 self.inputs = torch.cat((self.inputs, inp), dim=1)
                 self.outputs = torch.cat((self.outputs, out), dim=1)
 
+        max = torch.max(x, dim=1)[0]
+        min = torch.min(x, dim=1)[0]
+        wandb.log({
+            'expert output max': max.mean(),
+            'expert output min': min.mean(),
+        }, commit=False)
         return x
     
     def get_components(self, num_components=50):
