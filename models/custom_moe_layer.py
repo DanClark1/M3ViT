@@ -593,36 +593,47 @@ class FMoETransformerMLP(FMoE):
                 # projs = torch.matmul(Q, Q.transpose(1, 2))
 
 
-                eps = 1e-3
 
-                # 1) — rank check on the *original* tensor —
-                rank = torch.linalg.matrix_rank(clients_tensor)
-                print(f"matrix_rank = {rank}")
-
-                # 2) — add tiny jitter on the diagonal to break zero/repeated singularities —
+                eps = 1e-6
                 m, n = clients_tensor.shape[-2], clients_tensor.shape[-1]
+
+                # --- 1) Compute the numeric rank of the ORIGINAL tensor, with tolerance=eps
+                rank = torch.linalg.matrix_rank(clients_tensor, tol=eps)
+                print(f"Computed rank = {rank}")
+
+                # If you *really* want to error out when rank < num_expert, you can still do so:
+                if rank < self.num_expert:
+                    # instead of raising, we just warn and *shrink* the basis size
+                    print(
+                        f"Warning: rank {rank} < num_expert {self.num_expert}; "
+                        f"reducing basis size to {rank}."
+                    )
+                # decide how many basis vectors we’ll actually take
+                k = int(min(rank.item(), self.num_expert))
+
+                # --- 2) Jitter + thin SVD
                 eye = torch.eye(m, n, device=clients_tensor.device, dtype=clients_tensor.dtype)
-                clients_tensor_reg = clients_tensor + eps * eye
+                A_reg = clients_tensor + eps * eye
 
-                # 3) — thin SVD on the regularized tensor —
-                U, S, Vh = torch.linalg.svd(clients_tensor_reg, full_matrices=False)
+                U, S, Vh = torch.linalg.svd(A_reg, full_matrices=False)
 
-                # 4) — (optional) sanity‐check that the first num_expert singulars are not too small —
-                if torch.any(S[..., : rank] <= eps):
+                # --- 3) Optional: guard against very small singulars
+                if (S[:k] <= eps).any():
                     raise ValueError(
-                        f"Small singular values detected (≤ {eps}); basis will be ill‐conditioned."
+                        f"Top {k} singular values ≤ {eps}; "
+                        "subspace will be ill‐conditioned."
                     )
 
-                # 5) — extract an orthonormal basis for the top‐k subspace —
-                #     Q has shape (..., m, num_expert)
-                Q = U[..., : rank]
+                # --- 4) Extract your orthonormal basis Q ∈ ℝ^{m×k}
+                Q = U[:, :k]
 
-                # 6) — check for NaNs just like before —
+                # --- 5) NaN check
                 if torch.isnan(Q).any():
                     raise ValueError("NaNs detected in Q after SVD‐based basis extraction.")
 
-                # 7) — form your projection operator as before —
+                # --- 6) Build your projection(s) as before
                 projs = Q.matmul(Q.transpose(-2, -1))
+
 
                 # Compute the average projection across experts: shape (d, d)
                 avg_proj = torch.mean(projs, dim=0)
