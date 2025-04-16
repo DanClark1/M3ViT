@@ -418,7 +418,7 @@ def main():
         else:
             print("=> loading checkpoint '{}'".format(args.ckp))
             checkpoint = torch.load(args.ckp, map_location='cpu')
-        model.factorise_model()
+        factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
         model, optimizer, start_epoch = load_for_training(model, optimizer, args.ckp, 'cuda')
         save_model_predictions(p, val_dataloader, model, args)
         if args.distributed:
