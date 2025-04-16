@@ -608,14 +608,14 @@ class FMoETransformerMLP(FMoE):
                 U, S, Vh = torch.linalg.svd(clients_tensor_reg, full_matrices=False)
 
                 # 4) — (optional) sanity‐check that the first num_expert singulars are not too small —
-                if torch.any(S[..., : self.num_expert] <= eps):
+                if torch.any(S[..., : rank] <= eps):
                     raise ValueError(
                         f"Small singular values detected (≤ {eps}); basis will be ill‐conditioned."
                     )
 
                 # 5) — extract an orthonormal basis for the top‐k subspace —
                 #     Q has shape (..., m, num_expert)
-                Q = U[..., : self.num_expert]
+                Q = U[..., : rank]
 
                 # 6) — check for NaNs just like before —
                 if torch.isnan(Q).any():
