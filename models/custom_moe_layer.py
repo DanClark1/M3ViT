@@ -576,21 +576,53 @@ class FMoETransformerMLP(FMoE):
                 if torch.isnan(clients_tensor).any():
                     raise ValueError(f"NaNs detected in clients_tensor after normalization.")
                 
+                # eps = 1e-6
+
+                # rank = torch.linalg.matrix_rank(clients_tensor + eps)
+                # print(rank)
+                # if not torch.all(rank >= self.num_expert):
+                #     raise ValueError(f"Rank of clients_tensor {rank} is less than the number of experts.")
+
+                # # Adding eps for numerical stability if needed
+                # Q, _ = torch.linalg.qr(clients_tensor + eps, mode='reduced')
+                # # Q now has shape (num_experts, d, r) where r = min(d, b)
+
+                # if torch.isnan(Q).any():
+                #     raise ValueError("NaNs detected in Q matrix after QR decomposition.")
+
+                # projs = torch.matmul(Q, Q.transpose(1, 2))
+
+
                 eps = 1e-6
 
-                rank = torch.linalg.matrix_rank(clients_tensor + eps)
-                print(rank)
-                if not torch.all(rank >= self.num_expert):
-                    raise ValueError(f"Rank of clients_tensor {rank} is less than the number of experts.")
+                # 1) — rank check on the *original* tensor —
+                rank = torch.linalg.matrix_rank(clients_tensor)
+                print(f"matrix_rank = {rank}")
 
-                # Adding eps for numerical stability if needed
-                Q, _ = torch.linalg.qr(clients_tensor + eps, mode='reduced')
-                # Q now has shape (num_experts, d, r) where r = min(d, b)
+                # 2) — add tiny jitter on the diagonal to break zero/repeated singularities —
+                m, n = clients_tensor.shape[-2], clients_tensor.shape[-1]
+                eye = torch.eye(m, n, device=clients_tensor.device, dtype=clients_tensor.dtype)
+                clients_tensor_reg = clients_tensor + eps * eye
 
+                # 3) — thin SVD on the regularized tensor —
+                U, S, Vh = torch.linalg.svd(clients_tensor_reg, full_matrices=False)
+
+                # 4) — (optional) sanity‐check that the first num_expert singulars are not too small —
+                if torch.any(S[..., : self.num_expert] <= eps):
+                    raise ValueError(
+                        f"Small singular values detected (≤ {eps}); basis will be ill‐conditioned."
+                    )
+
+                # 5) — extract an orthonormal basis for the top‐k subspace —
+                #     Q has shape (..., m, num_expert)
+                Q = U[..., : self.num_expert]
+
+                # 6) — check for NaNs just like before —
                 if torch.isnan(Q).any():
-                    raise ValueError("NaNs detected in Q matrix after QR decomposition.")
+                    raise ValueError("NaNs detected in Q after SVD‐based basis extraction.")
 
-                projs = torch.matmul(Q, Q.transpose(1, 2))
+                # 7) — form your projection operator as before —
+                projs = Q.matmul(Q.transpose(-2, -1))
 
                 # Compute the average projection across experts: shape (d, d)
                 avg_proj = torch.mean(projs, dim=0)
