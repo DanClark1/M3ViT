@@ -19,6 +19,11 @@ from os.path import join
 from utils.moe_utils import collect_noisy_gating_loss,collect_semregu_loss, collect_regu_subimage_loss, collect_diversity_loss
 from tqdm import tqdm
 import wandb
+
+
+global_step = 0
+
+
 def get_loss_meters(p):
     """ Return dictionary with loss meters to monitor training """
     all_tasks = p.ALL_TASKS.NAMES
@@ -207,6 +212,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
     model.train()
     
     for i, batch in enumerate(train_loader):
+        step = epoch * len(train_loader) + i  
         # Forward pass
         images = batch['image'].cuda(args.local_rank, non_blocking=True)
         targets = {task: batch[task].cuda(args.local_rank, non_blocking=True) for task in p.ALL_TASKS.NAMES}
@@ -243,7 +249,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             output = model(images, isval=True)
             rank = torch.distributed.get_rank()
                 # log the max and min value in the output
-            wandb.log({"max output": output['semseg'].max(), "min output": output['semseg'].min()})
+            wandb.log({"max output": output['semseg'].max(), "min output": output['semseg'].min()}, commit=False, step=step)
                 
             # Measure loss and performance
             loss_dict = criterion(output, targets)
@@ -254,14 +260,14 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 main_loss = loss_dict['total'].clone()
                 gating_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += gating_loss
-                lambda_loss = get_lambda_loss(model)
-                cosine_loss = get_cosine_loss(model, detach=True)
-                frobenius_loss = get_frobenius_loss(model, detach=True)
+                lambda_loss = get_lambda_loss(model, step)
+                cosine_loss = get_cosine_loss(model, step, detach=True)
+                frobenius_loss = get_frobenius_loss(model, step, detach=True)
 
                 loss_dict['total'] += lambda_loss
                 
                 rank = torch.distributed.get_rank()
-                wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(),"gating_loss": gating_loss.item()})
+                wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(),"gating_loss": gating_loss.item()}, step=step)
 
                 for block in model.module.backbone.blocks:
                     if block.moe:
@@ -298,17 +304,17 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             #     print('regu_subimage_loss',regu_subimage_loss)
 
     eval_results = performance_meter.get_score(verbose = True)
-    wandb.log({'train semseg mean iou': eval_results['semseg']['mIoU']})
-    wandb.log({'train human_parts mean iou': eval_results['human_parts']['mIoU']})
-    wandb.log({'train normals mean error': eval_results['normals']['mean']})
-    wandb.log({'train sal mean iou': eval_results['sal']['mIoU']})
-    wandb.log({'train edge loss': eval_results['edge']['loss']})
+    wandb.log({'train semseg mean iou': eval_results['semseg']['mIoU']}, commit=False, step=step)
+    wandb.log({'train human_parts mean iou': eval_results['human_parts']['mIoU']}, commit=False, step=step)
+    wandb.log({'train normals mean error': eval_results['normals']['mean']}, commit=False, step=step)
+    wandb.log({'train sal mean iou': eval_results['sal']['mIoU']}, commit=False, step=step)
+    wandb.log({'train edge loss': eval_results['edge']['loss']}, step=step)
 
     return eval_results
 
 
 
-def get_lambda_loss(model, coeff=1.0, T=0.85, detach=False):
+def get_lambda_loss(model, step,  coeff=1.0, T=0.85, detach=False):
     '''
     Computes the lambda_max loss for the model using a thresholded squared penalty.
     
@@ -350,14 +356,14 @@ def get_lambda_loss(model, coeff=1.0, T=0.85, detach=False):
     loss = loss / len(layers)
     
     # Log the loss (you could also log the individual lambda value if needed)
-    wandb.log({"lambda loss": total_lambda_val.item()})
+    wandb.log({"lambda loss": total_lambda_val.item()}, step=step, commit=False)
     # wandb.log({"thresholded lambda loss": loss.item()})
 
     return total_lambda_val * coeff
 
 
 
-def get_cosine_loss(model, coeff=1.0, detach=False):
+def get_cosine_loss(model, step, coeff=1.0, detach=False):
 
     backbone = model.module.backbone
 
@@ -374,12 +380,12 @@ def get_cosine_loss(model, coeff=1.0, detach=False):
     loss = loss / len(layers)
     
     rank = torch.distributed.get_rank()
-    wandb.log({"cosine loss": loss.item()})
+    wandb.log({"cosine loss": loss.item()}, step=step, commit=False)
 
     return loss * coeff
 
 
-def get_frobenius_loss(model, coeff=1.0, detach=False):
+def get_frobenius_loss(model, step, coeff=1.0, detach=False):
     """
     Aggregates the Frobenius norm regularisation loss over all MoE layers in the model.
     
@@ -416,233 +422,5 @@ def get_frobenius_loss(model, coeff=1.0, detach=False):
     if detach:
         avg_loss = avg_loss.detach().cpu()
 
-    wandb.log({"frobenius loss": avg_loss.item()})
+    wandb.log({"frobenius loss": avg_loss.item()}, step=step, commit=False)
     return avg_loss * coeff
-
-
-
-
-
-
-
-# def calculate_power_iteration_diversity_loss(model):
-#     '''
-#     Same as diversity loss but trying to estimate without doing any matrix decomposition
-#     '''
-
-
-#     def batched_power_iteration(cov, num_iters=100):
-#         """
-#         Perform batched power iteration on a batch of covariance matrices.
-#         cov: tensor of shape (N, d, d)
-#         Returns: tensor of shape (N, d, 1) containing the top eigenvector for each matrix.
-#         """
-#         N, d, _ = cov.shape
-#         # Initialize a random vector for each client (batch element)
-#         v = torch.randn(N, d, 1, device=cov.device)
-#         # Normalize along the d-dimension
-#         v = v / v.norm(dim=1, keepdim=True)
-#         for _ in range(num_iters):
-#             v = torch.bmm(cov, v)      # Batched matrix multiplication: (N, d, d) x (N, d, 1) -> (N, d, 1)
-#             v = v / v.norm(dim=1, keepdim=True)
-#         return v
-    
-
-#     def batched_svd(cov):
-#         """
-#         Compute the SVD of a batch of matrices.
-#         cov: tensor of shape (N, d, d)
-#         Returns: tensor of shape (N, d, 1) containing the top eigenvector.
-#         """
-#         U, _, _ = torch.linalg.svd(cov)
-#         #return U[:, :, 0].unsqueeze(-1)
-#         return U
-
-#     def compute_avg_projection(Y, num_iters=20):
-#         """
-#         Given a batch of data matrices Y of shape (N, d, n),
-#         compute the average projection matrix from the top eigenvectors of the covariance matrices.
-#         Returns:
-#         avg_proj: averaged projection matrix of shape (d, d)
-#         v: tensor of shape (N, d, 1) with the top eigenvector for each client.
-#         """
-#         N, d, n = Y.shape
-#         # Compute the covariance matrix for each client: S = Y Y^T / n.
-#         cov = torch.bmm(Y, Y.transpose(1, 2)) / n  # shape (N, d, d)
-#         # Compute top eigenvectors using batched power iteration.
-#         v = batched_power_iteration(cov, num_iters=num_iters)  # shape (N, d, 1)
-#         v_other = batched_svd(cov)  # shape (N, d, 1)
-#         # Check if the two methods give similar results
-#         # if torch.allclose(v, v_other, atol=1e-2):
-#         #     print("Both methods yield similar results.")
-#         # else:
-#         #     print("Methods yield different results.")
-#         v = v_other
-#         # Build projection matrices for each client: Pi = v v^T.
-#         proj = torch.bmm(v, v.transpose(1, 2))  # shape (N, d, d)
-#         # Average the projection matrices over all clients.
-#         avg_proj = proj.mean(dim=0)  # shape (d, d)
-#         return avg_proj, v
-
-#     def batched_power_iteration_single(A, num_iters=20):
-#         """
-#         Run power iteration on a single matrix A (d x d) to compute its top eigenvector.
-#         Returns the top eigenvalue (scalar) as (v^T A v).
-#         """
-#         d = A.shape[0]
-#         v = torch.randn(d, 1, device=A.device)
-#         v = v / v.norm()
-#         for _ in range(num_iters):
-#             v = A @ v
-#             v = v / v.norm()
-#         lambda_max = (v.transpose(0, 1) @ A @ v).squeeze()
-#         return lambda_max
-
-#     def asymmetric_loss(lambda_max, N, alpha=10.0):
-#         """
-#         Compute the asymmetric loss on lambda_max.
-#         Target value is 1/N. Values below 1/N are penalized by a factor of alpha.
-#         """
-#         target = 1.0 / N
-#         loss_below = alpha * torch.square(torch.clamp(target - lambda_max, min=0))
-#         loss_above = torch.square(torch.clamp(lambda_max - target, min=0))
-#         return loss_below + loss_above
-    
-
-#     backbone = model.module.backbone
-#     num_experts = 16
-#     num_layers = 6
-
-#     # Assuming that for each block, block.mlp.get_output_matrix() returns a list or tensor for each expert.
-#     layers = [block.mlp.get_output_matrix() for block in backbone.blocks if block.moe]
-    
-#     avg_lambda = 0.0
-#     layer_count = 0.0
-
-#     for layer_idx in range(num_layers):
-#         # `clients` is assumed to be a list with length = num_experts,
-#         # each element shape (d, b)
-#         clients = layers[layer_idx]
-
-#         # Stack expert outputs to create tensor of shape (num_experts, d, b)
-#         clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0)
-
-#         avg_proj, v = compute_avg_projection(clients_tensor, num_iters=50)
-#         # Compute the largest eigenvalue of the averaged projection matrix via power iteration.
-#         lambda_max = torch.linalg.torch.linalg.svdvals(avg_proj)[0] 
-#         avg_lambda += lambda_max
-#         layer_count += 1
-    
-#     avg_lambda /= layer_count
-
-#     rank = torch.distributed.get_rank()
-#     if rank == 1:
-#         wandb.log({"lambda_max": lambda_max.item()})
-#     return asymmetric_loss(lambda_max, num_experts, alpha=10.0)
-
-
-# def calculate_projection_matrix_loss(model, coeff=0.1):
-
-#     mlps = [model.module.backbone.blocks[i].mlp for i in range(len(model.module.backbone.blocks)) if model.module.backbone.blocks[i].moe]
-
-#     loss = 0
-#     count = 0
-#     for mlp in mlps:
-#         projs = mlp.experts.h4toh.projection_matricies
-
-#         for i in range(projs.shape[0]):
-#             for j in range(i, projs.shape[0]):
-#                 P_i = projs[i]
-#                 P_j = projs[j]
-#                 dot = torch.sum(P_i * P_j)
-#                 norm_i = torch.norm(P_i, p='fro')
-#                 norm_j = torch.norm(P_j, p='fro')
-#                 # Cosine similarity:
-#                 cos_sim = dot / (norm_i * norm_j + 1e-8)
-#                 loss += cos_sim ** 2  # Square the cosine similarity as penalty
-#                 count += 1
-
-#     loss = loss / count if count > 0 else 0.0
-
-#     rank = torch.distributed.get_rank()
-#     if rank == 1:
-#         wandb.log({"projection loss": loss.item()})
-#     return loss * coeff
-
-
-
-
-# def calculate_moe_cosine_similarity_loss(model, coefficient=1):
-#     '''
-#     Takes the an image in a batch and computes the diversity loss (assuming model is moe)
-
-#     This works by basically forcing a certain expert, and then doing n forward
-#     passes through the model and recording it. This is done for every expert,
-#     creating an nxd matrix for each expert.
-
-#     We then take these and measure the alignment of their bases
-#     '''
-#     backbone = model.module.backbone
-#     num_experts = 16
-#     num_layers = 6
-
-#     # Assuming that for each block, block.mlp.get_output_matrix() returns a list or tensor for each expert.
-#     layers = [block.mlp.output_matrix for block in backbone.blocks if block.moe]
-    
-#     total_cosine = 0.0
-
-
-#     for layer_idx in range(num_layers):
-#         # `clients` is assumed to be a list with length = num_experts,
-#         # each element with shape (d, b) (d: feature dimension, b: batch size or other dimension)
-#         clients = layers[layer_idx]
-#         # Stack expert outputs to create a tensor of shape (num_experts, d, b)
-#         clients_tensor = torch.stack([clients[e] for e in range(num_experts)], dim=0)
-#         # normalising for similarity + reshape into (b, d, num_experts)
-#         clients_tensor = F.normalize(clients_tensor, dim=1).transpose(1, 2)
-
-#         # Compute pairwise cosine similarity for each pair of experts
-#         layer_cosine = 0.0
-#         pair_count = 0
-#         for i in range(num_experts):
-#             for j in range(i + 1, num_experts):
-#                 # F.cosine_similarity returns a 1-element tensor when inputs are 1D
-#                 similarity = F.cosine_similarity(clients_tensor[:, :, i], clients_tensor[:, :, j], dim=1)
-#                 layer_cosine += similarity.mean() / 2
-#                 pair_count += 1
-#         # Average cosine similarity for the current layer
-#         total_cosine += layer_cosine / pair_count
-
-    
-#     # Optionally, log the total similarity for debugging (consider logging less frequently)
-#     # print(total_similarity, ', end')
-#     return torch.abs(coefficient * total_cosine)
-
-
-
-# def power_iteration(A, num_iters=20):
-#     """
-#     Compute the dominant eigenvector of a square matrix A using power iteration.
-#     A: square matrix of shape (d, d)
-#     Returns a unit vector of shape (d, 1) approximating the top eigenvector.
-#     """
-#     d = A.shape[0]
-#     v = torch.randn(d, 1, device=A.device)
-#     v = v / v.norm()
-#     for _ in range(num_iters):
-#         v = A @ v
-#         v = v / v.norm()
-#     return v
-
-
-
-# def compute_local_basis(Y, num_iters=20):
-#     """
-#     Compute the dominant eigenvector (local basis) from data matrix Y.
-#     Y: data matrix for a client of shape (d, n)
-#     Returns a unit vector v (d x 1) approximating the top eigenvector of S = Y Y^T / n.
-#     """
-#     n = Y.shape[1]
-#     S = Y @ Y.t() / n
-#     v = power_iteration(S, num_iters=num_iters)
-#     return v

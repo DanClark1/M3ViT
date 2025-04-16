@@ -327,14 +327,14 @@ class Block(nn.Module):
         else:
             self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
     
-    def forward(self, x, gate_inp=None, task_id=None, task_specific_feature=None, sem=None, record_expert_outputs=False, verbose=False):
+    def forward(self, x, gate_inp=None, task_id=None, task_specific_feature=None, sem=None, record_expert_outputs=False, verbose=False, return_output_matrix=False):
         if self.gate_input_ahead:
             gate_inp = x
         x = x + self.drop_path(self.attn(self.norm1(x)))
         if not self.moe:
             return x + self.drop_path(self.mlp(self.norm2(x)))
         else:
-            moe_out = self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem, record_expert_outputs=record_expert_outputs, verbose=verbose)
+            moe_out = self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem, record_expert_outputs=record_expert_outputs, verbose=verbose, return_output_matrix=return_output_matrix)
             return x + moe_out, moe_out
 
 class PatchEmbed(nn.Module):
@@ -601,7 +601,7 @@ class VisionTransformerMoE(nn.Module):
         np.save(filename, hint)
         return torch.tensor(hint, device=sem.device) 
 
-    def forward_features(self, x, gate_inp, task_id, sem, isval=False, verbose=False):
+    def forward_features(self, x, gate_inp, task_id, sem, isval=False, verbose=False, return_output_matrix=False):
         B = x.shape[0]
         x = self.patch_embed(x)
         x = x.flatten(2).transpose(1, 2)
@@ -627,7 +627,7 @@ class VisionTransformerMoE(nn.Module):
             if blk.moe:
                 self.moe_block_index[moe_index] = i
                 moe_index += 1
-                x, intermediate_x = blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs=isval, verbose=((not printed) and verbose))
+                x, intermediate_x = blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs=isval, verbose=((not printed) and verbose), return_output_matrix=return_output_matrix)
                 if not printed:
                     printed = True
                 intermediate_features.append(intermediate_x)
@@ -654,10 +654,10 @@ class VisionTransformerMoE(nn.Module):
         if hasattr(self, 'intermediate_features'):
             del self.intermediate_features
 
-    def forward(self, x, gate_inp=None, task_id=None, sem=None, isval=False, verbose=False):
+    def forward(self, x, gate_inp=None, task_id=None, sem=None, isval=False, verbose=False, return_output_matrix=False):
         if sem is not None and (self.regu_sem or self.sem_force):
             sem = self.get_groundtruth_sem(sem)
-        out = self.forward_features(x, gate_inp, task_id=task_id, sem=sem, isval=isval, verbose=verbose)
+        out = self.forward_features(x, gate_inp, task_id=task_id, sem=sem, isval=isval, verbose=verbose, return_output_matrix=return_output_matrix)
         return out
     
     def compute_misalignment(self, V_list):
@@ -706,6 +706,8 @@ class VisionTransformerMoE(nn.Module):
             raise AttributeError("No intermediate features found. Run a forward pass first.")
                 
         # Create save directory if it doesn't exist
+        datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        save_dir = os.path.join(save_dir, datetime)
         os.makedirs(save_dir, exist_ok=True)
         
         # Save input image if provided
@@ -749,15 +751,15 @@ class VisionTransformerMoE(nn.Module):
                 
                 # Run forward pass with forced expert multiple times to build dataset
                 expert_data = {idx: [] for idx in layer_indices}
-                for _ in range(40):  # Run 10 times to get 100 samples (assuming batch_size=10)
-                    with torch.no_grad():
-                        _ = self.forward(input_image)
-                        for idx in layer_indices:
-                            features = self.intermediate_features[idx].cpu().detach()
-                            features_list.append(features)
-                            # Flatten features for each sample
-                            flat_features = features.reshape(-1, features.shape[-1])
-                            expert_data[idx].append(flat_features)
+                with torch.no_grad():
+                    _ = self.forward(input_image)
+                    
+                    for idx in layer_indices:
+                        features = self.intermediate_features[idx].cpu().detach()
+                        features_list.append(features)
+                        # Flatten features for each sample
+                        flat_features = features.reshape(-1, features.shape[-1])
+                        expert_data[idx].append(flat_features)
                 
                 # Store features and datasets
                 expert_features[expert_idx] = {
@@ -788,218 +790,6 @@ class VisionTransformerMoE(nn.Module):
                         plt.savefig(os.path.join(save_dir, f'layer_{idx}_sample_{b}_expert_{expert_idx}.png'))
                         plt.close()
 
-            # make sure the expert outputs aren't the same
-            print(torch.allclose(expert_datasets[0][1], expert_datasets[1][1]))
-
-            
-            # Analyze expert specialization using PerPCA
-            print("\nAnalyzing expert specialization using PerPCA:")
-            for layer_idx in layer_indices:
-                if self.blocks[self.moe_block_index[layer_idx]].moe:
-                    print(f"\nMoE Layer {layer_idx}:")
-                    layer_results = {}
-                    
-                    # Analyze global components first
-                    clients = [expert_datasets[exp_idx][layer_idx] for exp_idx in expert_indices]
-
-
-                    print('clients shape:',[client.shape for client in clients])
-
-                    print(f'sample cosine similarity between clients: {F.cosine_similarity(clients[0], clients[1], dim=1).mean().item()}')    
-
-                    # Stack expert outputs to create tensor of shape (num_experts, d, b)
-                    clients_tensor = torch.stack([clients[e] for e in range(16)], dim=0)
-
-
-                    if torch.isnan(clients_tensor).any():
-                        raise ValueError(f"NaNs detected in clients_tensor after normalization.")
-                
-                    eps = 1e-6
-                    # Adding eps for numerical stability if needed
-                    Q, _ = torch.linalg.qr(clients_tensor + eps, mode='reduced')
-                    # Q now has shape (num_experts, d, r) where r = min(d, b)
-
-                    if torch.isnan(Q).any():
-                        raise ValueError("NaNs detected in Q matrix after QR decomposition.")
-
-
-                    projs = torch.matmul(Q, Q.transpose(1, 2))
-
-
-                    # Compute the average projection across experts: shape (d, d)
-                    avg_proj = torch.mean(projs, dim=0)
-                    
-                    # Compute the eigenvalues of the averaged projection (avg_proj is symmetric)
-                    eigvals = torch.linalg.eigvalsh(avg_proj)
-                    lambda_max = eigvals[-1]
-                    
-                    # Calculate theta for this layer
-                    theta_layer = 1 - lambda_max
-
-                    print(f'theta approximation for layer {layer_idx}: {theta_layer} (lambda_max: {lambda_max})')
-
-                    import itertools
-                    r_values = [0,1,2,3,4,5]
-                    r_value_combinations = list(itertools.combinations(r_values, 2))
-                    for combination in r_value_combinations:
-                        pca_model = PerPCA(r1=combination[0], r2=combination[1])
-                        U, V_list = pca_model.fit(clients)
-                        # Compute misalignment
-                        theta, lambda_max = self.compute_misalignment(V_list)
-                        print(f'theta: {theta}, lambda_max: {lambda_max}, r1 = {combination[0]}, r2 = {combination[1]}')
-                    exit()
-
-                    # generate all subsets of clients
-                    # import itertools
-                    # clients_combinations = list(itertools.combinations(clients, 2))
-                    # clients_combinations = [torch.cat(pair, dim=0) for pair in clients_combinations]
-
-
-                    # for combination in tqdm(clients_combinations):
-                    #     U, V_list = pca_model.fit(combination)
-                    #     # Compute misalignment
-                    #     theta, lambda_max = self.compute_misalignment(V_list)
-                    #     print('Combination of clients:', combination)
-                    #     print(f"Misalignment (theta) for layer {layer_idx}: {theta:.4f} (lambda_max: {lambda_max:.4f})")
-                    
-
-
-                    print('Computing reconstruction errors for global components...')
-                    
-                    U, V_list = pca_model.fit(clients)
-
-                    # measure cosine similarity between each client
-                    client_cosine_similarities = []
-                    for i in range(len(clients)):
-                        for j in range(i + 1, len(clients)):
-                            cos_sim = F.cosine_similarity(clients[i], clients[j], dim=1)
-                            client_cosine_similarities.append(cos_sim.mean().item())
-                    avg_cosine_similarity = np.mean(client_cosine_similarities)
-                    print(f"Average cosine similarity between clients: {avg_cosine_similarity}")
-
-                    
-                    # Now compute cumulative reconstruction error and variance using best components
-                    reconstruction_errors = []
-                    explained_vars = []
-                    for n_components in tqdm(component_nums):
-                        # Use the n best components
-                        U_subset = U[:, :n_components]
-                        # Compute reconstruction error
-                        recon_error = perpca_reconstruction_error(clients, U_subset, 
-                                                               [torch.zeros_like(U_subset) for _ in clients])
-                        reconstruction_errors.append(recon_error)
-                        # Compute explained variance
-                        var = pca_model.compute_explained_variance(clients, U_subset).sum().item()
-                        explained_vars.append(var)
-                    
-                    # Plot reconstruction error and variance curves
-                    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 6))
-                    
-                    # Reconstruction error
-                    ax1.plot(component_nums, reconstruction_errors, 'bo-')
-                    ax1.set_xlabel('Number of Best Components')
-                    ax1.set_ylabel('Reconstruction Error')
-                    ax1.set_yscale('log')
-                    ax1.set_title('Reconstruction Error vs Best Components')
-                    ax1.grid(True)
-                    
-                    # Explained variance
-                    ax2.plot(component_nums, explained_vars, 'ro-')
-                    ax2.set_xlabel('Number of Best Components')
-                    ax2.set_ylabel('Cumulative Explained Variance')
-                    ax2.set_title('Explained Variance vs Best Components')
-                    ax2.grid(True)
-                    
-                    plt.suptitle(f'Layer {layer_idx} - Global Component Analysis')
-                    plt.tight_layout()
-                    plt.savefig(os.path.join(save_dir, f'layer_{layer_idx}_global_analysis.png'))
-                    plt.close()
-                    
-                    # Find optimal number of components using reconstruction error
-                    optimal_global = component_nums[np.argmin(explained_vars)]
-                    min_recon_error = min(explained_vars)
-                    
-                    # Store results
-                    layer_results['global_components'] = optimal_global
-                    layer_results['global_recon_error'] = min_recon_error
-                    print(f"Optimal global components: {optimal_global} (recon error: {min_recon_error:.3f})")
-                    
-                    # Do the same for local components
-                    expert_results = {}
-                    for exp_idx in expert_indices:
-                        expert_data = expert_datasets[exp_idx][layer_idx]
-                        V = V_list[exp_idx]
-                        
-                        # Compute contribution of each local component
-                        local_component_errors = []
-                        local_component_vars = []
-                        for j in range(V.shape[1]):
-                            V_j = V[:, j:j+1]
-                            recon_error = perpca_reconstruction_error([expert_data], 
-                                                                   torch.zeros_like(V_j), 
-                                                                   [V_j])
-                            local_component_errors.append((j, recon_error))
-                            var = pca_model.compute_explained_variance([expert_data], V_j).sum().item()
-                            local_component_vars.append((j, var))
-                        
-                        # Sort local components
-                        sorted_local = sorted(local_component_errors, key=lambda x: x[1])
-                        best_local_indices = [idx for idx, _ in sorted_local]
-                        
-                        # Compute cumulative reconstruction error and variance
-                        local_recon_errors = []
-                        local_explained_vars = []
-                        for n_components in component_nums:
-                            best_indices = best_local_indices[:n_components]
-                            V_best = V[:, best_indices]
-                            recon_error = perpca_reconstruction_error([expert_data], 
-                                                                   torch.zeros_like(V_best), 
-                                                                   [V_best])
-                            local_recon_errors.append(recon_error)
-                            var = pca_model.compute_explained_variance([expert_data], V_best).sum().item()
-                            local_explained_vars.append(var)
-                        
-                        # Plot local reconstruction error and variance curves
-                        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 6))
-                        
-                        # Reconstruction error
-                        ax1.plot(component_nums, local_recon_errors, 'bo-')
-                        ax1.set_xlabel('Number of Best Components')
-                        ax1.set_ylabel('Reconstruction Error')
-                        ax1.set_yscale('log')
-                        ax1.set_title('Reconstruction Error vs Best Components')
-                        ax1.grid(True)
-                        
-                        # Explained variance
-                        ax2.plot(component_nums, local_explained_vars, 'ro-')
-                        ax2.set_xlabel('Number of Best Components')
-                        ax2.set_ylabel('Cumulative Explained Variance')
-                        ax2.set_title('Explained Variance vs Best Components')
-                        ax2.grid(True)
-                        
-                        plt.suptitle(f'Layer {layer_idx} - Expert {exp_idx} Local Component Analysis')
-                        plt.tight_layout()
-                        plt.savefig(os.path.join(save_dir, 
-                                  f'layer_{layer_idx}_expert_{exp_idx}_local_analysis.png'))
-                        plt.close()
-                        
-                        # Find optimal local components
-                        optimal_local = component_nums[np.argmin(local_recon_errors)]
-                        min_local_recon = min(local_recon_errors)
-                        optimal_local_indices = best_local_indices[:optimal_local]
-                        
-                        expert_results[exp_idx] = {
-                            'local_components': optimal_local,
-                            'local_recon_error': min_local_recon,
-                            'local_component_indices': optimal_local_indices
-                        }
-                        print(f"Expert {exp_idx} optimal local components: {optimal_local}")
-                        print(f"Reconstruction error: {min_local_recon:.3f}")
-                        print(f"Best local indices: {optimal_local_indices[:10]}...")  # Show first 10
-                    
-                    layer_results['expert_results'] = expert_results
-                    results['layer_results'][layer_idx] = layer_results
-
             # Save results to file
             with open(os.path.join(save_dir, 'component_analysis.txt'), 'w') as f:
                 f.write("Component Analysis Results\n")
@@ -1018,121 +808,7 @@ class VisionTransformerMoE(nn.Module):
                         f.write(f"      Local reconstruction error: {exp_results['local_recon_error']:.3f}\n")
                     f.write("\n")
 
-            # After finding optimal components, visualize projections
-            print("\nVisualizing feature projections...")
             
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            
-            # Get optimal components and ensure they're on the right device
-            U_opt = U[:, layer_results['global_component_indices']].to(device)
-            V_opt_list = [v[:, exp_results['local_component_indices']].to(device) 
-                         for i, v in enumerate(V_list)]
-            
-            # For each expert
-            for exp_idx in expert_indices:
-                expert_data = expert_datasets[exp_idx][layer_idx].to(device)
-                
-                # Project onto global components
-                global_proj = (U_opt @ (U_opt.T @ expert_data)).T  # [n, d]
-                
-                # Project onto local components
-                V_opt = V_opt_list[exp_idx]
-                local_proj = (V_opt @ (V_opt.T @ expert_data)).T  # [n, d]
-                
-                # Original features
-                orig_features = expert_data.T  # [n, d]
-                
-                # Move all tensors to CPU for visualization
-                orig_features = orig_features.cpu()
-                global_proj = global_proj.cpu()
-                local_proj = local_proj.cpu()
-                
-                # Reshape all to image format for visualization
-                B = orig_features.shape[0] // (h * w)  # Batch size
-                orig_spatial = orig_features.reshape(B, h, w, -1)
-                global_spatial = global_proj.reshape(B, h, w, -1)
-                local_spatial = local_proj.reshape(B, h, w, -1)
-                
-                # Compute feature magnitudes
-                orig_mag = torch.norm(orig_spatial, dim=-1)
-                global_mag = torch.norm(global_spatial, dim=-1)
-                local_mag = torch.norm(local_spatial, dim=-1)
-                
-                # Plot side by side for each sample in batch
-                for b in range(min(B, 5)):  # Show first 5 samples
-                    fig, axes = plt.subplots(1, 3, figsize=(30, 8))
-                    
-                    # Original features
-                    im0 = axes[0].imshow(orig_mag[b], cmap='viridis')
-                    axes[0].set_title(f'Original Features\nExpert {exp_idx}')
-                    plt.colorbar(im0, ax=axes[0])
-                    
-                    # Global component projection
-                    im1 = axes[1].imshow(global_mag[b], cmap='viridis')
-                    axes[1].set_title(f'Global Component Projection\n({layer_results["global_components"]} components)')
-                    plt.colorbar(im1, ax=axes[1])
-                    
-                    # Local component projection
-                    im2 = axes[2].imshow(local_mag[b], cmap='viridis')
-                    axes[2].set_title(f'Local Component Projection\n({exp_results["local_components"]} components)')
-                    plt.colorbar(im2, ax=axes[2])
-                    
-                    plt.suptitle(f'Layer {layer_idx} - Sample {b} - Expert {exp_idx} Projections')
-                    plt.savefig(os.path.join(save_dir, 
-                              f'layer_{layer_idx}_expert_{exp_idx}_sample_{b}_projections.png'))
-                    plt.close()
-                    
-                # Also visualize individual component contributions
-                num_components_to_show = min(16, max(layer_results['global_components'], exp_results['local_components']))
-                
-                # Global components
-                fig, axes = plt.subplots(4, 4, figsize=(20, 20))
-                axes = axes.flatten()
-                
-                expert_data = expert_data.to(device)  # Ensure data is on correct device
-                for j in range(min(16, layer_results['global_components'])):
-                    # Project onto single component
-                    single_proj = (U_opt[:, j:j+1] @ (U_opt[:, j:j+1].T @ expert_data)).T
-                    single_spatial = single_proj.cpu().reshape(B, h, w, -1)
-                    single_mag = torch.norm(single_spatial, dim=-1)
-                    
-                    im = axes[j].imshow(single_mag[0], cmap='viridis')
-                    axes[j].set_title(f'Global Component {j}')
-                    plt.colorbar(im, ax=axes[j])
-                
-                # Remove empty subplots
-                for j in range(min(16, layer_results['global_components']), 16):
-                    axes[j].remove()
-                
-                plt.suptitle(f'Layer {layer_idx} - Expert {exp_idx} - Global Component Contributions')
-                plt.tight_layout()
-                plt.savefig(os.path.join(save_dir, 
-                              f'layer_{layer_idx}_expert_{exp_idx}_global_components.png'))
-                plt.close()
-                
-                # Local components
-                fig, axes = plt.subplots(4, 4, figsize=(20, 20))
-                axes = axes.flatten()
-                
-                for j in range(min(16, exp_results['local_components'])):
-                    # Project onto single component
-                    single_proj = (V_opt[:, j:j+1] @ (V_opt[:, j:j+1].T @ expert_data)).T
-                    single_spatial = single_proj.cpu().reshape(B, h, w, -1)
-                    single_mag = torch.norm(single_spatial, dim=-1)
-                    
-                    im = axes[j].imshow(single_mag[0], cmap='viridis')
-                    axes[j].set_title(f'Local Component {j}')
-                    plt.colorbar(im, ax=axes[j])
-                
-                # Remove empty subplots
-                for j in range(min(16, exp_results['local_components']), 16):
-                    axes[j].remove()
-                
-                plt.suptitle(f'Layer {layer_idx} - Expert {exp_idx} - Local Component Contributions')
-                plt.tight_layout()
-                plt.savefig(os.path.join(save_dir, 
-                              f'layer_{layer_idx}_expert_{exp_idx}_local_components.png'))
-                plt.close()
 
         else:
             # Original visualization code for normal routing
@@ -1156,75 +832,36 @@ class VisionTransformerMoE(nn.Module):
 
         print(f"Visualizations saved to {save_dir}")
 
-def compare_perpca_vs_pca(clients, r1, r2):
-    """
-    Compare PerPCA global component explained variance with regular PCA on pooled data.
-    
-    Args:
-        clients (list of numpy.ndarray): Each element is a client data matrix of shape (d, n_client),
-            where d is the feature dimension.
-        r1 (int): Number of global components for PerPCA.
-        r2 (int): Number of local components for PerPCA.
-    
-    This function uses the PerPCA implementation (assumed to have methods fit and compute_explained_variance)
-    and the sklearn PCA on the pooled data to generate a scree plot for both approaches.
-    """
-    
 
-    
 
-    # move clients to numpy
-    # Instantiate PerPCA with the specified number of global (r1) and local (r2) components.
-    pca_model = PerPCA(r1=r1, r2=r2)
-    U, V_list = pca_model.fit(clients)
-    
-    # Determine maximum number of components from the PerPCA output.
-    max_components = U.shape[1]
-    component_nums = list(range(1, max_components + 1))
-    explained_vars_perpca = []
-    explained_vars_perpca_local = []
-    
-    # Compute the explained variance for the global components from PerPCA.
-    for n_components in component_nums:
-        U_subset = U[:, :n_components]
-        explained_var = pca_model.compute_explained_variance(clients, U_subset)
-        explained_vars_perpca.append(explained_var.sum().item())
+        # --- analysis of expert behaviour ----
+        for block in self.blocks:
 
-    for n_components in component_nums:
-        V_list_subset = [V[:, :n_components] for V in V_list]
-        explained_var_per_client = []
-        for i in range(len(clients)):
-            explained_var_per_client.append(pca_model.compute_explained_variance(clients, V_list_subset[i]))
-        explained_var = np.sum(np.array(explained_var_per_client)) / len(explained_var_per_client)
-        explained_vars_perpca_local.append(explained_var.sum().item())
-    
+            if block.moe:
 
-    cpu_clients = [client.cpu().numpy() for client in clients]
+                # put this up a little (normally lower for memory use)
+                block.mlp.outputs_size_limit = 200
 
-    # Pool the client data into one matrix.
-    pooled_data = np.hstack(cpu_clients)  # Shape: (d, total_samples)
-    pooled_data = pooled_data.T         # Reshape to (total_samples, d) for sklearn PCA
-    
-    # Run regular PCA on the pooled data.
-    pca = PCA(n_components=max_components)
-    pca.fit(pooled_data)
-    explained_vars_pca = pca.explained_variance_ratio_
+                with torch.no_grad():
+                    _ = self.forward(input_image, return_output_matrix=True)
 
-    # print reconstruction errors
-    print('Reconstruction error for standard PCA:', reconstruction_error(pooled_data.T, pca.components_.T))
-    print('Reconstruction error for PerPCA:', perpca_reconstruction_error(clients, U, V_list))
-    
-    # Plot the comparison between PerPCA global components and regular PCA.
-    plt.figure(figsize=(10, 6))
-    plt.plot(component_nums, explained_vars_perpca, 'bo-', label='PerPCA Global Components')
-    plt.plot(component_nums, explained_vars_pca, 'ro-', label='Regular PCA')
-    plt.plot(component_nums, explained_vars_perpca_local, 'go-', label='PerPCA Local Components')
-    plt.xlabel("Number of Components")
-    plt.ylabel("Explained Variance Ratio")
-    plt.title("Comparison of PerPCA vs Regular PCA")
-    plt.legend()
-    plt.grid(True)
-    plt.savefig('app/perpca_vs_pca_comparison.png')
+                    # shape: (batch_size, top_k, dim)
+                    top_k_ouput = block.mlp.raw_moe_outp
+                    # shape: (batch_size, dim, n_experts)
+                    full_output = block.mlp.clients_tensor
+
+                
+
+
+
+        # gathering data
+
+
+        # expert consistency
+
+
+
+
 
 
 def _init_vit_weights(m, n: str = '', head_bias: float = 0., jax_impl: bool = False):
@@ -1260,37 +897,3 @@ def _init_vit_weights(m, n: str = '', head_bias: float = 0., jax_impl: bool = Fa
     elif isinstance(m, nn.LayerNorm):
         nn.init.zeros_(m.bias)
         nn.init.ones_(m.weight)
-
-def find_elbow_point(component_nums, explained_vars):
-    """
-    Find the elbow point in the explained variance curve.
-    
-    Args:
-        component_nums: List of number of components tried
-        explained_vars: List of corresponding explained variance values
-    
-    Returns:
-        optimal_components: Number of components at elbow point
-        explained_var: Explained variance at elbow point
-    """
-    diffs = np.abs(np.diff(explained_vars, 2))
-    elbow_idx = np.argmin(diffs) + 1
-    return component_nums[elbow_idx], explained_vars[elbow_idx]
-
-
-def find_threshold_point(component_nums, explained_vars, threshold=0.9):
-    """
-    Finds the minimum number of components that achieve a specified threshold of explained variance.
-    
-    Args:
-        component_nums: List of number of components tried
-        explained_vars: List of corresponding explained variance values
-        threshold: Desired threshold for explained variance (default is 0.9)
-        
-    Returns:
-        optimal_components: Number of components that achieve the threshold
-        explained_var: Explained variance at that point
-    """
-    cumulative_vars = np.cumsum(explained_vars)
-    optimal_idx = np.where(cumulative_vars >= threshold)[0][0]
-    return component_nums[optimal_idx], cumulative_vars[optimal_idx]

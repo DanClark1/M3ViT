@@ -307,7 +307,7 @@ class FMoETransformerMLP(FMoE):
         print(f'Experts output shape: {np.array(self.experts.outputs).shape}')
 
 
-    def forward(self, inp: torch.Tensor, gate_inp=None, task_id = None, task_specific_feature = None, sem=None, record_expert_outputs=False, verbose=False):
+    def forward(self, inp: torch.Tensor, gate_inp=None, task_id = None, task_specific_feature = None, sem=None, record_expert_outputs=False, verbose=False, return_output_matrix=False):
         r"""
         This module wraps up the FMoE module with reshape, residual and layer
         normalization.
@@ -325,7 +325,7 @@ class FMoETransformerMLP(FMoE):
             assert self.multi_gate is False
             size = gate_inp.shape[0]
             gate_inp = torch.cat((gate_inp,task_specific_feature.repeat(size,1)),dim=-1)
-        output = self.forward_moe(gate_inp=gate_inp, moe_inp=inp, task_id=task_id, sem=sem, record_outputs=record_expert_outputs, verbose=verbose)
+        output = self.forward_moe(gate_inp=gate_inp, moe_inp=inp, task_id=task_id, sem=sem, record_outputs=record_expert_outputs, verbose=verbose, return_output_matrix=return_output_matrix)
         return output.reshape(original_shape)
     
     def get_output_matrix(self):
@@ -367,7 +367,7 @@ class FMoETransformerMLP(FMoE):
         
         return self.diversity_loss_weight * diversity_loss
 
-    def forward_moe(self, gate_inp, moe_inp, task_id=None, sem=None, record_outputs=False, verbose =False):
+    def forward_moe(self, gate_inp, moe_inp, task_id=None, sem=None, record_outputs=False, verbose=False, return_output_matrix=False):
         r"""
         The FMoE module first computes gate output, and then conduct MoE forward
         according to the gate.  The score of the selected gate given by the
@@ -519,7 +519,7 @@ class FMoETransformerMLP(FMoE):
 
         if record_outputs:
                 self.calculate_cosine_loss(moe_outp)
-                
+                raw_moe_outp = moe_outp
 
                 # moe_outp shape here is (batch_positions, top_k, dim) for non-factorised
                 # or (batch_positions, top_k + 1, dim) if factorised
@@ -636,6 +636,12 @@ class FMoETransformerMLP(FMoE):
                 self.diversity_losses = []
             self.diversity_losses.append(diversity_loss)
 
+
+        # clients tensor is shape (batch_positions, dim, n_experts)
+        # raw moe_outp is shape (batch_positions, top_k, dim)
+        if return_output_matrix:
+            self.clients_tensor = clients_tensor
+            self.raw_moe_outp = raw_moe_outp
         return moe_outp
 
     def calculate_cosine_loss(self, moe_outp):

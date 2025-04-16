@@ -358,6 +358,7 @@ def main():
     print(val_transforms)
 
     if args.analyse:
+        factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
         model, optimizer, start_epoch = load_for_training(model, optimizer, args.ckp, 'cuda')
 
 
@@ -417,16 +418,14 @@ def main():
         else:
             print("=> loading checkpoint '{}'".format(args.ckp))
             checkpoint = torch.load(args.ckp, map_location='cpu')
-        # state_dict = checkpoint['model_state']
-        # model = cvt_state_dict_(state_dict, model,args, linear_keyword, moe_dir_read)
-        # msg = model.load_state_dict(state_dict, strict=False)
-        # print('=================model unmatched keys:================',msg)
-        # save_model_predictions(p, val_dataloader, model, args)
-        # if args.distributed:
-        #     torch.distributed.barrier()
-        # eval_stats = eval_all_results(p)
-
+        model.factorise_model()
         model, optimizer, start_epoch = load_for_training(model, optimizer, args.ckp, 'cuda')
+        save_model_predictions(p, val_dataloader, model, args)
+        if args.distributed:
+            torch.distributed.barrier()
+        eval_stats = eval_all_results(p)
+
+        
 
 
         if args.visualize_features and hasattr(model.module.backbone, 'visualize_features'):
