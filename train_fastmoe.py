@@ -505,8 +505,8 @@ def main():
 
     date_string = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-    if rank == 1:
-        wandb.watch(model, log='all', log_freq=100)
+
+    wandb.watch(model, log='all', log_freq=100)
 
 
     # SAVE
