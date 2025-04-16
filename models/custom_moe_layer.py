@@ -617,14 +617,6 @@ class FMoETransformerMLP(FMoE):
 
                 U, S, Vh = torch.linalg.svd(A_reg, full_matrices=False)
 
-                # --- 3) Optional: guard against very small singulars
-                if (S[:k] <= eps).any():
-                    raise ValueError(
-                        f"Top {k} singular values ≤ {eps}; "
-                        "subspace will be ill‐conditioned."
-                        f"{S[:k]}"
-                    )
-
                 # --- 4) Extract your orthonormal basis Q ∈ ℝ^{m×k}
                 Q = U[:, :k]
 
