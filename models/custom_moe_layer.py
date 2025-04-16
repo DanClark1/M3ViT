@@ -558,6 +558,9 @@ class FMoETransformerMLP(FMoE):
                 clients_tensor = clients_tensor.swapaxes(-1, -2)
                 # clients_tensor shape is (batch_positions, dim, n_experts)
 
+                if torch.isnan(clients_tensor).any():
+                    raise ValueError(f"NaNs detected in clients_tensor before normalization.")
+
                 # normalize the tensor
                 clients_tensor = F.normalize(clients_tensor, p=2, dim=-1)
 
