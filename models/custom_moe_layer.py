@@ -113,10 +113,7 @@ class _Expert(nn.Module):
 
         max = torch.max(x, dim=1)[0]
         min = torch.min(x, dim=1)[0]
-        wandb.log({
-            'expert output max': max.mean(),
-            'expert output min': min.mean(),
-        }, commit=False)
+
         return x
     
     def get_components(self, num_components=50):
@@ -599,7 +596,7 @@ class FMoETransformerMLP(FMoE):
 
                 # --- 1) Compute the numeric rank of the ORIGINAL tensor, with tolerance=eps
                 rank = torch.min(torch.linalg.matrix_rank(clients_tensor, tol=eps))
-                
+
                 # decide how many basis vectors we’ll actually take
                 k = int(min(rank.item(), self.num_expert))
 
