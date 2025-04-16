@@ -615,10 +615,10 @@ class FMoETransformerMLP(FMoE):
                 eye = torch.eye(m, n, device=clients_tensor.device, dtype=clients_tensor.dtype)
                 A_reg = clients_tensor + eps * eye
 
-                U, S, Vh = torch.linalg.svd(A_reg, full_matrices=False)
+                Q, _= torch.linalg.qr(A_reg, full_matrices=False)
 
                 # --- 4) Extract your orthonormal basis Q ∈ ℝ^{m×k}
-                Q = U[:, :k]
+                Q = Q[:, :k]
 
                 # --- 5) NaN check
                 if torch.isnan(Q).any():
