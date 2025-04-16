@@ -264,7 +264,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 cosine_loss = get_cosine_loss(model, step, detach=True)
                 frobenius_loss = get_frobenius_loss(model, step, detach=True)
 
-                #loss_dict['total'] += lambda_loss
+                loss_dict['total'] += lambda_loss
                 
                 rank = torch.distributed.get_rank()
                 wandb.log({"overall loss": loss_dict['total'].item(), "main loss": main_loss.item(),"gating_loss": gating_loss.item()}, step=step)
