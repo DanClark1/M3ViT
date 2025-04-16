@@ -594,17 +594,16 @@ class FMoETransformerMLP(FMoE):
                 eps = 1e-6
                 m, n = clients_tensor.shape[-2], clients_tensor.shape[-1]
 
-                # --- 1) Compute the numeric rank of the ORIGINAL tensor, with tolerance=eps
-                rank = torch.min(torch.linalg.matrix_rank(clients_tensor, tol=eps))
-
-                # decide how many basis vectors we’ll actually take
-                k = int(min(rank.item(), self.num_expert))
-
                 # --- 2) Jitter + thin SVD
                 eye = torch.eye(m, n, device=clients_tensor.device, dtype=clients_tensor.dtype)
                 A_reg = clients_tensor + eps * eye
 
                 Q, _= torch.linalg.qr(A_reg)
+
+                Q, R, pivots = torch.linalg.qr(A, mode="reduced", pivoting=True)
+
+                r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
+                k = torch.min(int((r_diag.abs() > eps).sum()))
 
                 # --- 4) Extract your orthonormal basis Q ∈ ℝ^{m×k}
                 Q = Q[:, :k]
