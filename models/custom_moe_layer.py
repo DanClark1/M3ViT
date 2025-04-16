@@ -593,7 +593,7 @@ class FMoETransformerMLP(FMoE):
                 # projs = torch.matmul(Q, Q.transpose(1, 2))
 
 
-                eps = 1e-6
+                eps = 1e-3
 
                 # 1) — rank check on the *original* tensor —
                 rank = torch.linalg.matrix_rank(clients_tensor)
