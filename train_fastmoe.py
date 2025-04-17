@@ -358,7 +358,6 @@ def main():
     print(val_transforms)
 
     if args.analyse:
-        factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
         model, optimizer, start_epoch = load_for_training(model, optimizer, args.ckp, 'cuda')
 
 
