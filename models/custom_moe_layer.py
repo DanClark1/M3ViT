@@ -111,9 +111,6 @@ class _Expert(nn.Module):
                 self.inputs = torch.cat((self.inputs, inp), dim=1)
                 self.outputs = torch.cat((self.outputs, out), dim=1)
 
-        max = torch.max(x, dim=1)[0]
-        min = torch.min(x, dim=1)[0]
-
         return x
     
     def get_components(self, num_components=50):
@@ -594,7 +591,6 @@ class FMoETransformerMLP(FMoE):
                 eps = 1e-6
                 m, n = clients_tensor.shape[-2], clients_tensor.shape[-1]
 
-                # --- 2) Jitter + thin SVD
                 eye = torch.eye(m, n, device=clients_tensor.device, dtype=clients_tensor.dtype)
                 A_reg = clients_tensor + eps * eye
 
