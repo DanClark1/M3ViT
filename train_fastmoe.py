@@ -37,6 +37,7 @@ from utils.model_utils import save_model
 from thop import profile
 from torch.utils.data import Subset
 import random
+import wandb
 
 def set_random_seed(seed, deterministic=False):
     """Set random seed.
@@ -164,7 +165,12 @@ if "LOCAL_RANK" not in os.environ:
 
 
 
+
 def main():
+    rank = args.local_rank
+    if args.local_rank == 0:
+        wandb.init(project='m3vit_diss')
+
     cv2.setNumThreads(0)
     p = create_config(args.config_env, args.config_exp, local_rank=args.local_rank, args=args)
     args.num_tasks = len(p.TASKS.NAMES)
