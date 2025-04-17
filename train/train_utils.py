@@ -239,14 +239,14 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             # else:
             output = model(images)
             
-            
             # Measure loss and performance
             loss_dict = criterion(output, targets)
-            loss_dict['total'] += cosine_loss
+            
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
                 loss_dict['total'] += collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 cosine_loss = get_cosine_loss(model)
+                loss_dict['total'] += cosine_loss
 
                 # if args.regu_sem and epoch<args.warmup_epochs:
                 #     semregu_loss = collect_semregu_loss(model, args.semregu_loss_weight)
