@@ -36,74 +36,16 @@ class _Expert(nn.Module):
         self.htoh4 = FMoELinear(num_expert, d_model, d_hidden, bias=True, rank=rank)
         self.h4toh = FMoELinear(num_expert, d_hidden, d_model, bias=True, rank=rank)
         self.activation = activation
-        self.outputs = None
-        self.record_output = False
-        self.num_experts = num_expert
-        self.stage = 0 # set this to 1 once components are calculated
-
-    def reset_outputs(self):
-        self.outputs = None
 
     def forward(self, inp, fwd_expert_count):
         r"""
         First expand input to 4h (the hidden size is variable, but is called h4
         for convenience). Then perform activation. Finally shirink back to h.
         """
-        # make sure everything is on cuda
-        if inp.device != 'cuda':
-            inp = inp.to('cuda')
-        inp_flat = inp.view(-1, inp.size(-1))
-
-        # sanity checks
-        assert inp_flat.ndim == 2, "Input must be 2‑D"
-        assert fwd_expert_count.ndim == 1, "fwd_expert_count must be 1‑D"
-        assert fwd_expert_count.shape[0] == self.num_experts, (
-            f"Expected {self.num_experts} experts, got {fwd_expert_count.shape[0]}"
-        )
-        assert fwd_expert_count.sum().item() == inp_flat.shape[0], (
-            f"Sum of counts ({fwd_expert_count.sum().item()}) != rows ({inp_flat.shape[0]})"
-        )
         x = self.htoh4(inp, fwd_expert_count)
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
-        if self.record_output and self.stage == 0:
-            splits = torch.split(x, fwd_expert_count.tolist(), dim=0)
-            min_count = int(fwd_expert_count.min().item())
-            out = torch.stack([chunk[:min_count] for chunk in splits], dim=0).to('cpu').detach()
-            if self.outputs is None:
-                self.outputs = out
-            else:
-                self.outputs = torch.cat((self.outputs, out), dim=1)
         return x
-    
-    def get_components(self, num_components=50):
-        r'''
-        Assuming the output matrix is non-empty, calculates the global
-        and local components for each expert
-
-        num_local is per expert
-        '''
-        ppca = PerPCA(num_components, num_components)
-        if self.outputs is not None:
-            return ppca.fit(np.array(self.outputs))
-        else:
-            raise ValueError('No outputs to calculate components')
-        
-    def factorise(self):
-        '''
-        Calculates components of the expert's outputs,
-        then creates a new global expert'''
-        global_comp, local_comp = self.get_components()
-        global_comp = torch.tensor(np.array(global_comp), device='cuda')
-        local_comp = torch.tensor(np.array(local_comp), device='cuda')
-        # creating an array of component matricies
-        components = torch.cat((global_comp.unsqueeze(0), local_comp), dim=0)
-        # make sure components are float
-        components = components.float()
-        self.htoh4 = FMoELinearProj(components, prev_experts=self.htoh4)
-        self.h4toh = FMoELinearProj(components, prev_experts=self.h4toh)
-        self.stage = 1
-        self.num_experts += 1
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., norm_layer= partial(nn.LayerNorm, eps=1e-6)):

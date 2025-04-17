@@ -15,7 +15,6 @@ from utils.common_config import get_train_dataset, get_transformations,\
                                 get_val_dataset, get_train_dataloader, get_val_dataloader,\
                                 get_optimizer, get_model, adjust_learning_rate,\
                                 get_criterion
-from utils.factorise_model import factorise_model
 from utils.logger import Logger
 from train.train_utils import train_vanilla,train_vanilla_distributed
 from evaluation.evaluate_utils import eval_model, validate_results, save_model_predictions,\
@@ -450,7 +449,7 @@ def main():
     # save_checkpoint(model, optimizer, 0, "/app/checkpoint.pt")
 
     # # LOAD for training
-    model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
+    # model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
 
     for epoch in range(start_epoch, p['epochs']):
         print(colored('Epoch %d/%d' %(epoch+1, p['epochs']), 'yellow'))
@@ -477,55 +476,10 @@ def main():
         else:
             eval_bool = True
 
-        
-        
-        # # Perform evaluation
-        # if eval_bool:
-        #     # print('Evaluate ...')
-        #     save_model_predictions(p, val_dataloader, model, args)
-        #     if args.distributed:
-        #         torch.distributed.barrier()
-        #     curr_result = eval_all_results(p)
-        #     improves, best_result = validate_results_v2(p, curr_result, best_result)
-        #     # improves, best_result = validate_results(p, curr_result, best_result)
-        #     print('Checkpoint ...')
 
-            # save_state_dict = model.state_dict()
-
-            # moe_save = p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed)
-            # save_checkpoint({
-            #     'epoch': epoch + 1,
-            #     'backbone': p['backbone'],
-            #     'state_dict': save_state_dict,
-            #     'best_result': best_result,
-            #     'optimizer' : optimizer.state_dict(),
-            #     }, improves, p, moe_save=moe_save)
-            
-        # factorise_model(p, val_dataset, model, n=1, distributed=args.distributed)
-            
-        
-        # if args.distributed:
-        #     torch.distributed.barrier()
     print('done!')
     torch.cuda.empty_cache()   
-    # Evaluate best model at the end
-    # if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
-    #     # state_dict = read_specific_group_experts(checkpoint['state_dict'], args.local_rank, args.moe_experts)
-    #     checkpoint_specific = torch.load(os.path.join(p['best_model'], "{}.pth".format(torch.distributed.get_rank())), map_location="cpu")
-    #     checkpoint = torch.load(os.path.join(p['best_model'], "0.pth".format(torch.distributed.get_rank())), map_location="cpu")
-    #     checkpoint["state_dict"].update(checkpoint_specific["state_dict"])
-    #     state_dict = checkpoint["state_dict"]
-    # else:
-    #     # if args.local_rank==0:
-    #     print(colored('Evaluating best model at the end', 'blue'))
-    #     state_dict = torch.load(p['best_model'])['state_dict']
-    # if args.distributed:
-    #     torch.distributed.barrier()
-    # model.load_state_dict(state_dict)
-    # save_model_predictions(p, val_dataloader, model, args)
-    # if args.distributed:
-    #     torch.distributed.barrier()
-    # eval_stats = eval_all_results(p)
+
 
 
 def sanity_check(state_dict, pretrained_weights, linear_keyword):
