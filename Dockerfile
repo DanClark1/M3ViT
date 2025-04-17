@@ -23,12 +23,13 @@ ENV PATH="$CUDA_HOME/bin:$PATH"
 # copy the requirements file
 COPY requirements.txt .
 
-# Clone custom FastMoE, checkout specific commit, and install
-RUN git clone https://github.com/DanClark1/fastmoe.git && \
-    cd fastmoe && \
-    python setup.py install
-
 RUN apt-get update && apt-get install -y libgl1
 RUN pip install -r requirements.txt
 
 RUN pip install opencv-python-headless
+
+RUN pip install scikit-learn
+# Clone custom FastMoE, checkout specific commit, and install
+RUN git clone https://github.com/laekov/fastmoe.git && \
+    cd fastmoe && \
+    python setup.py install
