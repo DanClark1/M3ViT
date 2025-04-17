@@ -9,6 +9,8 @@ from functools import partial
 import tree
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
 
 from fmoe.functions import prepare_forward, ensure_comm
 from fmoe.functions import MOEScatter, MOEGather
