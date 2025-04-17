@@ -419,6 +419,7 @@ def main():
             print("=> loading checkpoint '{}'".format(args.ckp))
             checkpoint = torch.load(args.ckp, map_location='cpu')
         model, optimizer, start_epoch = load_for_training(model, optimizer, args.ckp, 'cuda')
+        eval_model(p, val_dataloader, model)
         save_model_predictions(p, val_dataloader, model, args)
         if args.distributed:
             torch.distributed.barrier()
