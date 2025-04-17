@@ -242,9 +242,12 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             
             # Measure loss and performance
             loss_dict = criterion(output, targets)
+            loss_dict['total'] += cosine_loss
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
                 loss_dict['total'] += collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
+                cosine_loss = get_cosine_loss(model)
+
                 # if args.regu_sem and epoch<args.warmup_epochs:
                 #     semregu_loss = collect_semregu_loss(model, args.semregu_loss_weight)
                 #     loss_dict['total'] += semregu_loss
@@ -276,3 +279,25 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
     eval_results = performance_meter.get_score(verbose = True)
 
     return eval_results
+
+
+def get_cosine_loss(model, coeff=1.0, detach=False):
+
+    backbone = model.module.backbone
+
+    layers = [block.mlp for block in backbone.blocks if block.moe]
+    loss = 0.0
+
+    for layer in layers:
+        if detach:
+            loss += (layer.cosine_loss / layer.cosine_normalise_weight).detach().cpu()
+        else:
+            loss += layer.cosine_loss / layer.cosine_normalise_weight
+        layer.reset_cosine_loss()
+
+    loss = loss / len(layers)
+    
+    rank = torch.distributed.get_rank()
+    # wandb.log({"cosine loss": loss.item()}, step=step, commit=False)
+
+    return loss * coeff

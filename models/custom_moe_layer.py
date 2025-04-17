@@ -326,10 +326,10 @@ class FMoETransformerMLP(FMoE):
 
             moe_outp = tree.map_structure(view_func, fwd)
 
-        if self.factorised:
-            gate_score = gate_score.view(-1, 1, self.top_k + 1)
-        else:
-            gate_score = gate_score.view(-1, 1, self.top_k)
+
+        gate_score = gate_score.view(-1, 1, self.top_k)
+
+        self.calculate_cosine_loss(moe_outp)
 
         def bmm_func(tensor):
             dim = tensor.shape[-1]
@@ -354,3 +354,33 @@ class FMoETransformerMLP(FMoE):
             [batch_size == moe_outp_batch_size[0] for batch_size in moe_outp_batch_size]
         ), "MoE outputs must have the same batch size"
         return moe_outp
+
+
+    def calculate_cosine_loss(self, moe_outp):
+        '''
+        moe output has shape (batch_positions, top_k, dim)
+        '''
+        # Normalize the tokens along the feature dimension:
+        norm_tokens = F.normalize(moe_outp, p=2, dim=-1)  # shape: (batch_positions, top_k, dim)
+        
+        # Compute cosine similarity matrix for each sample:
+        # This produces a (batch_positions, top_k, top_k) tensor where each [i] contains the pairwise similarities.
+        cos_sim_matrix = torch.abs(torch.bmm(norm_tokens, norm_tokens.transpose(1, 2)))
+        
+        # Create a mask to remove self-similarities (the diagonal elements for each sample)
+        top_k = moe_outp.size(1)
+        diag_mask = torch.eye(top_k, device=moe_outp.device, dtype=torch.bool).unsqueeze(0)
+        diag_mask = diag_mask.expand_as(cos_sim_matrix)
+        cos_sim_matrix = cos_sim_matrix.masked_fill(diag_mask, 0)
+        
+        # Calculate the mean cosine similarity loss per sample.
+        # Since each sample has top_k tokens, there are top_k * (top_k - 1) off-diagonals.
+        # Sum across the top_k x top_k matrix (which now contains zeros on the diagonal), then average.
+        cosine_loss = cos_sim_matrix.sum(dim=(1, 2)) / (top_k * (top_k - 1))
+        
+        # Finally, take the mean over all batch positions.
+        cosine_loss = cosine_loss.mean()
+        
+        # Record the loss
+        self.cosine_loss += cosine_loss
+        self.cosine_normalise_weight += 1
