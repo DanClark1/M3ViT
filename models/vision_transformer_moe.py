@@ -699,7 +699,7 @@ class VisionTransformerMoE(nn.Module):
     def visualize_features(self, save_dir='feature_viz', layer_indices=None, input_image=None, expert_indices=None):
         """
         Visualizes intermediate features as heatmaps and saves them to disk.
-        Also analyzes expert specialization using PerPCA.
+        Also analyzes expert consistency and specialization
         """
 
         if not hasattr(self, 'intermediate_features'):
@@ -832,9 +832,16 @@ class VisionTransformerMoE(nn.Module):
 
         print(f"Visualizations saved to {save_dir}")
 
-
-
         # --- analysis of expert behaviour ----
+
+        # 1. expert consistency
+        n_moe_layers = 6 # hardcoded in
+
+        variance = torch.zeros((6, 16), device=input_image.device)
+
+        i = 0
+        _ = self.forward(input_image, return_output_matrix=True)
+
         for block in self.blocks:
 
             if block.moe:
@@ -843,21 +850,31 @@ class VisionTransformerMoE(nn.Module):
                 block.mlp.outputs_size_limit = 200
 
                 with torch.no_grad():
-                    _ = self.forward(input_image, return_output_matrix=True)
 
                     # shape: (batch_size, top_k, dim)
                     top_k_ouput = block.mlp.raw_moe_outp
                     # shape: (batch_size, dim, n_experts)
                     full_output = block.mlp.clients_tensor
+                    n_experts = full_output.shape[-1]
 
+                    for j in range(n_experts):
+                        expert_output = full_output[:, :, j]
+
+                        # remove zeros
+                        mask = ~torch.all(expert_output == 0, dim=1)
+                        expert_output = expert_output[mask]
+
+                        variance[i][j] = torch.var(expert_output, dim=0).mean()
+
+                i += 1
                 
+        print(f'Full variance matrix {variance}')
 
+        for i in range(6):
+            print(f'Layer {i} variance {variance[i]}')
 
+        # 2. expert 
 
-        # gathering data
-
-
-        # expert consistency
 
 
 
