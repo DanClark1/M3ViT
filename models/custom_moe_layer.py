@@ -473,7 +473,7 @@ class FMoETransformerMLP(FMoE):
         self.lambda_max_loss += lambda_max
         self.lambda_max_normalise_weight += 1
 
-    def get_frobenius_loss(self, moe_outp, gate_top_k_idx):
+    def calculate_frobenius_loss(self, moe_outp, gate_top_k_idx):
         # 1) Build and normalize expert outputs
         batch_positions, dim = moe_outp.shape[0], moe_outp.shape[-1]
         device = moe_outp.device
