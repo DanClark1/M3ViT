@@ -118,6 +118,8 @@ class FMoETransformerMLP(FMoE):
         self.cosine_normalise_weight = 0
         self.lambda_max_loss = 0
         self.lambda_max_normalise_weight = 0
+        self.frobenius_loss = 0
+        self.frobenius_loss_normalise_weight = 0
         self.use_lambda = False
         self.use_cosine = False
         
