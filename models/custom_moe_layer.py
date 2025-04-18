@@ -423,6 +423,7 @@ class FMoETransformerMLP(FMoE):
 
         # reshaping to(batch_positions, dim, n_experts)
         clients_tensor = clients_tensor.swapaxes(-1, -2)
+        print('clients_tensor.shape',clients_tensor.shape)
     
 
         if torch.isnan(clients_tensor).any():
