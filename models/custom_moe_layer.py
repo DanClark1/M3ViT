@@ -474,7 +474,7 @@ class FMoETransformerMLP(FMoE):
         self.lambda_max_normalise_weight += 1
 
 
-    def calculate_frobenius_loss(self, moe_outp, gate_top_k_idx, batch_limit=2000):
+    def calculate_frobenius_loss(self, moe_outp, gate_top_k_idx, batch_limit=1500):
         # shapes and dims
         batch_positions = moe_outp.shape[0]
         dim = moe_outp.shape[-1]
