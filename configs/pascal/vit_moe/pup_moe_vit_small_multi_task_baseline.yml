@@ -20,9 +20,9 @@ scheduler: poly
 # Model
 model: baseline
 model_kwargs:
-   tam: True
-   tam_level0: True
-   tam_level1: True
+   tam: False
+   tam_level0: False
+   tam_level1: False
    tam_level2: False
 backbone: VisionTransformer_moe
 backbone_kwargs:
