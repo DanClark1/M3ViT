@@ -399,3 +399,4 @@ def get_frobenius_loss(model, step, coeff=1.0, detach=False):
 
     wandb.log({"frobenius loss": avg_loss.item()}, step=step, commit=False)
     return avg_loss * coeff
+

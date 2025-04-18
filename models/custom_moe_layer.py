@@ -473,9 +473,55 @@ class FMoETransformerMLP(FMoE):
         self.lambda_max_loss += lambda_max
         self.lambda_max_normalise_weight += 1
 
+    def get_frobenius_loss(self, moe_outp, gate_top_k_idx):
+        # 1) Build and normalize expert outputs
+        batch_positions, dim = moe_outp.shape[0], moe_outp.shape[-1]
+        device = moe_outp.device
+
+        expert_out = torch.zeros(batch_positions, self.num_expert, dim, device=device)
+        rows = torch.arange(batch_positions, device=device).unsqueeze(-1)
+        expert_out[rows, gate_top_k_idx, :] = moe_outp
+        # reshape to (batch_positions, dim, n_experts) then normalize
+        clients = F.normalize(expert_out.swapaxes(-1, -2), p=2, dim=-1)
+
+        # 2) Extract each expert's low-rank basis Q_i (shape d × k_i)
+        Qs = []
+        eps = 1e-6
+        for i in range(self.num_expert):
+            A = clients[:, :, i]               # (batch_positions × d)
+            m = A.shape[0]
+            I = torch.eye(m, device=device, dtype=A.dtype)
+            A_reg = A + eps * I[:, :A.shape[1]]  # stabilize
+            Q, R = torch.linalg.qr(A_reg.T, mode="reduced")
+            # find true rank k_i
+            diag = torch.diagonal(R, dim1=-2, dim2=-1).abs()
+            k = int((diag > eps).sum().clamp(min=1))
+            Qs.append(Q[:, :k])                # store only d×k
+
+        # 3) Compute pairwise Frobenius‐norms via the identity
+        #    ‖P_i - P_j‖_F^2 = ‖Q_i Q_iᵀ - Q_j Q_jᵀ‖_F^2 = k_i + k_j - 2‖Q_iᵀ Q_j‖_F^2
+        loss = 0.0
+        pairs = 0
+        for i in range(self.num_expert):
+            Qi = Qs[i]           # d×k_i
+            ki = Qi.shape[1]
+            for j in range(i+1, self.num_expert):
+                Qj = Qs[j]       # d×k_j
+                kj = Qj.shape[1]
+                C = Qi.T @ Qj    # k_i×k_j — very small!
+                # accumulate distance²
+                loss += (ki + kj) - 2 * (C * C).sum()
+                pairs += 1
+
+        # average across pairs
+        loss = loss / max(1, pairs)
+
+        # record exactly like your others
+        self.frobenius_loss += pairwise_loss
+        self.frobenius_normalise_weight += 1
 
 
-    def calculate_frobenius_loss(self, moe_outp, gate_top_k_idx):
+    def calculate_old_frobenius_loss(self, moe_outp, gate_top_k_idx):
         # shapes and dims
         batch_positions = moe_outp.shape[0]
         dim = moe_outp.shape[-1]
