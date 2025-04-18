@@ -440,12 +440,12 @@ class FMoETransformerMLP(FMoE):
 
 
 
-        d = A_reg.shape[1]
+        d = clients_tensor.shape[1]
         avg_proj = torch.zeros(d, d, device=device)
 
 
         for i in range(self.num_expert):
-            A = A_reg[:, :, i]
+            A = clients_tensor[:, :, i]
             eps = 1e-6
             m = A.shape[0]                       # = dim
             I = torch.eye(m, device=A.device, dtype=A.dtype)
