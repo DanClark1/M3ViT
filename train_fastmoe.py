@@ -172,7 +172,8 @@ def main():
     rank = args.local_rank
     if args.local_rank == 0:
         wandb.init(project='m3vit_diss')
-        wandb.define_metric("val/*", step_metric="val_step")
+        wandb.define_metric("val/step")  # declare it
+        wandb.define_metric("val/*", step_metric="val/step")
 
 
 
