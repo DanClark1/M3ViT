@@ -509,7 +509,7 @@ class FMoETransformerMLP(FMoE):
             raise ValueError(f"NaNs detected in clients_tensor after normalization.")
 
         d = clients_tensor.shape[1]
-        avg_proj = torch.zeros(d, d, device=device)
+        projs = torch.zeros(self.num_expert, d, d, device=device)
 
 
         for i in range(self.num_expert):
@@ -524,16 +524,20 @@ class FMoETransformerMLP(FMoE):
             Q = Q[:, :k]
             if torch.isnan(Q).any():
                 raise ValueError("NaNs detected in Q after SVD‐based basis extraction.")
-            projs = Q.matmul(Q.transpose(-2, -1))
-            avg_proj += projs
+            projs[i] = Q.matmul(Q.transpose(-2, -1))
 
-        avg_proj /= self.num_expert
+  
 
-        dim = avg_proj.shape[0]
-        target = torch.eye(dim, device=avg_proj.device) / dim
-        fro_loss = F.mse_loss(avg_proj, target)
+        pairwise_loss = 0.0
+        num_pairs = 0
+        for i in range(self.num_expert):
+            for j in range(i + 1, self.num_expert):
+                diff = projs[i] - projs[j]
+                pairwise_loss += torch.norm(diff, p='fro')**2
+                num_pairs += 1
 
 
+        pairwise_loss = pairwise_loss / max(1, num_pairs)
         
-        self.frobenius_loss += fro_loss
+        self.frobenius_loss += pairwise_loss
         self.frobenius_normalise_weight += 1

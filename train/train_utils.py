@@ -250,9 +250,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
                 main_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += main_loss
-                cosine_loss = get_cosine_loss(model, step)
                 frobenius_loss = get_frobenius_loss(model, step)
-                loss_dict['total'] += cosine_loss
                 loss_dict['total'] += frobenius_loss
 
                 # if args.regu_sem and epoch<args.warmup_epochs:
