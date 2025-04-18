@@ -418,7 +418,7 @@ class FMoETransformerMLP(FMoE):
 
 
         # limiting the number of outputs to a certain size
-        clients_tensor = expert_out_matrix[:, :, :outputs_size_limit]
+        clients_tensor = expert_out_matrix[:outputs_size_limit, :, :]
 
 
         # reshaping to(batch_positions, dim, n_experts)
