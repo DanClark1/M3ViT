@@ -270,7 +270,7 @@ def eval_model(p, val_loader, model, step):
         performance_meter.update({t: get_output(output[t], t) for t in tasks}, targets)
 
     eval_results = performance_meter.get_score(verbose = True)
-    if torch.distrbuted.get_rank() == 0:
+    if torch.distributed.get_rank() == 0:
         wandb.log({'val semseg mean iou': eval_results['semseg']['mIoU']}, step=step, commit=False)
         wandb.log({'val human_parts mean iou': eval_results['human_parts']['mIoU']} , step=step, commit=False)
         wandb.log({'val normals mean error': eval_results['normals']['mean']}, step=step, commit=False)
