@@ -354,7 +354,7 @@ class FMoETransformerMLP(FMoE):
         gate_score = gate_score.view(-1, 1, self.top_k)
 
         #self.calculate_lambda_max_loss(moe_outp, gate_top_k_idx)
-        #self.calculate_frobenius_loss(moe_outp, gate_top_k_idx)
+        # self.calculate_frobenius_loss(moe_outp, gate_top_k_idx)
         self.calculate_cosine_loss(moe_outp)
 
         def bmm_func(tensor):
@@ -474,69 +474,69 @@ class FMoETransformerMLP(FMoE):
         self.lambda_max_normalise_weight += 1
 
 
-    def calculate_frobenius_loss(self, moe_outp, gate_top_k_idx):
-        # shapes and dims
-        batch_positions = moe_outp.shape[0]
-        dim = moe_outp.shape[-1]
-        device = moe_outp.device
+    # def calculate_frobenius_loss(self, moe_outp, gate_top_k_idx):
+    #     # shapes and dims
+    #     batch_positions = moe_outp.shape[0]
+    #     dim = moe_outp.shape[-1]
+    #     device = moe_outp.device
 
        
-       # adding zero vectors for padding at each forward pass
-        expert_out_matrix = torch.zeros(
-            batch_positions, self.num_expert, dim, device=device
-        )
-        rows = torch.arange(batch_positions, device=device).unsqueeze(-1) 
-        expert_out_matrix[rows, gate_top_k_idx, :] = moe_outp
+    #    # adding zero vectors for padding at each forward pass
+    #     expert_out_matrix = torch.zeros(
+    #         batch_positions, self.num_expert, dim, device=device
+    #     )
+    #     rows = torch.arange(batch_positions, device=device).unsqueeze(-1) 
+    #     expert_out_matrix[rows, gate_top_k_idx, :] = moe_outp
 
 
-        # limiting the number of outputs to a certain size
-        clients_tensor = expert_out_matrix[:, :, :]
+    #     # limiting the number of outputs to a certain size
+    #     clients_tensor = expert_out_matrix[:, :, :]
 
 
-        # reshaping to(batch_positions, dim, n_experts)
-        clients_tensor = clients_tensor.swapaxes(-1, -2)
+    #     # reshaping to(batch_positions, dim, n_experts)
+    #     clients_tensor = clients_tensor.swapaxes(-1, -2)
 
     
 
-        if torch.isnan(clients_tensor).any():
-            raise ValueError(f"NaNs detected in clients_tensor before normalization.")
+    #     if torch.isnan(clients_tensor).any():
+    #         raise ValueError(f"NaNs detected in clients_tensor before normalization.")
 
-        clients_tensor = F.normalize(clients_tensor, p=2, dim=-1)
+    #     clients_tensor = F.normalize(clients_tensor, p=2, dim=-1)
 
         
-        if torch.isnan(clients_tensor).any():
-            raise ValueError(f"NaNs detected in clients_tensor after normalization.")
+    #     if torch.isnan(clients_tensor).any():
+    #         raise ValueError(f"NaNs detected in clients_tensor after normalization.")
 
-        d = clients_tensor.shape[1]
-        projs = torch.zeros(self.num_expert, d, d, device=device)
+    #     d = clients_tensor.shape[1]
+    #     projs = torch.zeros(self.num_expert, d, d, device=device)
 
 
-        for i in range(self.num_expert):
-            A = clients_tensor[:, :, i]
-            eps = 1e-6
-            m = A.shape[0]                       # = dim
-            I = torch.eye(m, device=A.device, dtype=A.dtype)
-            A_reg = A + eps * I[:, :A.shape[1]]  # broadcast so you only add eps on the leading m×m block
-            Q, R = torch.linalg.qr(A_reg.T, mode="reduced")
-            r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
-            k = torch.min((r_diag.abs() > eps).sum())
-            Q = Q[:, :k]
-            if torch.isnan(Q).any():
-                raise ValueError("NaNs detected in Q after SVD‐based basis extraction.")
-            projs[i] = Q.matmul(Q.transpose(-2, -1))
+    #     for i in range(self.num_expert):
+    #         A = clients_tensor[:, :, i]
+    #         eps = 1e-6
+    #         m = A.shape[0]                       # = dim
+    #         I = torch.eye(m, device=A.device, dtype=A.dtype)
+    #         A_reg = A + eps * I[:, :A.shape[1]]  # broadcast so you only add eps on the leading m×m block
+    #         Q, R = torch.linalg.qr(A_reg.T, mode="reduced")
+    #         r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
+    #         k = torch.min((r_diag.abs() > eps).sum())
+    #         Q = Q[:, :k]
+    #         if torch.isnan(Q).any():
+    #             raise ValueError("NaNs detected in Q after SVD‐based basis extraction.")
+    #         projs[i] = Q.matmul(Q.transpose(-2, -1))
 
   
 
-        pairwise_loss = 0.0
-        num_pairs = 0
-        for i in range(self.num_expert):
-            for j in range(i + 1, self.num_expert):
-                diff = projs[i] - projs[j]
-                pairwise_loss += torch.norm(diff, p='fro')**2
-                num_pairs += 1
+    #     pairwise_loss = 0.0
+    #     num_pairs = 0
+    #     for i in range(self.num_expert):
+    #         for j in range(i + 1, self.num_expert):
+    #             diff = projs[i] - projs[j]
+    #             pairwise_loss += torch.norm(diff, p='fro')**2
+    #             num_pairs += 1
 
 
-        pairwise_loss = pairwise_loss / max(1, num_pairs)
+    #     pairwise_loss = pairwise_loss / max(1, num_pairs)
         
-        self.frobenius_loss += pairwise_loss
-        self.frobenius_normalise_weight += 1
+    #     self.frobenius_loss += pairwise_loss
+    #     self.frobenius_normalise_weight += 1
