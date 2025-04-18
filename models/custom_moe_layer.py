@@ -354,7 +354,7 @@ class FMoETransformerMLP(FMoE):
         gate_score = gate_score.view(-1, 1, self.top_k)
 
         #self.calculate_lambda_max_loss(moe_outp, gate_top_k_idx)
-        self.calculate_frobenius_loss(moe_outp, gate_top_k_idx)
+        #self.calculate_frobenius_loss(moe_outp, gate_top_k_idx)
         self.calculate_cosine_loss(moe_outp)
 
         def bmm_func(tensor):
@@ -474,7 +474,7 @@ class FMoETransformerMLP(FMoE):
         self.lambda_max_normalise_weight += 1
 
 
-    def calculate_frobenius_loss(self, moe_outp, gate_top_k_idx, batch_limit=500):
+    def calculate_frobenius_loss(self, moe_outp, gate_top_k_idx):
         # shapes and dims
         batch_positions = moe_outp.shape[0]
         dim = moe_outp.shape[-1]
@@ -490,7 +490,7 @@ class FMoETransformerMLP(FMoE):
 
 
         # limiting the number of outputs to a certain size
-        clients_tensor = expert_out_matrix[:batch_limit, :, :]
+        clients_tensor = expert_out_matrix[:, :, :]
 
 
         # reshaping to(batch_positions, dim, n_experts)
