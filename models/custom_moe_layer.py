@@ -402,7 +402,7 @@ class FMoETransformerMLP(FMoE):
 
 
 
-    def calculate_lambda_max_loss(self, moe_outp, gate_top_k_idx, outputs_size_limit=60):
+    def calculate_lambda_max_loss(self, moe_outp, gate_top_k_idx, outputs_size_limit=100):
         # shapes and dims
         batch_positions = moe_outp.shape[0]
         dim = moe_outp.shape[-1]
