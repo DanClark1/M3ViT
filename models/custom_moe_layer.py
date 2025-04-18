@@ -434,11 +434,6 @@ class FMoETransformerMLP(FMoE):
         
         if torch.isnan(clients_tensor).any():
             raise ValueError(f"NaNs detected in clients_tensor after normalization.")
-        
-
-
-
-
 
         d = clients_tensor.shape[1]
         avg_proj = torch.zeros(d, d, device=device)
@@ -450,12 +445,9 @@ class FMoETransformerMLP(FMoE):
             m = A.shape[0]                       # = dim
             I = torch.eye(m, device=A.device, dtype=A.dtype)
             A_reg = A + eps * I[:, :A.shape[1]]  # broadcast so you only add eps on the leading m×m block
-            print('A', A.shape)
-            Q, R = torch.linalg.qr(A.T, mode="reduced")
+            Q, R = torch.linalg.qr(A_reg.T, mode="reduced")
             r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
             k = torch.min((r_diag.abs() > eps).sum())
-            print('k',k)
-            print('Q', Q.shape)
             Q = Q[:, :k]
             if torch.isnan(Q).any():
                 raise ValueError("NaNs detected in Q after SVD‐based basis extraction.")
