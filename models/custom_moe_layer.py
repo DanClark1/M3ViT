@@ -437,7 +437,10 @@ class FMoETransformerMLP(FMoE):
         
 
         eps = 1e-6
-        A_reg = clients_tensor + eps 
+        m = A.shape[0]                       # = dim
+        I = torch.eye(m, device=A.device, dtype=A.dtype)
+        A_reg = A + eps * I[:, :A.shape[1]]  # broadcast so you only add eps on the leading m×m block
+
 
 
         d = A_reg.shape[1]
