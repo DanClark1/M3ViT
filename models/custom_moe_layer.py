@@ -118,6 +118,9 @@ class FMoETransformerMLP(FMoE):
         self.cosine_normalise_weight = 0
         self.lambda_max_loss = 0
         self.lambda_max_normalise_weight = 0
+        self.use_lambda = False
+        self.use_cosine = False
+        
 
         if self.sem_force:
             self.force_id=[[0],[1,17,18,19,20],[2,12,13,14,15,16],[3,9,10,11],[4,5],[6,7,8,38],[21,22,23,24,25,26,39],[27,28,29,30,31,32,33,34,35,36,37]]

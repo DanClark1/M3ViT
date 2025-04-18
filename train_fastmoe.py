@@ -97,6 +97,8 @@ parser.add_argument(
         action='store_true',
         help='whether to set deterministic options for CUDNN backend.')
 parser.add_argument('--moe_data_distributed', action='store_true', help='if employ moe data distributed')
+parser.add_argument('--lamdba', default=False, type=str2bool, help='whether use lamdba')
+parser.add_argument('--cosine', default=False, type=str2bool, help='whether use cosine')
 parser.add_argument('--moe_experts', default=16, type=int, help='moe experts number')
 parser.add_argument('--moe_mlp_ratio', default=None, type=int, help='moe experts mlp ratio')
 parser.add_argument('--moe_top_k', default=None, type=int, help='top k expert number')
@@ -474,6 +476,12 @@ def main():
 
     # # LOAD for training
     # model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
+
+    if args.lamdba:
+        model.module.backbone.mlp.use_lambda = True
+
+    if args.cosine:
+        model.module.backbone.mlp.use_cosine = True
 
     for epoch in range(start_epoch, p['epochs']):
         print(colored('Epoch %d/%d' %(epoch+1, p['epochs']), 'yellow'))
