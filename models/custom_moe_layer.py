@@ -116,6 +116,8 @@ class FMoETransformerMLP(FMoE):
         self.prune_threshold = prune_threshold
         self.cosine_loss = 0
         self.cosine_normalise_weight = 0
+        self.lambda_max_loss = 0
+        self.lambda_max_normalise_weight = 0
 
         if self.sem_force:
             self.force_id=[[0],[1,17,18,19,20],[2,12,13,14,15,16],[3,9,10,11],[4,5],[6,7,8,38],[21,22,23,24,25,26,39],[27,28,29,30,31,32,33,34,35,36,37]]
@@ -184,6 +186,11 @@ class FMoETransformerMLP(FMoE):
     def reset_cosine_loss(self):
         self.cosine_loss = 0
         self.cosine_normalise_weight = 0
+
+
+    def reset_lambda_loss(self):
+        self.lambda_max_loss = 0
+        self.lambda_max_normalise_weight = 0
 
     def dump_output(self):
         '''get each expert to print out the shape of its output matrix'''
@@ -392,3 +399,59 @@ class FMoETransformerMLP(FMoE):
         # Record the loss
         self.cosine_loss += cosine_loss
         self.cosine_normalise_weight += 1
+
+
+
+    def calculate_lambda_max_loss(self, moe_outp, gate_top_k_idx, outputs_size_limit=100):
+        # shapes and dims
+        batch_positions = moe_outp.shape[0]
+        dim = moe_outp.shape[-1]
+        device = moe_outp.device
+
+       
+       # adding zero vectors for padding at each forward pass
+        expert_out_matrix = torch.zeros(
+            batch_positions, self.num_expert, dim, device=device
+        )
+        rows = torch.arange(batch_positions, device=device).unsqueeze(-1) 
+        expert_out_matrix[rows, gate_top_k_idx, :] = moe_outp
+
+
+        # limiting the number of outputs to a certain size
+        clients_tensor = expert_out_matrix[:, :, :outputs_size_limit]
+
+
+        # reshaping to(batch_positions, dim, n_experts)
+        clients_tensor = clients_tensor.swapaxes(-1, -2)
+    
+
+        if torch.isnan(clients_tensor).any():
+            raise ValueError(f"NaNs detected in clients_tensor before normalization.")
+
+        clients_tensor = F.normalize(clients_tensor, p=2, dim=-1)
+
+        
+        if torch.isnan(clients_tensor).any():
+            raise ValueError(f"NaNs detected in clients_tensor after normalization.")
+        
+
+        eps = 1e-6
+        A_reg = clients_tensor + eps 
+
+        Q, R = torch.linalg.qr(A_reg, mode="reduced")
+        r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
+        k = torch.min((r_diag.abs() > eps).sum())
+
+        Q = Q[:, :k]
+
+        if torch.isnan(Q).any():
+            raise ValueError("NaNs detected in Q after SVD‐based basis extraction.")
+
+        projs = Q.matmul(Q.transpose(-2, -1))
+        avg_proj = torch.mean(projs, dim=0)
+
+        eigvals = torch.linalg.eigvalsh(avg_proj)
+        lambda_max = eigvals[-1]
+        
+        self.lambda_max_loss += lambda_max
+        self.lambda_max_normalise_weight += 1

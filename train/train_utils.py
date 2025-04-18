@@ -17,6 +17,9 @@ import torch.nn.functional as F
 import pickle
 from os.path import join
 from utils.moe_utils import collect_noisy_gating_loss,collect_semregu_loss, collect_regu_subimage_loss
+import wandb
+
+
 def get_loss_meters(p):
     """ Return dictionary with loss meters to monitor training """
     all_tasks = p.ALL_TASKS.NAMES
@@ -204,6 +207,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
     model.train()
     
     for i, batch in enumerate(train_loader):
+        step = (epoch * len(train_loader) + i) * torch.distributed.get_world_size() + args.local_rank % torch.distributed.get_world_size()
         # Forward pass
         images = batch['image'].cuda(args.local_rank, non_blocking=True)
         targets = {task: batch[task].cuda(args.local_rank, non_blocking=True) for task in p.ALL_TASKS.NAMES}
@@ -245,7 +249,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
                 loss_dict['total'] += collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
-                cosine_loss = get_cosine_loss(model)
+                cosine_loss = get_cosine_loss(model, step)
                 loss_dict['total'] += cosine_loss
 
                 # if args.regu_sem and epoch<args.warmup_epochs:
@@ -281,7 +285,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
     return eval_results
 
 
-def get_cosine_loss(model, coeff=1.0, detach=False):
+def get_cosine_loss(model, step, coeff=1.0, detach=False):
 
     backbone = model.module.backbone
 
@@ -298,6 +302,48 @@ def get_cosine_loss(model, coeff=1.0, detach=False):
     loss = loss / len(layers)
     
     rank = torch.distributed.get_rank()
-    # wandb.log({"cosine loss": loss.item()}, step=step, commit=False)
+    if rank == 0:
+        wandb.log({"cosine loss": loss.item()}, step=step, commit=False)
 
     return loss * coeff
+
+
+def get_lambda_loss(model, step,  coeff=1.0, T=0.85, detach=False):
+    '''
+    Computes the lambda_max loss for the model using a thresholded squared penalty.
+    
+    Instead of directly using the layer.loss values, we calculate the excess over T
+    and square that. This gives a stronger gradient when the loss is above T, but no
+    penalty when the value is below T.
+    
+    Args:
+        model: The model with a backbone that contains MoE blocks.
+        coeff (float): Coefficient to scale the loss.
+        T (float): The threshold below which no penalty is applied (e.g. 0.85).
+        detach (bool): Whether to detach the computed loss.
+    
+    Returns:
+        The aggregated lambda loss multiplied by coeff.
+    '''
+    backbone = model.module.backbone
+    layers = [block.mlp for block in backbone.blocks if block.moe]
+    loss = 0.0
+    total_lambda_val = 0.0
+
+    for layer in layers:
+        if detach:
+            lambda_val = (layer.lambda_max_loss / layer.lambda_max_normalise_weight).detach().cpu()
+        else:
+            lambda_val = layer.lambda_max_loss / layer.lambda_max_normalise_weight
+        total_lambda_val += lambda_val
+
+        layer.reset_lambda_loss()
+
+    total_lambda_val = (total_lambda_val / len(layers)).detach().cpu()
+    
+    # Log the loss (you could also log the individual lambda value if needed)
+    rank = torch.distributed.get_rank()
+    if rank == 0:
+        wandb.log({"lambda loss": total_lambda_val.item()}, step=step, commit=False)
+
+    return total_lambda_val * coeff
