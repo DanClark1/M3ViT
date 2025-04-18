@@ -344,7 +344,7 @@ class FMoETransformerMLP(FMoE):
 
         gate_score = gate_score.view(-1, 1, self.top_k)
 
-        self.calculate_lambda_max_loss(moe_outp)
+        self.calculate_cosine_loss(moe_outp)
 
         def bmm_func(tensor):
             dim = tensor.shape[-1]
