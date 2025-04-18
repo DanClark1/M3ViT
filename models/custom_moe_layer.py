@@ -458,8 +458,6 @@ class FMoETransformerMLP(FMoE):
 
         eigvals = torch.linalg.eigvalsh(avg_proj)
         lambda_max = eigvals[-1]
-
-        print('lambda_max', lambda_max)
         
         self.lambda_max_loss += lambda_max
         self.lambda_max_normalise_weight += 1
