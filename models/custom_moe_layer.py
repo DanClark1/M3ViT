@@ -439,6 +439,8 @@ class FMoETransformerMLP(FMoE):
         eps = 1e-6
         A_reg = clients_tensor + eps 
 
+        print('A', A_reg.shape)
+
         Q, R = torch.linalg.qr(A_reg, mode="reduced")
         r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
         k = torch.min((r_diag.abs() > eps).sum())
