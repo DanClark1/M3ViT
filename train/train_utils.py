@@ -207,7 +207,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
     model.train()
     
     for i, batch in enumerate(train_loader):
-        step = (epoch * len(train_loader) + i) * torch.distributed.get_world_size() + args.local_rank % torch.distributed.get_world_size()
+        step = (epoch * len(train_loader) + i) * torch.distributed.get_world_size()
         # Forward pass
         images = batch['image'].cuda(args.local_rank, non_blocking=True)
         targets = {task: batch[task].cuda(args.local_rank, non_blocking=True) for task in p.ALL_TASKS.NAMES}
@@ -248,9 +248,10 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             
            
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
-                loss_dict['total'] += collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
-                cosine_loss = get_cosine_loss(model, step)
-                loss_dict['total'] += cosine_loss
+                main_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
+                loss_dict['total'] += main_loss
+                lambda_loss = get_lambda_loss(model, step)
+                loss_dict['total'] += lambda_loss
 
                 # if args.regu_sem and epoch<args.warmup_epochs:
                 #     semregu_loss = collect_semregu_loss(model, args.semregu_loss_weight)
@@ -272,6 +273,11 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             
         if i % 25 == 0:
             progress.display(i)
+            rank = torch.distributed.get_rank()
+            if rank == 0:
+                wandb.log({"train loss": losses['total'].avg}, step=step, commit=False)
+                wandb.log({"train loss %s" % (k): v.avg} for k, v in losses.items() if k != 'total')
+
             # for name, param in model.named_parameters():
             #     if 'gamma' in name:
             #         print('gamma',param)
@@ -281,6 +287,12 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             #     print('regu_subimage_loss',regu_subimage_loss)
 
     eval_results = performance_meter.get_score(verbose = True)
+    if torch.distributed.get_rank() == 0:
+        wandb.log({'train semseg mean iou': eval_results['semseg']['mIoU']}, commit=False, step=step)
+        wandb.log({'train human_parts mean iou': eval_results['human_parts']['mIoU']}, commit=False, step=step)
+        wandb.log({'train normals mean error': eval_results['normals']['mean']}, commit=False, step=step)
+        wandb.log({'train sal mean iou': eval_results['sal']['mIoU']}, commit=False, step=step)
+        wandb.log({'train edge loss': eval_results['edge']['loss']}, step=step)
 
     return eval_results
 

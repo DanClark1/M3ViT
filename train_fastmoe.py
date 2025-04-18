@@ -450,7 +450,20 @@ def main():
         start_epoch = checkpoint["epoch"] + 1
 
         return model, optimizer, start_epoch
+    
 
+    import random
+    val_dataset = val_dataloader.dataset
+    subset_size = int(len(val_dataset) / 70) 
+    random_indices = random.sample(range(len(val_dataset)), subset_size)
+    subset = torch.utils.data.Subset(val_dataset, random_indices)
+    subset_val_dataloader = torch.utils.data.DataLoader(subset, batch_size=val_dataloader.batch_size, shuffle=False)
+
+    # save_model_predictions(p, val_dataloader, model, args)
+    #eval_model(p, val_dataloader, model)
+
+    import datetime
+    datetime_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     # SAVE
     # save_checkpoint(model, optimizer, 0, "/app/checkpoint.pt")
 
@@ -469,18 +482,20 @@ def main():
         print('Train ...')
         eval_train = train_vanilla_distributed(args, p, train_dataloader, model, criterion, optimizer, epoch)
 
-        # save_checkpoint(model, optimizer, 0, "/app/checkpoint.pt")
+        if epoch % 10 == 0:
+            save_checkpoint(model, optimizer, 0, f"/app/checkpoint_{datetime_str}_epoch_{epoch}.pt")
 
+        eval_model(p, subset_val_dataloader, model, epoch)
 
         # Evaluate
             # Check if need to perform eval first
-        if 'eval_final_10_epochs_only' in p.keys() and p['eval_final_10_epochs_only']: # To speed up -> Avoid eval every epoch, and only test during final 10 epochs.
-            if epoch + 1 > p['epochs']-10:
-                eval_bool = True
-            else:
-                eval_bool = False
-        else:
-            eval_bool = True
+        # if 'eval_final_10_epochs_only' in p.keys() and p['eval_final_10_epochs_only']: # To speed up -> Avoid eval every epoch, and only test during final 10 epochs.
+        #     if epoch + 1 > p['epochs']-10:
+        #         eval_bool = True
+        #     else:
+        #         eval_bool = False
+        # else:
+        #     eval_bool = True
 
 
     print('done!')

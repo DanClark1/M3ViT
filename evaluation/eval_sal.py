@@ -34,6 +34,9 @@ def eval_sal(loader, folder, mask_thres=None):
 
         # Load result
         filename = os.path.join(folder, sample["meta"]["image"] + '.png')
+        if not os.path.exists(filename):
+            skipped += 1
+            continue  # Skip this iteration
         mask = np.array(Image.open(filename)).astype(float) / 255.
 
         gt = sample["sal"]

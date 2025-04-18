@@ -49,6 +49,9 @@ def eval_semseg(loader, folder, n_classes=20, has_bg=True):
 
         # Load result
         filename = os.path.join(folder, sample['meta']['image'] + '.png')
+        if not os.path.exists(filename):
+            skipped += 1
+            continue  # Skip this iteration
         mask = np.array(Image.open(filename)).astype(float)
 
         gt = sample['semseg']

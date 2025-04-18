@@ -13,6 +13,7 @@ import scipy.io as sio
 from utils.utils import get_output, mkdir_if_missing
 import numpy as np
 from collections import Counter
+import wandb
 
 class PerformanceMeter(object):
     """ A general performance meter which shows performance across one or more tasks """
@@ -252,7 +253,7 @@ def validate_results_v2(p, current, reference):
 
 
 @torch.no_grad()
-def eval_model(p, val_loader, model):
+def eval_model(p, val_loader, model, step):
     """ Evaluate model in an online fashion without storing the predictions to disk """
     tasks = p.TASKS.NAMES
     performance_meter = PerformanceMeter(p)
@@ -269,6 +270,12 @@ def eval_model(p, val_loader, model):
         performance_meter.update({t: get_output(output[t], t) for t in tasks}, targets)
 
     eval_results = performance_meter.get_score(verbose = True)
+    if torch.distrbuted.get_rank() == 0:
+        wandb.log({'val semseg mean iou': eval_results['semseg']['mIoU']}, step=step, commit=False)
+        wandb.log({'val human_parts mean iou': eval_results['human_parts']['mIoU']} , step=step, commit=False)
+        wandb.log({'val normals mean error': eval_results['normals']['mean']}, step=step, commit=False)
+        wandb.log({'val sal mean iou': eval_results['sal']['mIoU']}, step=step, commit=False)
+        wandb.log({'val edge loss': eval_results['edge']['loss']}, step=step)
     return eval_results
 
 
