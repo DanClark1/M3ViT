@@ -440,19 +440,23 @@ class FMoETransformerMLP(FMoE):
         A_reg = clients_tensor + eps 
 
         print('A', A_reg.shape)
+        d = A_reg.shape[1]
+        avg_proj = torch.zeros(d, d, device=device)
 
-        Q, R = torch.linalg.qr(A_reg, mode="reduced")
-        r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
-        k = torch.min((r_diag.abs() > eps).sum())
-        print('k',k)
 
-        Q = Q[:, :k]
+        for i in range(self.num_expert):
+            A = A_reg[:, :, i]
+            Q, R = torch.linalg.qr(A, mode="reduced")
+            r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
+            k = torch.min((r_diag.abs() > eps).sum())
+            print('k',k)
+            Q = Q[:, :k]
+            if torch.isnan(Q).any():
+                raise ValueError("NaNs detected in Q after SVD‐based basis extraction.")
+            projs = Q.matmul(Q.transpose(-2, -1))
+            avg_proj += projs
 
-        if torch.isnan(Q).any():
-            raise ValueError("NaNs detected in Q after SVD‐based basis extraction.")
-
-        projs = Q.matmul(Q.transpose(-2, -1))
-        avg_proj = torch.mean(projs, dim=0)
+        avg_proj /= self.num_expert
 
         eigvals = torch.linalg.eigvalsh(avg_proj)
         lambda_max = eigvals[-1]
