@@ -355,7 +355,7 @@ class FMoETransformerMLP(FMoE):
 
         #self.calculate_lambda_max_loss(moe_outp, gate_top_k_idx)
         # self.calculate_frobenius_loss(moe_outp, gate_top_k_idx)
-        self.calculate_cosine_loss(moe_outp)
+        # self.calculate_cosine_loss(moe_outp)
 
         def bmm_func(tensor):
             dim = tensor.shape[-1]
