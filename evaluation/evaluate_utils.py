@@ -271,11 +271,11 @@ def eval_model(p, val_loader, model, step):
 
     eval_results = performance_meter.get_score(verbose = True)
     if torch.distributed.get_rank() == 0:
-        wandb.log({'val semseg mean iou': eval_results['semseg']['mIoU']}, step=step, commit=False)
-        wandb.log({'val human_parts mean iou': eval_results['human_parts']['mIoU']} , step=step, commit=False)
-        wandb.log({'val normals mean error': eval_results['normals']['mean']}, step=step, commit=False)
-        wandb.log({'val sal mean iou': eval_results['sal']['mIoU']}, step=step, commit=False)
-        wandb.log({'val edge loss': eval_results['edge']['loss']}, step=step)
+        wandb.log({'val/semseg_mean_iou': eval_results['semseg']['mIoU']}, step=step, commit=False)
+        wandb.log({'val/human_parts_mean_iou': eval_results['human_parts']['mIoU']} , step=step, commit=False)
+        wandb.log({'val/normals_mean_error': eval_results['normals']['mean']}, step=step, commit=False)
+        wandb.log({'val/sal_mean_iou': eval_results['sal']['mIoU']}, step=step, commit=False)
+        wandb.log({'val/edge_loss': eval_results['edge']['loss']}, step=step)
     return eval_results
 
 

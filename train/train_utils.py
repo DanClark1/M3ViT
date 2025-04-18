@@ -275,7 +275,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             progress.display(i)
             rank = torch.distributed.get_rank()
             if rank == 0:
-                wandb.log({"train loss": main_loss}, step=step, commit=False)
+                wandb.log({"train/loss": main_loss}, step=step, commit=False)
 
             # for name, param in model.named_parameters():
             #     if 'gamma' in name:
@@ -287,11 +287,11 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
 
     eval_results = performance_meter.get_score(verbose = True)
     if torch.distributed.get_rank() == 0:
-        wandb.log({'train semseg mean iou': eval_results['semseg']['mIoU']}, commit=False, step=step)
-        wandb.log({'train human_parts mean iou': eval_results['human_parts']['mIoU']}, commit=False, step=step)
-        wandb.log({'train normals mean error': eval_results['normals']['mean']}, commit=False, step=step)
-        wandb.log({'train sal mean iou': eval_results['sal']['mIoU']}, commit=False, step=step)
-        wandb.log({'train edge loss': eval_results['edge']['loss']}, step=step)
+        wandb.log({'train/semseg_mean_iou': eval_results['semseg']['mIoU']}, commit=False, step=step)
+        wandb.log({'train/human_parts_mean_iou': eval_results['human_parts']['mIoU']}, commit=False, step=step)
+        wandb.log({'train/normals_mean_error': eval_results['normals']['mean']}, commit=False, step=step)
+        wandb.log({'train/sal_mean_iou': eval_results['sal']['mIoU']}, commit=False, step=step)
+        wandb.log({'train/edge_loss': eval_results['edge']['loss']}, step=step)
 
     return eval_results
 
@@ -314,7 +314,7 @@ def get_cosine_loss(model, step, coeff=1.0, detach=False):
     
     rank = torch.distributed.get_rank()
     if rank == 0:
-        wandb.log({"cosine loss": loss.item()}, step=step, commit=False)
+        wandb.log({"train/cosine_loss": loss.item()}, step=step, commit=False)
 
     return loss * coeff
 
@@ -355,6 +355,6 @@ def get_lambda_loss(model, step,  coeff=1.0, T=0.85, detach=False):
     # Log the loss (you could also log the individual lambda value if needed)
     rank = torch.distributed.get_rank()
     if rank == 0:
-        wandb.log({"lambda loss": total_lambda_val.item()}, step=step, commit=False)
+        wandb.log({"train/lambda_loss": total_lambda_val.item()}, step=step, commit=False)
 
     return total_lambda_val * coeff

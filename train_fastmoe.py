@@ -170,6 +170,11 @@ def main():
     rank = args.local_rank
     if args.local_rank == 0:
         wandb.init(project='m3vit_diss')
+        wandb.define_metric("val/step")
+        wandb.define_metric("val/*", step_metric="val/step")
+
+
+
 
     cv2.setNumThreads(0)
     p = create_config(args.config_env, args.config_exp, local_rank=args.local_rank, args=args)
