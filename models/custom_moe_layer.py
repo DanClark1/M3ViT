@@ -442,7 +442,7 @@ class FMoETransformerMLP(FMoE):
         Q, R = torch.linalg.qr(A_reg, mode="reduced")
         r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
         k = torch.min((r_diag.abs() > eps).sum())
-
+        print('k',k)
 
         Q = Q[:, :k]
 
