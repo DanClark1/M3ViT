@@ -15,7 +15,6 @@ from fmoe.functions import prepare_forward, ensure_comm
 from fmoe.functions import MOEScatter, MOEGather
 from fmoe.functions import AllGather, Slice
 from fmoe.gates import NaiveGate
-from fmoe.linear_proj import FMoELinearProj
 
 from models.gate_funs.noisy_gate import NoisyGate
 from models.gate_funs.noisy_gate_vmoe import NoisyGate_VMoE
@@ -142,11 +141,11 @@ class _Expert(nn.Module):
         # components = torch.cat((global_comp.unsqueeze(0), local_comp), dim=0)
         # # make sure components are float
         # components = components.float()
-        self.htoh4 = FMoELinearProj(prev_experts=self.htoh4, use_projection_matrix=False)
-        self.h4toh = FMoELinearProj(prev_experts=self.h4toh, use_projection_matrix=False)
-        self.stage = 1
-        self.num_experts += 1
-        self.top_k += 1
+        # self.htoh4 = FMoELinearProj(prev_experts=self.htoh4, use_projection_matrix=False)
+        # self.h4toh = FMoELinearProj(prev_experts=self.h4toh, use_projection_matrix=False)
+        # self.stage = 1
+        # self.num_experts += 1
+        # self.top_k += 1
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., norm_layer= partial(nn.LayerNorm, eps=1e-6)):
