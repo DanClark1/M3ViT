@@ -447,7 +447,7 @@ class FMoETransformerMLP(FMoE):
         for i in range(self.num_expert):
             A = A_reg[:, :, i]
             print('A', A.shape)
-            Q, R = torch.linalg.qr(A, mode="reduced")
+            Q, R = torch.linalg.qr(A.T, mode="reduced")
             r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
             k = torch.min((r_diag.abs() > eps).sum())
             print('k',k)
