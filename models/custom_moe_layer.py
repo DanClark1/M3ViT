@@ -436,10 +436,7 @@ class FMoETransformerMLP(FMoE):
             raise ValueError(f"NaNs detected in clients_tensor after normalization.")
         
 
-        eps = 1e-6
-        m = A.shape[0]                       # = dim
-        I = torch.eye(m, device=A.device, dtype=A.dtype)
-        A_reg = A + eps * I[:, :A.shape[1]]  # broadcast so you only add eps on the leading m×m block
+
 
 
 
@@ -449,6 +446,10 @@ class FMoETransformerMLP(FMoE):
 
         for i in range(self.num_expert):
             A = A_reg[:, :, i]
+            eps = 1e-6
+            m = A.shape[0]                       # = dim
+            I = torch.eye(m, device=A.device, dtype=A.dtype)
+            A_reg = A + eps * I[:, :A.shape[1]]  # broadcast so you only add eps on the leading m×m block
             print('A', A.shape)
             Q, R = torch.linalg.qr(A.T, mode="reduced")
             r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
