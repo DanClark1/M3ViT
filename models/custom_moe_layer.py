@@ -451,6 +451,7 @@ class FMoETransformerMLP(FMoE):
             r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
             k = torch.min((r_diag.abs() > eps).sum())
             print('k',k)
+            print('Q', Q.shape)
             Q = Q[:, :k]
             if torch.isnan(Q).any():
                 raise ValueError("NaNs detected in Q after SVD‐based basis extraction.")
