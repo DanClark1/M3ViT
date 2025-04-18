@@ -517,7 +517,7 @@ class FMoETransformerMLP(FMoE):
         loss = loss / max(1, pairs)
 
         # record exactly like your others
-        self.frobenius_loss += pairwise_loss
+        self.frobenius_loss += loss
         self.frobenius_normalise_weight += 1
 
 
