@@ -439,13 +439,14 @@ class FMoETransformerMLP(FMoE):
         eps = 1e-6
         A_reg = clients_tensor + eps 
 
-        print('A', A_reg.shape)
+
         d = A_reg.shape[1]
         avg_proj = torch.zeros(d, d, device=device)
 
 
         for i in range(self.num_expert):
             A = A_reg[:, :, i]
+            print('A', A.shape)
             Q, R = torch.linalg.qr(A, mode="reduced")
             r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
             k = torch.min((r_diag.abs() > eps).sum())
