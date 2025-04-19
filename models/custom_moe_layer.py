@@ -469,12 +469,6 @@ class FMoETransformerMLP(FMoE):
         return lambda_max
 
     def calculate_lambda_max_loss(self, moe_outp, gate_top_k_idx):       
-
-        lambda_max = self.old_calculate_lambda_max_loss(moe_outp, gate_top_k_idx) 
-        self.lambda_max_loss += lambda_max
-        self.lambda_max_normalise_weight += 1
-
-        return 
         # shapes and dims
         batch_size = moe_outp.shape[0]
         dim = moe_outp.shape[-1]
@@ -522,56 +516,40 @@ class FMoETransformerMLP(FMoE):
 
     def calculate_frobenius_loss(self, moe_outp, gate_top_k_idx):
         # shapes and dims
-        batch_positions = moe_outp.shape[0]
+        batch_size = moe_outp.shape[0]
         dim = moe_outp.shape[-1]
         device = moe_outp.device
 
-       
        # adding zero vectors for padding at each forward pass
         expert_out_matrix = torch.zeros(
-            batch_positions, self.num_expert, dim, device=device
+            batch_size, self.num_expert, dim, device=device
         )
-        rows = torch.arange(batch_positions, device=device).unsqueeze(-1) 
+        rows = torch.arange(batch_size, device=device).unsqueeze(-1) 
         expert_out_matrix[rows, gate_top_k_idx, :] = moe_outp
 
-
-        # limiting the number of outputs to a certain size
-        clients_tensor = expert_out_matrix[:, :, :]
-
-
-        # reshaping to(batch_positions, dim, n_experts)
-        clients_tensor = clients_tensor.swapaxes(-1, -2)
-
-    
+        clients_tensor = expert_out_matrix.swapaxes(-1, -2).contiguous()
 
         if torch.isnan(clients_tensor).any():
             raise ValueError(f"NaNs detected in clients_tensor before normalization.")
 
         clients_tensor = F.normalize(clients_tensor, p=2, dim=-1)
 
-        
+    
         if torch.isnan(clients_tensor).any():
             raise ValueError(f"NaNs detected in clients_tensor after normalization.")
 
-        d = clients_tensor.shape[1]
-        projs = torch.zeros(self.num_expert, d, d, device=device)
+        A = clients_tensor.permute(2, 1, 0).contiguous()   
+        eps = 1e-6
 
+        Q, R = torch.linalg.qr(A, mode="reduced")
 
-        for i in range(self.num_expert):
-            A = clients_tensor[:, :, i]
-            eps = 1e-6
-            m = A.shape[0]                       # = dim
-            I = torch.eye(m, device=A.device, dtype=A.dtype)
-            A_reg = A + eps * I[:, :A.shape[1]]  # broadcast so you only add eps on the leading m×m block
-            Q, R = torch.linalg.qr(A_reg.T, mode="reduced")
-            r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
-            k = torch.min((r_diag.abs() > eps).sum())
-            Q = Q[:, :k]
-            if torch.isnan(Q).any():
-                raise ValueError("NaNs detected in Q after SVD‐based basis extraction.")
-            projs[i] = Q.matmul(Q.transpose(-2, -1))
-
-  
+            
+        r_diag = R.abs().diagonal(dim1=-2, dim2=-1)           # (E, min(d,B))
+        k      = (r_diag > eps).sum(dim=1)                    # (E,)
+        cols   = torch.arange(Q.size(-1), device=Q.device)    # (d,)
+        mask   = cols[None, None, :] < k[:, None, None]       # (E, 1, d)
+        Qm     = Q * mask                                     
+        projs  = Qm @ Qm.transpose(-2, -1) 
 
         pairwise_loss = 0.0
         num_pairs = 0
