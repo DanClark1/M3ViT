@@ -506,8 +506,8 @@ class FMoETransformerMLP(FMoE):
         cols   = torch.arange(Q.size(-1), device=Q.device)    # (d,)
         mask   = cols[None, None, :] < k[:, None, None]       # (E, 1, d)
         Qm     = Q * mask                                     
-        projs    = Qm @ Qm.transpose(-2, -1)  # (E, d, d)
-        avg_proj = projs.sum(dim=0) / self.num_expert
+        projs  = Qm @ Qm.transpose(-2, -1) 
+        avg_proj    = projs.mean(dim=0) 
 
         eigvals = torch.linalg.eigvalsh(avg_proj)
         lambda_max = eigvals[-1]
