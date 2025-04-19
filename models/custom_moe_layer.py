@@ -412,7 +412,7 @@ class FMoETransformerMLP(FMoE):
         self.cosine_normalise_weight += 1
 
 
-    def calculate_lambda_max_loss(self, moe_outp, gate_top_k_idx):
+    def old_calculate_lambda_max_loss(self, moe_outp, gate_top_k_idx):
         # shapes and dims
         batch_positions = moe_outp.shape[0]
         dim = moe_outp.shape[-1]
