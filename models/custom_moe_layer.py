@@ -412,8 +412,7 @@ class FMoETransformerMLP(FMoE):
         self.cosine_normalise_weight += 1
 
 
-
-    def calculate_lambda_max_loss(self, moe_outp, gate_top_k_idx):
+    def old_calculate_lambda_max_loss(self, moe_outp, gate_top_k_idx):
         # shapes and dims
         batch_size = moe_outp.shape[0]
         dim = moe_outp.shape[-1]
@@ -464,6 +463,64 @@ class FMoETransformerMLP(FMoE):
         eigvals = torch.linalg.eigvalsh(avg_proj)
         lambda_max = eigvals[-1]
         
+        self.lambda_max_loss += lambda_max
+        self.lambda_max_normalise_weight += 1
+
+
+    def calculate_lambda_max_loss(self, moe_outp, gate_top_k_idx):
+
+        old_loss = self.old_calculate_lambda_max_loss(moe_outp, gate_top_k_idx)
+        # shapes and dims
+        batch_size = moe_outp.shape[0]
+        dim = moe_outp.shape[-1]
+        device = moe_outp.device
+
+       # adding zero vectors for padding at each forward pass
+        expert_out_matrix = torch.zeros(
+            batch_size, self.num_expert, dim, device=device
+        )
+        rows = torch.arange(batch_size, device=device).unsqueeze(-1) 
+        expert_out_matrix[rows, gate_top_k_idx, :] = moe_outp
+
+        clients_tensor = expert_out_matrix.swapaxes(-1, -2).contiguous()
+
+        if torch.isnan(clients_tensor).any():
+            raise ValueError(f"NaNs detected in clients_tensor before normalization.")
+
+        clients_tensor = F.normalize(clients_tensor, p=2, dim=-1)
+
+    
+        if torch.isnan(clients_tensor).any():
+            raise ValueError(f"NaNs detected in clients_tensor after normalization.")
+
+        A = clients_tensor.permute(2, 1, 0).contiguous()   
+        eps = 1e-6
+        I = torch.eye(dim, device=device, dtype=A.dtype)
+        if batch_size > dim:
+            # too few columns in I: pad with (B−D) zero‐columns
+            I = F.pad(I, (0, batch_size - dim))   # now I.shape == (D, B)
+        else:
+            # too many columns in I: chop off the extra columns
+            I = I[:, :batch_size] 
+
+
+        A_regT = A + eps * I.unsqueeze(0)
+        Q, R = torch.linalg.qr(A_regT, mode="reduced")
+
+            
+        r_diag = R.abs().diagonal(dim1=-2, dim2=-1)    # (E, D)
+        mask   = (r_diag > eps).to(Q.dtype)            # 1 for col ≤ k_i, else 0
+        mask   = mask.unsqueeze(1)                     # (E, 1, D)
+
+        # — masked Q and batched projections —
+        Qm     = Q * mask   
+        projs  = Qm @ Qm.transpose(-2, -1) 
+        avg_proj    = projs.mean(dim=0) 
+
+        eigvals = torch.linalg.eigvalsh(avg_proj)
+        lambda_max = eigvals[-1]
+        
+        print(lambda_max - old_loss)
         self.lambda_max_loss += lambda_max
         self.lambda_max_normalise_weight += 1
 
