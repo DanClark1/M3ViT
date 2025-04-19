@@ -501,14 +501,13 @@ class FMoETransformerMLP(FMoE):
         Q, R = torch.linalg.qr(A, mode="reduced")
 
             
-        r_diag = R.abs().diagonal(dim1=-2, dim2=-1)    # (E, D)
-        mask   = (r_diag > eps).to(Q.dtype)            # 1 for col ≤ k_i, else 0
-        mask   = mask.unsqueeze(1)                     # (E, 1, D)
-
-        # — masked Q and batched projections —
-        Qm     = Q * mask   
-        projs  = Qm @ Qm.transpose(-2, -1) 
-        avg_proj    = projs.mean(dim=0) 
+        r_diag = R.abs().diagonal(dim1=-2, dim2=-1)           # (E, min(d,B))
+        k      = (r_diag > eps).sum(dim=1)                    # (E,)
+        cols   = torch.arange(Q.size(-1), device=Q.device)    # (d,)
+        mask   = cols[None, None, :] < k[:, None, None]       # (E, 1, d)
+        Qm     = Q * mask                                     
+        projs    = Qm @ Qm.transpose(-2, -1)  # (E, d, d)
+        avg_proj = projs.sum(dim=0) / self.num_expert
 
         eigvals = torch.linalg.eigvalsh(avg_proj)
         lambda_max = eigvals[-1]
