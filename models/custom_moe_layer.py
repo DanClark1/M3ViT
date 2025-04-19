@@ -450,12 +450,9 @@ class FMoETransformerMLP(FMoE):
 
 
         for i in range(self.num_expert):
-            A = clients_tensor[:, :, i]
             eps = 1e-6
-            m = A.shape[0]                       # = dim
-            I = torch.eye(m, device=A.device, dtype=A.dtype)
-            A_reg = A + eps * I[:, :A.shape[1]]  # broadcast so you only add eps on the leading m×m block
-            Q, R = torch.linalg.qr(A_reg.T, mode="reduced")
+            A = clients_tensor[:, :, i]
+            Q, R = torch.linalg.qr(A.T, mode="reduced")
             r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
             k = torch.min((r_diag.abs() > eps).sum())
             Q = Q[:, :k]
@@ -474,7 +471,7 @@ class FMoETransformerMLP(FMoE):
     def calculate_lambda_max_loss(self, moe_outp, gate_top_k_idx):
 
         old_loss = self.old_calculate_lambda_max_loss(moe_outp, gate_top_k_idx)
-        return old_loss
+        
         # shapes and dims
         batch_size = moe_outp.shape[0]
         dim = moe_outp.shape[-1]
@@ -500,17 +497,8 @@ class FMoETransformerMLP(FMoE):
 
         A = clients_tensor.permute(2, 1, 0).contiguous()   
         eps = 1e-6
-        I = torch.eye(dim, device=device, dtype=A.dtype)
-        if batch_size > dim:
-            # too few columns in I: pad with (B−D) zero‐columns
-            I = F.pad(I, (0, batch_size - dim))   # now I.shape == (D, B)
-        else:
-            # too many columns in I: chop off the extra columns
-            I = I[:, :batch_size] 
 
-
-        A_regT = A + eps * I.unsqueeze(0)
-        Q, R = torch.linalg.qr(A_regT, mode="reduced")
+        Q, R = torch.linalg.qr(A, mode="reduced")
 
             
         r_diag = R.abs().diagonal(dim1=-2, dim2=-1)    # (E, D)
@@ -524,6 +512,8 @@ class FMoETransformerMLP(FMoE):
 
         eigvals = torch.linalg.eigvalsh(avg_proj)
         lambda_max = eigvals[-1]
+
+        print(lambda_max - old_loss)
     
         self.lambda_max_loss += lambda_max
         self.lambda_max_normalise_weight += 1
