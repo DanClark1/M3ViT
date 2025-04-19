@@ -469,13 +469,12 @@ class FMoETransformerMLP(FMoE):
         eigvals = torch.linalg.eigvalsh(avg_proj)
         lambda_max = eigvals[-1]
         
-        return clients_tensor
+        return lambda_max
 
     def calculate_lambda_max_loss(self, moe_outp, gate_top_k_idx):
 
         old_loss = self.old_calculate_lambda_max_loss(moe_outp, gate_top_k_idx)
-
-
+        return old_loss
         # shapes and dims
         batch_size = moe_outp.shape[0]
         dim = moe_outp.shape[-1]
@@ -525,8 +524,7 @@ class FMoETransformerMLP(FMoE):
 
         eigvals = torch.linalg.eigvalsh(avg_proj)
         lambda_max = eigvals[-1]
-        
-        print(A - old_loss)
+    
         self.lambda_max_loss += lambda_max
         self.lambda_max_normalise_weight += 1
 
