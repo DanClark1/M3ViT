@@ -123,16 +123,16 @@ class FMoETransformerMLP(FMoE):
         self.frobenius_normalise_weight = 0
         self.use_lambda = False
         self.use_cosine = False
-        # low-rank projection dimension
-        self.proj_rank = proj_rank
-        # trainable low-rank params: W ∈ R^{E×D×r}
-        self.proj_params = nn.Parameter(torch.randn(num_expert, d_model, proj_rank) * 0.01)
-        # cached orthonormal bases, cleared on reset
-        self._cached_Qs = None
-        # regularizer flags and accumulators
-        self.use_chordal = True
-        self.chordal_loss = 0.0
-        self.chordal_normalise_weight = 0
+        self.use_fixed_proj = True
+        # dimension of each expert's subspace
+        self.sub_dim = d_model // num_expert
+        # create boolean masks for each expert's subspace
+        dims = torch.arange(d_model)
+        starts = torch.arange(num_expert) * self.sub_dim
+        ends = starts + self.sub_dim
+        # mask[e] is True for dims in [starts[e], ends[e])
+        mask = [(dims >= s) & (dims < e) for s, e in zip(starts, ends)]
+        self.register_buffer('proj_masks', torch.stack(mask, dim=0))  # (E, D)
 
 
         
@@ -377,9 +377,20 @@ class FMoETransformerMLP(FMoE):
         gate_score = gate_score.view(-1, 1, self.top_k)
 
         #self.calculate_lambda_max_loss(moe_outp, gate_top_k_idx)
+
+
+        if self.use_fixed_proj:
+            B, K, D = moe_outp.shape
+            x_flat = moe_outp.reshape(-1, D)                 # (N, D)
+            idx_flat = gate_top_k_idx.reshape(-1)            # (N,)
+            # gather masks
+            masks_flat = self.proj_masks[idx_flat]           # (N, D)
+            # project by masking dimensions
+            x_proj_flat = x_flat * masks_flat.float()
+            moe_outp = x_proj_flat.reshape(B, K, D)
         
         #self.calculate_cosine_loss(moe_outp)
-        if self.use_chordal:
+        if self.use_chordal and False:
             # compute or reuse orthonormal bases Qs for each expert
             if self._cached_Qs is None:
                 # QR once per forward batch

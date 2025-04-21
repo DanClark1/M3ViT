@@ -252,8 +252,8 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
                 loss_dict['total'] += main_loss
                 lambda_loss = get_frobenius_loss(model, step, detach=True)
                 # loss_dict['total'] += lambda_loss
-                choral_loss = get_choral_loss(model, step)
-                loss_dict['total'] += choral_loss
+                # choral_loss = get_choral_loss(model, step)
+                # loss_dict['total'] += choral_loss
 
                 # if args.regu_sem and epoch<args.warmup_epochs:
                 #     semregu_loss = collect_semregu_loss(model, args.semregu_loss_weight)
