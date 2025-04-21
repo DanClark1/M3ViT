@@ -242,6 +242,7 @@ def get_backbone(p, args=None):
                     state_dict = checkpoint['state_dict']
                     backbone = cvt_state_dict_moe_gate(state_dict, backbone, p, args, linear_keyword,backbone.h, backbone.w)
                 else:
+                    print(checkpoint)
                     state_dict = checkpoint['state_dict']
                     backbone = cvt_state_dict(state_dict, backbone, p, args, linear_keyword, moe_dir_read, backbone.h, backbone.w)
 
