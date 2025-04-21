@@ -379,8 +379,31 @@ class FMoETransformerMLP(FMoE):
         #self.calculate_lambda_max_loss(moe_outp, gate_top_k_idx)
         
         #self.calculate_cosine_loss(moe_outp)
-
         if self.use_chordal:
+            # compute or reuse orthonormal bases Qs for each expert
+            if self._cached_Qs is None:
+                # QR once per forward batch
+                self._cached_Qs, _ = torch.linalg.qr(self.proj_params, mode='reduced')  # (E, D, r)
+            Qs = self._cached_Qs
+                        # project each expert output through its subspace in a memory-efficient, expert-wise manner
+            B, K, D = moe_outp.shape
+            x_flat = moe_outp.reshape(-1, D)               # (N, D) where N = B*K
+            idx_flat = gate_top_k_idx.reshape(-1)          # (N,)
+            # prepare output tensor
+            x_proj_flat = torch.zeros_like(x_flat)
+            # for each expert actually used, project its subset of vectors
+            unique_experts = torch.unique(idx_flat)
+            for e in unique_experts:
+                mask = idx_flat == e
+                x_e = x_flat[mask]                          # (n_e, D)
+                Q_e = Qs[e]                                 # (D, r)
+                # compute low-rank projection: x_proj_e = (x_e @ Q_e) @ Q_e.T
+                y_e = x_e @ Q_e                             # (n_e, r)
+                x_proj_e = y_e @ Q_e.T                      # (n_e, D)
+                x_proj_flat[mask] = x_proj_e
+            moe_outp = x_proj_flat.reshape(B, K, D)
+            # accumulate chordal loss
+            self.calculate_chordal_loss(Qs)
             # compute or reuse orthonormal bases Qs for each expert
             if self._cached_Qs is None:
                 # QR once per forward batch
