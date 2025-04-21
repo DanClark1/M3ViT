@@ -275,7 +275,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             progress.display(i)
             rank = torch.distributed.get_rank()
             if rank == 0:
-                wandb.log({"train/loss": main_loss}, step=step, commit=False)
+                wandb.log({"train/gating_loss": gating_loss}, step=step, commit=False)
 
             # for name, param in model.named_parameters():
             #     if 'gamma' in name:
