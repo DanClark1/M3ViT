@@ -445,18 +445,6 @@ def main():
             torch.save(checkpoint, path)
         dist.barrier()  # sync all ranks
 
-
-    def load_for_training(model, optimizer, path, device):
-
-        # Wrap model first
-        dist.barrier()  # wait for rank 0 to write file
-
-        checkpoint = torch.load(path, map_location=f"{device}")
-        model.module.load_state_dict(checkpoint["model_state"])
-        optimizer.load_state_dict(checkpoint["optimizer_state"])
-        start_epoch = checkpoint["epoch"] + 1
-
-        return model, optimizer, start_epoch
     
 
     import random
@@ -475,7 +463,23 @@ def main():
     # save_checkpoint(model, optimizer, 0, "/app/checkpoint.pt")
 
     # # LOAD for training
-    # model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
+    def load_for_training(model, optimizer, path, device):
+
+        # Wrap model first
+        dist.barrier()  # wait for rank 0 to write file
+
+        checkpoint = torch.load(path, map_location=f"{device}")
+        try:
+            model.load_state_dict(checkpoint["model_state"])
+        except:
+            model.module.load_state_dict(checkpoint["model_state"])
+        optimizer.load_state_dict(checkpoint["optimizer_state"])
+        start_epoch = checkpoint["epoch"] + 1
+
+        return model, optimizer, start_epoch
+
+    if args.ckpt:
+        model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
 
     if args.lamdba:
         model.module.backbone.mlp.use_lambda = True
