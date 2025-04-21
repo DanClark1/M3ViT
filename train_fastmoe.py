@@ -429,28 +429,7 @@ def main():
 
     rank = torch.distributed.get_rank()
 
-
-    def load_for_training(model, optimizer, path, device):
-
-        # Wrap model first
-        dist.barrier()  # wait for rank 0 to write file
-
-        checkpoint = torch.load(path, map_location=f"{device}")
-        try:
-            model.load_state_dict(checkpoint["model_state"])
-        except:
-            model.module.load_state_dict(checkpoint["model_state"])
-        optimizer.load_state_dict(checkpoint["optimizer_state"])
-        start_epoch = checkpoint["epoch"] + 1
-
-        return model, optimizer, start_epoch
-
-
     test_ckpt_path = os.path.join("/app/saved_stuff", "{}.pth".format(rank))
-
-    if args.ckp is not None:
-        model, optimizer, start_epoch = load_for_training(model, optimizer, args.ckp, 'cuda')
-
 
     device = torch.device(f"cuda:{args.local_rank}")
     local_rank = torch.distributed.get_rank()
@@ -467,7 +446,17 @@ def main():
         dist.barrier()  # sync all ranks
 
 
-    
+    def load_for_training(model, optimizer, path, device):
+
+        # Wrap model first
+        dist.barrier()  # wait for rank 0 to write file
+
+        checkpoint = torch.load(path, map_location=f"{device}")
+        model.module.load_state_dict(checkpoint["model_state"])
+        optimizer.load_state_dict(checkpoint["optimizer_state"])
+        start_epoch = checkpoint["epoch"] + 1
+
+        return model, optimizer, start_epoch
     
 
     import random
