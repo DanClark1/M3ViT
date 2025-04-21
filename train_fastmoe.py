@@ -479,7 +479,7 @@ def main():
         return model, optimizer, start_epoch
 
     if args.ckp:
-        model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
+        model, optimizer, start_epoch = load_for_training(model, optimizer, args.ckp, device)
 
     if args.lamdba:
         model.module.backbone.mlp.use_lambda = True
