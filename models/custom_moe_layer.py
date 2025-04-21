@@ -85,6 +85,7 @@ class FMoETransformerMLP(FMoE):
         expert_dp_comm="none",
         expert_rank=0,
         gate=NaiveGate,
+        proj_rank=64,
         world_size=1,
         top_k=2,
         vmoe_noisy_std=1,
@@ -122,6 +123,18 @@ class FMoETransformerMLP(FMoE):
         self.frobenius_normalise_weight = 0
         self.use_lambda = False
         self.use_cosine = False
+        # low-rank projection dimension
+        self.proj_rank = proj_rank
+        # trainable low-rank params: W ∈ R^{E×D×r}
+        self.proj_params = nn.Parameter(torch.randn(num_expert, d_model, proj_rank) * 0.01)
+        # cached orthonormal bases, cleared on reset
+        self._cached_Qs = None
+        # regularizer flags and accumulators
+        self.use_chordal = False
+        self.chordal_loss = 0.0
+        self.chordal_normalise_weight = 0
+
+
         
 
         if self.sem_force:
@@ -229,6 +242,16 @@ class FMoETransformerMLP(FMoE):
     
     def get_output_matrix(self):
         return torch.cat(self.experts.outputs, dim=0).T
+    
+
+    def reset_projection_cache(self):
+        """Clear cached Q bases so they'll be recomputed once next forward."""
+        self._cached_Qs = None
+
+    def reset_chordal_loss(self):
+        """Zero out chordal loss accumulators."""
+        self.chordal_loss = 0.0
+        self.chordal_normalise_weight = 0
 
 
     def forward_moe(self, gate_inp, moe_inp, task_id=None, sem=None, record_outputs=False):
@@ -354,8 +377,28 @@ class FMoETransformerMLP(FMoE):
         gate_score = gate_score.view(-1, 1, self.top_k)
 
         #self.calculate_lambda_max_loss(moe_outp, gate_top_k_idx)
-        self.calculate_frobenius_loss(moe_outp, gate_top_k_idx)
+        
         #self.calculate_cosine_loss(moe_outp)
+
+        if self.use_chordal:
+            # compute or reuse orthonormal bases Qs for each expert
+            if self._cached_Qs is None:
+                # QR once per forward batch
+                self._cached_Qs, _ = torch.linalg.qr(self.proj_params, mode='reduced')  # (E, D, r)
+            Qs = self._cached_Qs
+            # project each expert output through its subspace
+            B, K, D = moe_outp.shape
+            x_flat = moe_outp.reshape(-1, D)               # (B*K, D)
+            idx_flat = gate_top_k_idx.reshape(-1)          # (B*K,)
+            Q_flat = Qs[idx_flat]                          # (B*K, D, r)
+            # projection: x_proj = Q (Q^T x)
+            y = torch.einsum('eid,ed->ei', Q_flat.transpose(1,2), x_flat)
+            x_proj = torch.einsum('eid,ei->ed', Q_flat, y)
+            moe_outp = x_proj.reshape(B, K, D)
+            # accumulate chordal loss
+            self.calculate_chordal_loss(Qs)
+
+        self.calculate_frobenius_loss(moe_outp, gate_top_k_idx)
 
         def bmm_func(tensor):
             dim = tensor.shape[-1]
@@ -581,3 +624,23 @@ class FMoETransformerMLP(FMoE):
         
         self.frobenius_loss += pairwise_loss
         self.frobenius_normalise_weight += 1
+
+
+    def calculate_chordal_loss(self, Qs):
+        """
+        Given precomputed bases Qs ∈ R^{E×D×r}, compute projector P_i=Q_iQ_i^T and
+        chordal distance d_c^2(P_i,P_j)=½||P_i-P_j||_F^2. Negate mean to maximize.
+        """
+        Ps = torch.matmul(Qs, Qs.transpose(-2, -1))  # (E, D, D)
+        E = Ps.shape[0]
+        cd2_sum = 0.0
+        count = 0
+        for i in range(E):
+            Pi = Ps[i]
+            for j in range(i+1, E):
+                diff = Pi - Ps[j]
+                cd2_sum += 0.5 * torch.norm(diff, p='fro')**2
+                count += 1
+        loss = - cd2_sum / count if count > 0 else torch.tensor(0.0, device=Qs.device)
+        self.chordal_loss += loss
+        self.chordal_normalise_weight += 1

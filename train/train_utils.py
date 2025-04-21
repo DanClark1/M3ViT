@@ -269,6 +269,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
                 model.allreduce_params()
             optimizer.step()
+
             
             
         if i % 25 == 0:
@@ -402,3 +403,45 @@ def get_frobenius_loss(model, step, coeff=100.0, detach=False):
     if rank == 0:
         wandb.log({"frobenius loss": avg_loss.item()}, step=step, commit=False)
     return avg_loss * coeff
+
+
+def get_lambda_loss(model, step,  coeff=1.0, T=0.85, detach=False):
+    '''
+    Computes the lambda_max loss for the model using a thresholded squared penalty.
+    
+    Instead of directly using the layer.loss values, we calculate the excess over T
+    and square that. This gives a stronger gradient when the loss is above T, but no
+    penalty when the value is below T.
+    
+    Args:
+        model: The model with a backbone that contains MoE blocks.
+        coeff (float): Coefficient to scale the loss.
+        T (float): The threshold below which no penalty is applied (e.g. 0.85).
+        detach (bool): Whether to detach the computed loss.
+    
+    Returns:
+        The aggregated lambda loss multiplied by coeff.
+    '''
+    backbone = model.module.backbone
+    layers = [block.mlp for block in backbone.blocks if block.moe]
+    loss = 0.0
+    total_lambda_val = 0.0
+
+    for layer in layers:
+        if detach:
+            lambda_val = (layer.chordal_loss / layer.chordal_normalise_weight).detach().cpu()
+        else:
+            lambda_val = layer.chordal_loss / layer.chordal_normalise_weight
+        total_lambda_val += lambda_val
+
+        layer.reset_chordal_loss()
+        layer.reset_projection_cache()
+
+    total_lambda_val = (total_lambda_val / len(layers)).detach().cpu()
+    
+    # Log the loss (you could also log the individual lambda value if needed)
+    rank = torch.distributed.get_rank()
+    if rank == 0:
+        wandb.log({"train/lambda_loss": total_lambda_val.item()}, step=step, commit=False)
+
+    return total_lambda_val * coeff
