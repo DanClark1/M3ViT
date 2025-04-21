@@ -586,42 +586,26 @@ class FMoETransformerMLP(FMoE):
 
 
 
-def gram_schmidt_batch(U: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
-        """
-        Perform Gram–Schmidt orthogonalization (and normalization) on a batch of
-        K vectors of dimension D.
+def gram_schmidt_batch(U: torch.Tensor) -> torch.Tensor:
+    """
+    Differentiable Gram–Schmidt via QR decomposition.
 
-        Args:
-            U: Tensor of shape (B, K, D)
-            eps: small constant to avoid division by zero
+    Args:
+        U: Tensor of shape (B, K, D)
 
-        Returns:
-            V: Tensor of shape (B, K, D) containing orthonormal vectors
-                along the K dimension for each batch.
-        """
-        B, K, D = U.shape
-        V = U.clone()
-        for i in range(K):
-            # subtract projections onto previous v's
-            if i > 0:
-                # V_prev: (B, i, D), u_i: (B, D) -> expand to (B, i, D)
-                V_prev = V[:, :i, :]                             # (B, i, D)
-                u_i    = V[:, i, :].unsqueeze(1).expand_as(V_prev)  # (B, i, D)
+    Returns:
+        V: Tensor of shape (B, K, D) containing orthonormal vectors
+           along the K dimension for each batch.
+    """
+    # 1) Transpose so that our K “vectors” become columns
+    #    U_t: (B, D, K)
+    U_t = U.transpose(-2, -1)
 
-                # compute dot products <v_j, u_i> and norms ||v_j||^2
-                dots  = torch.einsum('bid,bid->bi', V_prev, u_i)       # (B, i)
-                norms = torch.einsum('bid,bid->bi', V_prev, V_prev)    # (B, i)
+    # 2) QR decomposition in “reduced” mode: 
+    #    Q has shape (B, D, K) with orthonormal columns
+    Q, R = torch.linalg.qr(U_t, mode='reduced')
 
-                # projection coefficients α_j = <v_j, u_i> / ||v_j||^2
-                coeffs = (dots / (norms + eps)).unsqueeze(-1)          # (B, i, 1)
-                # sum_j α_j v_j
-                proj   = (coeffs * V_prev).sum(dim=1)                  # (B, D)
+    # 3) Transpose Q back so that axes are (B, K, D)
+    V = Q.transpose(-2, -1)
 
-                V[:, i, :] = V[:, i, :] - proj
-
-            # normalize v_i to unit length
-            v_i = V[:, i, :]
-            norm = v_i.norm(dim=1, keepdim=True).clamp_min(eps)  # (B, 1)
-            V[:, i, :] = v_i / norm
-
-        return V
+    return V
