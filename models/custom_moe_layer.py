@@ -130,7 +130,7 @@ class FMoETransformerMLP(FMoE):
         # cached orthonormal bases, cleared on reset
         self._cached_Qs = None
         # regularizer flags and accumulators
-        self.use_chordal = False
+        self.use_chordal = True
         self.chordal_loss = 0.0
         self.chordal_normalise_weight = 0
 
