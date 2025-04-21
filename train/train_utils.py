@@ -397,5 +397,8 @@ def get_frobenius_loss(model, step, coeff=1.0, detach=False):
     if detach:
         avg_loss = avg_loss.detach().cpu()
 
-    wandb.log({"frobenius loss": avg_loss.item()}, step=step, commit=False)
+
+    rank = torch.distributed.get_rank()
+    if rank == 0:
+        wandb.log({"frobenius loss": avg_loss.item()}, step=step, commit=False)
     return avg_loss * coeff
