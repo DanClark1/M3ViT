@@ -576,7 +576,8 @@ class FMoETransformerMLP(FMoE):
                 num_pairs += 1
 
 
-        pairwise_loss = pairwise_loss / max(1, num_pairs)
+        # we want to MAXIMIZE the pairwise loss, so we take the negative
+        pairwise_loss =  - (pairwise_loss / max(1, num_pairs))
         
         self.frobenius_loss += pairwise_loss
         self.frobenius_normalise_weight += 1
