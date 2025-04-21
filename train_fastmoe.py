@@ -431,6 +431,10 @@ def main():
 
     test_ckpt_path = os.path.join("/app/saved_stuff", "{}.pth".format(rank))
 
+    if args.ckp is not None:
+        model, optimizer, start_epoch = load_for_training(model, optimizer, args.ckp, 'cuda')
+
+
     device = torch.device(f"cuda:{args.local_rank}")
     local_rank = torch.distributed.get_rank()
 
