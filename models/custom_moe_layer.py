@@ -122,6 +122,9 @@ class FMoETransformerMLP(FMoE):
         self.frobenius_normalise_weight = 0
         self.use_lambda = False
         self.use_cosine = False
+        self.K, self.dim = top_k, 384
+        self.rawB = nn.Parameter(torch.randn(384, top_k * (384//top_k)))
+
         
 
         if self.sem_force:
@@ -356,7 +359,8 @@ class FMoETransformerMLP(FMoE):
         # self.calculate_lambda_max_loss(moe_outp, gate_top_k_idx)
         #self.calculate_frobenius_loss(moe_outp, gate_top_k_idx)
         #self.calculate_cosine_loss(moe_outp)
-        moe_outp = gram_schmidt_orthonormalize(moe_outp)
+        #moe_outp = gram_schmidt_orthonormalize(moe_outp)
+        moe_outp = project_to_unique_subspaces(moe_outp, self.rawB)
 
 
         def bmm_func(tensor):
@@ -613,3 +617,45 @@ def gram_schmidt_orthonormalize(U: torch.Tensor, eps: float = 1e-6) -> torch.Ten
 
     # stack back into (batch, K, dim)
     return torch.stack(orthonorms, dim=1)
+
+
+
+
+
+def project_to_unique_subspaces(
+    U: torch.Tensor,
+    rawB: torch.Tensor,
+    eps: float = 1e-6
+) -> torch.Tensor:
+    """
+    Args:
+      U:     (batch, K, dim)   — your MoE outputs
+      rawB:  (dim, K * (dim//K)) — learnable basis to be orthonormalized
+      eps:   small stability constant
+
+    Returns:
+      V:     (batch, K, dim)   — each expert’s output, projected into its unique subspace
+    """
+    batch, K, dim = U.shape
+    assert dim % K == 0, "dim must be divisible by K"
+    dsub = dim // K
+
+    # 1) Orthonormalize rawB’s columns
+    #    Treat each of the (K*dsub) columns as a “vector” on a fake batch=1
+    B_all = rawB.T.unsqueeze(0)                       # → (1, K*dsub, dim)
+    B_all = gram_schmidt_orthonormalize(B_all, eps)   # → (1, K*dsub, dim)
+    B_all = B_all.squeeze(0).T                        # → (dim, K*dsub)
+
+    # 2) Split into K sub-bases of shape (dim, dsub)
+    B_all = B_all.view(dim, K, dsub).permute(1, 0, 2)
+    #    now B_all[i] is the basis for expert i, shape (dim, dsub)
+
+    # 3) Project each expert i into subspace S_i = span(B_all[i])
+    V = torch.zeros_like(U)
+    for i in range(K):
+        Bi = B_all[i]           # (dim, dsub)
+        ui = U[:, i]            # (batch, dim)
+        coords = ui @ Bi        # (batch, dsub)
+        V[:, i] = coords @ Bi.t()  # back to (batch, dim)
+
+    return V
