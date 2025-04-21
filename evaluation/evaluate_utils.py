@@ -263,6 +263,7 @@ def eval_model(p, val_loader, model):
     cosine = 0
     frobenius = 0
     lambda_loss = 0
+    count = 0
 
     for i, batch in enumerate(val_loader):
         # Forward pass
@@ -273,9 +274,14 @@ def eval_model(p, val_loader, model):
         cosine += get_cosine_loss(model, i, detach=True)
         frobenius += get_frobenius_loss(model, i, detach=True)
         lambda_loss += get_lambda_loss(model, i, detach=True)
+        count += 1
 
         # Measure performance
         performance_meter.update({t: get_output(output[t], t) for t in tasks}, targets)
+
+    cosine /= count
+    frobenius /= count
+    lambda_loss /= count
 
     eval_results = performance_meter.get_score(verbose = True)
     wandb.log({'val semseg mean iou': eval_results['semseg']['mIoU']})
