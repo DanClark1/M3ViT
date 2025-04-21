@@ -705,9 +705,10 @@ class VisionTransformerMoE(nn.Module):
         if not hasattr(self, 'intermediate_features'):
             raise AttributeError("No intermediate features found. Run a forward pass first.")
                 
+        import datetime
         # Create save directory if it doesn't exist
-        datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        save_dir = os.path.join(save_dir, datetime)
+        datetime_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        save_dir = os.path.join(save_dir, datetime_str)
         os.makedirs(save_dir, exist_ok=True)
         
         # Save input image if provided
