@@ -711,127 +711,127 @@ class VisionTransformerMoE(nn.Module):
         save_dir = os.path.join(save_dir, datetime_str)
         os.makedirs(save_dir, exist_ok=True)
         
-        # Save input image if provided
-        if input_image is not None:
-            for b in range(input_image.shape[0]):
-                img = input_image[b].cpu().detach()
-                mean = torch.tensor([0.485, 0.456, 0.406]).view(-1, 1, 1)
-                std = torch.tensor([0.229, 0.224, 0.225]).view(-1, 1, 1)
-                img = img * std + mean
-                img = img.clamp(0, 1)
+        # # Save input image if provided
+        # if input_image is not None:
+        #     for b in range(input_image.shape[0]):
+        #         img = input_image[b].cpu().detach()
+        #         mean = torch.tensor([0.485, 0.456, 0.406]).view(-1, 1, 1)
+        #         std = torch.tensor([0.229, 0.224, 0.225]).view(-1, 1, 1)
+        #         img = img * std + mean
+        #         img = img.clamp(0, 1)
                 
-                plt.figure(figsize=(10, 10))
-                plt.imshow(img.permute(1, 2, 0))
-                plt.title(f'Input Image - Sample {b}')
-                plt.axis('off')
-                plt.savefig(os.path.join(save_dir, f'input_image_sample_{b}.png'))
-                plt.close()
+        #         plt.figure(figsize=(10, 10))
+        #         plt.imshow(img.permute(1, 2, 0))
+        #         plt.title(f'Input Image - Sample {b}')
+        #         plt.axis('off')
+        #         plt.savefig(os.path.join(save_dir, f'input_image_sample_{b}.png'))
+        #         plt.close()
         
-        if layer_indices is None:
-            layer_indices = range(len(self.intermediate_features))
+        # if layer_indices is None:
+        #     layer_indices = range(len(self.intermediate_features))
         
-        if expert_indices is not None:
-            # Create results dictionary to store component analysis
-            results = {
-                'layer_results': {},
-                'expert_results': {}
-            }
+        # if expert_indices is not None:
+        #     # Create results dictionary to store component analysis
+        #     results = {
+        #         'layer_results': {},
+        #         'expert_results': {}
+        #     }
 
-            prev_features = None
-            features_list = []
+        #     prev_features = None
+        #     features_list = []
             
-            # Dictionary to store features for each expert
-            expert_features = {}
-            expert_datasets = {}  # Store 100xd matrices for each expert
+        #     # Dictionary to store features for each expert
+        #     expert_features = {}
+        #     expert_datasets = {}  # Store 100xd matrices for each expert
 
-            for expert_idx in expert_indices:
-                # Set forced expert for all MoE layers
-                for block in self.blocks:
-                    if hasattr(block, 'moe') and block.moe:
-                        block.mlp.set_forced_expert(expert_idx)
+        #     for expert_idx in expert_indices:
+        #         # Set forced expert for all MoE layers
+        #         for block in self.blocks:
+        #             if hasattr(block, 'moe') and block.moe:
+        #                 block.mlp.set_forced_expert(expert_idx)
                 
-                # Run forward pass with forced expert multiple times to build dataset
-                expert_data = {idx: [] for idx in layer_indices}
-                with torch.no_grad():
-                    _ = self.forward(input_image)
+        #         # Run forward pass with forced expert multiple times to build dataset
+        #         expert_data = {idx: [] for idx in layer_indices}
+        #         with torch.no_grad():
+        #             _ = self.forward(input_image)
                     
-                    for idx in layer_indices:
-                        features = self.intermediate_features[idx].cpu().detach()
-                        features_list.append(features)
-                        # Flatten features for each sample
-                        flat_features = features.reshape(-1, features.shape[-1])
-                        expert_data[idx].append(flat_features)
+        #             for idx in layer_indices:
+        #                 features = self.intermediate_features[idx].cpu().detach()
+        #                 features_list.append(features)
+        #                 # Flatten features for each sample
+        #                 flat_features = features.reshape(-1, features.shape[-1])
+        #                 expert_data[idx].append(flat_features)
                 
-                # Store features and datasets
-                expert_features[expert_idx] = {
-                    idx: self.intermediate_features[idx].cpu().detach()
-                    for idx in layer_indices
-                }
-                expert_datasets[expert_idx] = {
-                    idx: torch.cat(expert_data[idx], dim=0)[:1000].T  #  transpose to dxn
-                    for idx in layer_indices
-                }
+        #         # Store features and datasets
+        #         expert_features[expert_idx] = {
+        #             idx: self.intermediate_features[idx].cpu().detach()
+        #             for idx in layer_indices
+        #         }
+        #         expert_datasets[expert_idx] = {
+        #             idx: torch.cat(expert_data[idx], dim=0)[:1000].T  #  transpose to dxn
+        #             for idx in layer_indices
+        #         }
                 
-                # Visualize features for this expert
-                for idx in layer_indices:
-                    features = self.intermediate_features[idx]
-                    B, N, D = features.shape
+        #         # Visualize features for this expert
+        #         for idx in layer_indices:
+        #             features = self.intermediate_features[idx]
+        #             B, N, D = features.shape
                     
-                    patch_features = features[:, 1:, :]
-                    h = w = int(math.sqrt(N - 1))
+        #             patch_features = features[:, 1:, :]
+        #             h = w = int(math.sqrt(N - 1))
                     
-                    feature_magnitudes = torch.norm(patch_features, dim=-1)
-                    feature_magnitudes = feature_magnitudes.reshape(B, h, w)
+        #             feature_magnitudes = torch.norm(patch_features, dim=-1)
+        #             feature_magnitudes = feature_magnitudes.reshape(B, h, w)
                     
-                    for b in range(B):
-                        plt.figure(figsize=(10, 10))
-                        plt.imshow(feature_magnitudes[b].cpu().detach(), cmap='viridis')
-                        plt.colorbar()
-                        plt.title(f'Layer {idx} - Sample {b} - Expert {expert_idx}')
-                        plt.savefig(os.path.join(save_dir, f'layer_{idx}_sample_{b}_expert_{expert_idx}.png'))
-                        plt.close()
+        #             for b in range(B):
+        #                 plt.figure(figsize=(10, 10))
+        #                 plt.imshow(feature_magnitudes[b].cpu().detach(), cmap='viridis')
+        #                 plt.colorbar()
+        #                 plt.title(f'Layer {idx} - Sample {b} - Expert {expert_idx}')
+        #                 plt.savefig(os.path.join(save_dir, f'layer_{idx}_sample_{b}_expert_{expert_idx}.png'))
+        #                 plt.close()
 
-            # Save results to file
-            with open(os.path.join(save_dir, 'component_analysis.txt'), 'w') as f:
-                f.write("Component Analysis Results\n")
-                f.write("=========================\n\n")
+        #     # Save results to file
+        #     with open(os.path.join(save_dir, 'component_analysis.txt'), 'w') as f:
+        #         f.write("Component Analysis Results\n")
+        #         f.write("=========================\n\n")
                 
-                for layer_idx in layer_indices:
-                    layer_results = results['layer_results'][layer_idx]
-                    f.write(f"Layer {layer_idx}:\n")
-                    f.write(f"  Global components: {layer_results['global_components']}\n")
-                    f.write(f"  Global reconstruction error: {layer_results['global_recon_error']:.3f}\n")
-                    f.write("\n  Expert-specific results:\n")
+        #         for layer_idx in layer_indices:
+        #             layer_results = results['layer_results'][layer_idx]
+        #             f.write(f"Layer {layer_idx}:\n")
+        #             f.write(f"  Global components: {layer_results['global_components']}\n")
+        #             f.write(f"  Global reconstruction error: {layer_results['global_recon_error']:.3f}\n")
+        #             f.write("\n  Expert-specific results:\n")
                     
-                    for exp_idx, exp_results in layer_results['expert_results'].items():
-                        f.write(f"    Expert {exp_idx}:\n")
-                        f.write(f"      Local components: {exp_results['local_components']}\n")
-                        f.write(f"      Local reconstruction error: {exp_results['local_recon_error']:.3f}\n")
-                    f.write("\n")
+        #             for exp_idx, exp_results in layer_results['expert_results'].items():
+        #                 f.write(f"    Expert {exp_idx}:\n")
+        #                 f.write(f"      Local components: {exp_results['local_components']}\n")
+        #                 f.write(f"      Local reconstruction error: {exp_results['local_recon_error']:.3f}\n")
+        #             f.write("\n")
 
             
 
-        else:
-            # Original visualization code for normal routing
-            for idx in layer_indices:
-                features = self.intermediate_features[idx]
-                B, N, D = features.shape
+        # else:
+        #     # Original visualization code for normal routing
+        #     for idx in layer_indices:
+        #         features = self.intermediate_features[idx]
+        #         B, N, D = features.shape
                 
-                patch_features = features[:, 1:, :]
-                h = w = int(math.sqrt(N - 1))
+        #         patch_features = features[:, 1:, :]
+        #         h = w = int(math.sqrt(N - 1))
                 
-                feature_magnitudes = torch.norm(patch_features, dim=-1)
-                feature_magnitudes = feature_magnitudes.reshape(B, h, w)
+        #         feature_magnitudes = torch.norm(patch_features, dim=-1)
+        #         feature_magnitudes = feature_magnitudes.reshape(B, h, w)
                 
-                for b in range(B):
-                    plt.figure(figsize=(10, 10))
-                    plt.imshow(feature_magnitudes[b].cpu().detach(), cmap='viridis')
-                    plt.colorbar()
-                    plt.title(f'Layer {idx} - Sample {b}')
-                    plt.savefig(os.path.join(save_dir, f'layer_{idx}_sample_{b}.png'))
-                    plt.close()
+        #         for b in range(B):
+        #             plt.figure(figsize=(10, 10))
+        #             plt.imshow(feature_magnitudes[b].cpu().detach(), cmap='viridis')
+        #             plt.colorbar()
+        #             plt.title(f'Layer {idx} - Sample {b}')
+        #             plt.savefig(os.path.join(save_dir, f'layer_{idx}_sample_{b}.png'))
+        #             plt.close()
 
-        print(f"Visualizations saved to {save_dir}")
+        # print(f"Visualizations saved to {save_dir}")
 
         # --- analysis of expert behaviour ----
 
