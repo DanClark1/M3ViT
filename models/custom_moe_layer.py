@@ -586,26 +586,35 @@ class FMoETransformerMLP(FMoE):
 
 
 
-def gram_schmidt_batch(U: torch.Tensor) -> torch.Tensor:
+def gram_schmidt_orthonormalize(U: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
     """
-    Differentiable Gram–Schmidt via QR decomposition.
+    Applies a differentiable Gram–Schmidt process to U along the K dimension,
+    returning V with V^T V = I for each batch.
 
     Args:
-        U: Tensor of shape (B, K, D)
+        U: Tensor of shape (batch, K, dim)
+        eps: small constant for numerical stability
 
     Returns:
-        V: Tensor of shape (B, K, D) containing orthonormal vectors
-           along the K dimension for each batch.
+        V: Tensor of shape (batch, K, dim) containing orthonormal vectors
     """
-    # 1) Transpose so that our K “vectors” become columns
-    #    U_t: (B, D, K)
-    U_t = U.transpose(-2, -1)
+    batch, K, dim = U.shape
+    V = torch.zeros_like(U)
 
-    # 2) QR decomposition in “reduced” mode: 
-    #    Q has shape (B, D, K) with orthonormal columns
-    Q, R = torch.linalg.qr(U_t, mode='reduced')
+    for i in range(K):
+        # Start with the i-th vector
+        v = U[:, i]  # shape (batch, dim)
 
-    # 3) Transpose Q back so that axes are (B, K, D)
-    V = Q.transpose(-2, -1)
+        # Subtract projections onto all previously orthogonalized vectors
+        for j in range(i):
+            vj = V[:, j]  # shape (batch, dim)
+            # compute ⟨v, vj⟩ and ‖vj‖² for each batch element
+            proj_coeff = (v * vj).sum(dim=1, keepdim=True) \
+                         / (vj.pow(2).sum(dim=1, keepdim=True) + eps)  # (batch, 1)
+            v = v - proj_coeff * vj
+
+        # Normalize to unit length
+        v_norm = v.norm(dim=1, keepdim=True).clamp_min(eps)  # (batch, 1)
+        V[:, i] = v / v_norm
 
     return V
