@@ -478,7 +478,7 @@ def main():
 
         return model, optimizer, start_epoch
 
-    if args.ckpt:
+    if args.ckp:
         model, optimizer, start_epoch = load_for_training(model, optimizer, "checkpoint.pt", device)
 
     if args.lamdba:
