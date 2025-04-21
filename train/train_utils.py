@@ -250,8 +250,10 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
                 main_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += main_loss
-                lambda_loss = get_frobenius_loss(model, step)
-                loss_dict['total'] += lambda_loss
+                # lambda_loss = get_frobenius_loss(model, step)
+                # loss_dict['total'] += lambda_loss
+                choral_loss = get_choral_loss(model, step)
+                loss_dict['total'] += choral_loss
 
                 # if args.regu_sem and epoch<args.warmup_epochs:
                 #     semregu_loss = collect_semregu_loss(model, args.semregu_loss_weight)
@@ -405,7 +407,7 @@ def get_frobenius_loss(model, step, coeff=100.0, detach=False):
     return avg_loss * coeff
 
 
-def get_lambda_loss(model, step,  coeff=1.0, T=0.85, detach=False):
+def get_choral_loss(model, step,  coeff=1.0, T=0.85, detach=False):
     '''
     Computes the lambda_max loss for the model using a thresholded squared penalty.
     
