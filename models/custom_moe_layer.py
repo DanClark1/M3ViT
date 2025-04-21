@@ -588,33 +588,28 @@ class FMoETransformerMLP(FMoE):
 
 def gram_schmidt_orthonormalize(U: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
     """
-    Applies a differentiable Gram–Schmidt process to U along the K dimension,
-    returning V with V^T V = I for each batch.
-
-    Args:
-        U: Tensor of shape (batch, K, dim)
-        eps: small constant for numerical stability
-
-    Returns:
-        V: Tensor of shape (batch, K, dim) containing orthonormal vectors
+    Differentiable Gram–Schmidt on U of shape (batch, K, dim).
+    Avoids in-place ops by cloning and stacking.
     """
     batch, K, dim = U.shape
-    V = torch.zeros_like(U)
+    orthonorms = []
 
     for i in range(K):
-        # Start with the i-th vector
-        v = U[:, i]  # shape (batch, dim)
+        # clone the slice so we don't modify a view of U
+        v = U[:, i].clone()              # (batch, dim)
 
-        # Subtract projections onto all previously orthogonalized vectors
-        for j in range(i):
-            vj = V[:, j]  # shape (batch, dim)
-            # compute ⟨v, vj⟩ and ‖vj‖² for each batch element
-            proj_coeff = (v * vj).sum(dim=1, keepdim=True) \
-                         / (vj.pow(2).sum(dim=1, keepdim=True) + eps)  # (batch, 1)
-            v = v - proj_coeff * vj
+        # subtract projections onto all previous orthonormal vectors
+        for vj in orthonorms:            # each vj is (batch, dim)
+            # ⟨v, vj⟩ / (⟨vj, vj⟩ + eps), shape (batch,1)
+            coeff = (v * vj).sum(dim=1, keepdim=True) \
+                  / (vj.pow(2).sum(dim=1, keepdim=True) + eps)
+            v = v - coeff * vj           # safe: v is a fresh Tensor
 
-        # Normalize to unit length
-        v_norm = v.norm(dim=1, keepdim=True).clamp_min(eps)  # (batch, 1)
-        V[:, i] = v / v_norm
+        # normalize to unit length
+        norm = v.norm(dim=1, keepdim=True).clamp_min(eps)
+        v = v / norm
 
-    return V
+        orthonorms.append(v)
+
+    # stack back into (batch, K, dim)
+    return torch.stack(orthonorms, dim=1)
