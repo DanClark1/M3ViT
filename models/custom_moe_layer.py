@@ -422,7 +422,7 @@ class FMoETransformerMLP(FMoE):
             # accumulate chordal loss
             self.calculate_chordal_loss(Qs)
 
-        # self.calculate_frobenius_loss(moe_outp, gate_top_k_idx)
+        self.calculate_frobenius_loss(moe_outp, gate_top_k_idx)
 
         def bmm_func(tensor):
             dim = tensor.shape[-1]

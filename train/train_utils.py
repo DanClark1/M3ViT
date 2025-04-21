@@ -250,7 +250,7 @@ def train_vanilla_distributed(args, p, train_loader, model, criterion, optimizer
             if p['backbone'] == 'VisionTransformer_moe' and (not args.moe_data_distributed):
                 main_loss = collect_noisy_gating_loss(model, args.moe_noisy_gate_loss_weight)
                 loss_dict['total'] += main_loss
-                # lambda_loss = get_frobenius_loss(model, step)
+                lambda_loss = get_frobenius_loss(model, step, detach=True)
                 # loss_dict['total'] += lambda_loss
                 choral_loss = get_choral_loss(model, step)
                 loss_dict['total'] += choral_loss
@@ -444,6 +444,6 @@ def get_choral_loss(model, step,  coeff=1.0, T=0.85, detach=False):
     # Log the loss (you could also log the individual lambda value if needed)
     rank = torch.distributed.get_rank()
     if rank == 0:
-        wandb.log({"train/lambda_loss": total_lambda_val.item()}, step=step, commit=False)
+        wandb.log({"train/choral_loss": total_lambda_val.item()}, step=step, commit=False)
 
     return total_lambda_val * coeff
