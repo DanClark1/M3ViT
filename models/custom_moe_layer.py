@@ -622,40 +622,34 @@ def gram_schmidt_orthonormalize(U: torch.Tensor, eps: float = 1e-6) -> torch.Ten
 
 
 
-def project_to_unique_subspaces(
+def project_cayley_subspaces(
     U: torch.Tensor,
-    rawB: torch.Tensor,
-    eps: float = 1e-6
+    A: torch.Tensor
 ) -> torch.Tensor:
     """
     Args:
-      U:     (batch, K, dim)   — your MoE outputs
-      rawB:  (dim, K * (dim//K)) — learnable basis to be orthonormalized
-      eps:   small stability constant
-
+      U: (batch, K, dim)                — MoE outputs
+      A: (dim, dim)                     — unconstrained parameter
     Returns:
-      V:     (batch, K, dim)   — each expert’s output, projected into its unique subspace
+      V: (batch, K, dim)                — each expert in its own orthogonal subspace
     """
     batch, K, dim = U.shape
-    assert dim % K == 0, "dim must be divisible by K"
+    assert dim % K == 0
     dsub = dim // K
 
-    # 1) Orthonormalize rawB’s columns
-    #    Treat each of the (K*dsub) columns as a “vector” on a fake batch=1
-    B_all = rawB.T.unsqueeze(0)                       # → (1, K*dsub, dim)
-    B_all = gram_schmidt_orthonormalize(B_all, eps)   # → (1, K*dsub, dim)
-    B_all = B_all.squeeze(0).T                        # → (dim, K*dsub)
+    # 1) build Cayley orthogonal matrix
+    S = A - A.t()                                # skew-symmetric
+    I = torch.eye(dim, device=A.device, dtype=A.dtype)
+    # solve (I - S) X = (I + S)
+    Q = torch.linalg.solve(I - S, I + S)         # (dim, dim), orthogonal
 
-    # 2) Split into K sub-bases of shape (dim, dsub)
-    B_all = B_all.view(dim, K, dsub).permute(1, 0, 2)
-    #    now B_all[i] is the basis for expert i, shape (dim, dsub)
-
-    # 3) Project each expert i into subspace S_i = span(B_all[i])
+    # 2) slice into K sub-bases
+    #    Q[:, i*dsub:(i+1)*dsub] is the basis for expert i
     V = torch.zeros_like(U)
     for i in range(K):
-        Bi = B_all[i]           # (dim, dsub)
-        ui = U[:, i]            # (batch, dim)
-        coords = ui @ Bi        # (batch, dsub)
-        V[:, i] = coords @ Bi.t()  # back to (batch, dim)
+        Bi = Q[:, i*dsub:(i+1)*dsub]             # (dim, dsub)
+        ui = U[:, i]                             # (batch, dim)
+        coords = ui @ Bi                         # (batch, dsub)
+        V[:, i]  = coords @ Bi.t()               # back to (batch, dim)
 
     return V
