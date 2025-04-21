@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 from fmoe.functions import prepare_forward, ensure_comm
 from fmoe.functions import MOEScatter, MOEGather
 from fmoe.functions import AllGather, Slice
@@ -21,12 +22,9 @@ from models.gate_funs.noisy_gate_vmoe import NoisyGate_VMoE
 from models.gate_funs.noisy_gate_vmoe_global import NoisyGlobalGate_VMoE
 
 from utils.perpca import PerPCA
-import wandb
 
 from pdb import set_trace
 import numpy as np
-
-from utils.global_components import get_num_global_components
 
 class _Expert(nn.Module):
     r"""
@@ -34,118 +32,21 @@ class _Expert(nn.Module):
     within one worker.
     """
 
-    def __init__(self, num_expert, d_model, d_hidden, activation, rank=0, top_k=4):
+    def __init__(self, num_expert, d_model, d_hidden, activation, rank=0):
         super().__init__()
         self.htoh4 = FMoELinear(num_expert, d_model, d_hidden, bias=True, rank=rank)
         self.h4toh = FMoELinear(num_expert, d_hidden, d_model, bias=True, rank=rank)
         self.activation = activation
-        self.outputs = None
-        self.record_output = False
-        self.num_experts = num_expert
-        self.stage = 0 # set this to 1 once components are calculated
-        self.outputs_size_limit = 100
-        self.loss = 0
-        self.loss_normalise_weight = 0
-        self.top_k = top_k
-
-    def reset_loss(self):
-        self.loss = 0
-        self.loss_normalise_weight = 0
-
-    def reset_outputs(self):
-        self.outputs = None
-        self.inputs = None
 
     def forward(self, inp, fwd_expert_count):
         r"""
         First expand input to 4h (the hidden size is variable, but is called h4
         for convenience). Then perform activation. Finally shirink back to h.
         """
-        # make sure everything is on cuda
-        if inp.device != 'cuda':
-            inp = inp.to('cuda')
-
-        inp_flat = inp.view(-1, inp.size(-1))
-
-        # sanity checks
-        assert inp_flat.ndim == 2, "Input must be 2‑D"
-        assert fwd_expert_count.ndim == 1, "fwd_expert_count must be 1‑D"
-        assert fwd_expert_count.shape[0] == self.num_experts, (
-            f"Expected {self.num_experts} experts, got {fwd_expert_count.shape[0]}"
-        )
-        assert fwd_expert_count.sum().item() == inp_flat.shape[0], (
-            f"Sum of counts ({fwd_expert_count.sum().item()}) != rows ({inp_flat.shape[0]})"
-        )
-
         x = self.htoh4(inp, fwd_expert_count)
         x = self.activation(x)
         x = self.h4toh(x, fwd_expert_count)
-
-        if self.record_output: # not doing this for now
-
-            # reshaping into top_k
-            assert x.shape[0] % self.top_k == 0, (
-                f"Expected {self.top_k} experts, got {x.shape[0]} rows"
-            )
-            n = int(x.shape[0] / self.top_k)
-            new_shape = (n, self.top_k) + x.shape[1:]
-            x_reshaped = x.view(new_shape)
-
-            normalised_x = F.normalize(x_reshaped, p=2, dim=-1)
-            sim_matrix = torch.matmul(normalised_x, normalised_x.transpose(1, 2))
-            # ignore self-similarity (in diagonal)
-            mask = ~torch.eye(self.top_k, dtype=bool, device=x.device).unsqueeze(0).expand(n, -1, -1)
-            sim_sum = sim_matrix[mask].view(n, -1).sum(dim=1)  # sum over off-diagonal
-            avg_sim = sim_sum / (self.top_k * (self.top_k - 1))  
-            self.loss += torch.sum(torch.abs(avg_sim.unsqueeze(1))) / n
-            self.loss_normalise_weight += 1
-            splits = torch.split(x, fwd_expert_count.tolist(), dim=0)
-            min_count = int(fwd_expert_count.min().item())
-            inp = torch.stack([x for _ in range(self.top_k)], dim=0)
-            out = torch.stack([chunk[:min_count] for chunk in splits], dim=0)
-            if self.outputs is None:
-                self.outputs = out
-                self.inputs = inp
-            elif self.outputs.shape[1] < self.outputs_size_limit:
-                self.inputs = torch.cat((self.inputs, inp), dim=1)
-                self.outputs = torch.cat((self.outputs, out), dim=1)
-
         return x
-    
-    def get_components(self, num_components=50):
-        r'''
-        Assuming the output matrix is non-empty, calculates the global
-        and local components for each expert
-
-        num_local is per expert
-        '''
-        print('calculting components')
-        # send output to CPU and concvert to numpy
-        # write matrix to a file so it can be reloaded
-        get_num_global_components(self.outputs)
-        ppca = PerPCA(num_components, num_components)
-        if self.outputs is not None:
-            return ppca.fit(np.array(self.outputs))
-        else:
-            raise ValueError('No outputs to calculate components')
-        
-    def factorise(self):
-        '''
-        Calculates components of the expert's outputs,
-        then creates a new global expert'''
-        # get_num_global_components(self.outputs.swapaxes(-1, -2))
-        # global_comp, local_comp = self.get_components()
-        # global_comp = torch.tensor(np.array(global_comp), device='cuda')
-        # local_comp = torch.tensor(np.array(local_comp), device='cuda')
-        # # creating an array of component matricies
-        # components = torch.cat((global_comp.unsqueeze(0), local_comp), dim=0)
-        # # make sure components are float
-        # components = components.float()
-        # self.htoh4 = FMoELinearProj(prev_experts=self.htoh4, use_projection_matrix=False)
-        # self.h4toh = FMoELinearProj(prev_experts=self.h4toh, use_projection_matrix=False)
-        # self.stage = 1
-        # self.num_experts += 1
-        # self.top_k += 1
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., norm_layer= partial(nn.LayerNorm, eps=1e-6)):
@@ -198,7 +99,6 @@ class FMoETransformerMLP(FMoE):
         regu_subimage = False,
         expert_prune = False,
         prune_threshold = 0.1,
-        diversity_loss_weight = 0.0,
         **kwargs
     ):
         super().__init__(num_expert=num_expert, d_model=d_model, gate=gate, world_size=world_size, top_k=top_k, **kwargs)
@@ -214,16 +114,15 @@ class FMoETransformerMLP(FMoE):
         self.regu_subimage = regu_subimage
         self.expert_prune = expert_prune
         self.prune_threshold = prune_threshold
-        self.forced_expert = None
-        self.diversity_loss_weight = diversity_loss_weight
-        self.expert_outputs = None
-        self.outputs_size_limit = 50
-        self.loss = 0
-        self.loss_normalise_weight = 0
         self.cosine_loss = 0
         self.cosine_normalise_weight = 0
+        self.lambda_max_loss = 0
+        self.lambda_max_normalise_weight = 0
         self.frobenius_loss = 0
         self.frobenius_normalise_weight = 0
+        self.use_lambda = False
+        self.use_cosine = False
+        
 
         if self.sem_force:
             self.force_id=[[0],[1,17,18,19,20],[2,12,13,14,15,16],[3,9,10,11],[4,5],[6,7,8,38],[21,22,23,24,25,26,39],[27,28,29,30,31,32,33,34,35,36,37]]
@@ -236,7 +135,7 @@ class FMoETransformerMLP(FMoE):
             print('self.start_experts_id',self.start_experts_id)
 
         self.experts = _Expert(
-            num_expert, d_model, d_hidden, activation, rank=expert_rank, top_k=top_k
+            num_expert, d_model, d_hidden, activation, rank=expert_rank
         )
         self.gate_task_specific_dim = gate_task_specific_dim
         self.multi_gate=multi_gate
@@ -274,18 +173,6 @@ class FMoETransformerMLP(FMoE):
             raise ValueError("No such gating type")
         self.mark_parallel_comm(expert_dp_comm)
 
-    def reset_lambda_loss(self):
-        self.loss = 0
-        self.loss_normalise_weight = 0
-
-    def reset_cosine_loss(self):
-        self.cosine_loss = 0
-        self.cosine_normalise_weight = 0
-
-    def reset_frobenius_loss(self):
-        self.frobenius_loss = 0
-        self.frobenius_normalise_weight = 0
-
     def factorise_block(self):
         """
         Create a new global expert and factorise the current expert into local components
@@ -301,12 +188,25 @@ class FMoETransformerMLP(FMoE):
         self.num_expert += 1
         self.factorised = True
 
+    def reset_cosine_loss(self):
+        self.cosine_loss = 0
+        self.cosine_normalise_weight = 0
+
+
+    def reset_lambda_loss(self):
+        self.lambda_max_loss = 0
+        self.lambda_max_normalise_weight = 0
+
+    def reset_frobenius_loss(self):
+        self.frobenius_loss = 0
+        self.frobenius_loss_normalise_weight = 0
+
     def dump_output(self):
         '''get each expert to print out the shape of its output matrix'''
         print(f'Experts output shape: {np.array(self.experts.outputs).shape}')
 
 
-    def forward(self, inp: torch.Tensor, gate_inp=None, task_id = None, task_specific_feature = None, sem=None, record_expert_outputs=False, verbose=False, return_output_matrix=False):
+    def forward(self, inp: torch.Tensor, gate_inp=None, task_id = None, task_specific_feature = None, sem=None, record_expert_outputs=False):
         r"""
         This module wraps up the FMoE module with reshape, residual and layer
         normalization.
@@ -324,49 +224,14 @@ class FMoETransformerMLP(FMoE):
             assert self.multi_gate is False
             size = gate_inp.shape[0]
             gate_inp = torch.cat((gate_inp,task_specific_feature.repeat(size,1)),dim=-1)
-        output = self.forward_moe(gate_inp=gate_inp, moe_inp=inp, task_id=task_id, sem=sem, record_outputs=record_expert_outputs, verbose=verbose, return_output_matrix=return_output_matrix)
+        output = self.forward_moe(gate_inp=gate_inp, moe_inp=inp, task_id=task_id, sem=sem, record_outputs=record_expert_outputs)
         return output.reshape(original_shape)
     
     def get_output_matrix(self):
-        return self.experts.outputs.swapaxes(-1, -2)
+        return torch.cat(self.experts.outputs, dim=0).T
 
-    def set_forced_expert(self, expert_idx):
-        """Force the layer to use a specific expert"""
-        self.forced_expert = expert_idx
-        
-    def clear_forced_expert(self):
-        """Clear the forced expert setting"""
-        self.forced_expert = None
 
-    def compute_diversity_loss(self, expert_outputs):
-        """
-        Compute diversity loss based on cosine similarity between expert outputs.
-        
-        Args:
-            expert_outputs: Tensor of shape (num_experts, batch_size, d_model)
-            
-        Returns:
-            diversity_loss: Scalar tensor measuring similarity between expert outputs
-        """
-        if expert_outputs is None or self.diversity_loss_weight == 0:
-            return 0.0
-        
-        # Normalize expert outputs
-        expert_outputs = F.normalize(expert_outputs, p=2, dim=-1)
-        
-        # Compute pairwise cosine similarities
-        similarities = torch.matmul(expert_outputs, expert_outputs.transpose(1, 2))
-        
-        # Create mask to exclude self-similarities
-        mask = torch.eye(similarities.size(1), device=similarities.device)
-        mask = 1 - mask
-        
-        # Average similarity excluding self-similarity
-        diversity_loss = (similarities * mask).sum() / (mask.sum() + 1e-6)
-        
-        return self.diversity_loss_weight * diversity_loss
-
-    def forward_moe(self, gate_inp, moe_inp, task_id=None, sem=None, record_outputs=False, verbose=False, return_output_matrix=False):
+    def forward_moe(self, gate_inp, moe_inp, task_id=None, sem=None, record_outputs=False):
         r"""
         The FMoE module first computes gate output, and then conduct MoE forward
         according to the gate.  The score of the selected gate given by the
@@ -395,19 +260,11 @@ class FMoETransformerMLP(FMoE):
 
             moe_inp = tree.map_structure(slice_func, moe_inp)
 
-        if self.forced_expert is not None:
-            # Override gate outputs to force specific expert
-            batch_size = gate_inp.shape[0]
-            gate_top_k_idx = torch.full((batch_size, self.top_k), self.forced_expert, 
-                                      device=gate_inp.device)
-            gate_score = torch.ones((batch_size, self.top_k), 
-                                  device=gate_inp.device) / self.top_k
+        if (task_id is not None) and self.multi_gate:
+            # print('in custom moe_layer,task_id',task_id)
+            gate_top_k_idx, gate_score = self.gate[task_id](gate_inp)
         else:
-            if (task_id is not None) and self.multi_gate:
-                # print('in custom moe_layer,task_id',task_id)
-                gate_top_k_idx, gate_score = self.gate[task_id](gate_inp)
-            else:
-                gate_top_k_idx, gate_score = self.gate(gate_inp, task_id=task_id,sem=sem)
+            gate_top_k_idx, gate_score = self.gate(gate_inp, task_id=task_id,sem=sem)
 
         if self.expert_prune:
             gate_score = torch.where(gate_score>self.prune_threshold,gate_score,0.)
@@ -446,26 +303,11 @@ class FMoETransformerMLP(FMoE):
             gate_top_k_idx = gate_top_k_idx[mask == 0, :]
 
         # no idea how to actually pass this into the experts
-        if record_outputs and False: # disable for now
+        if record_outputs:
             self.experts.record_output = True
-
         fwd = _fmoe_general_global_forward(
             moe_inp, gate_top_k_idx, self.expert_fn, self.num_expert, self.world_size
         )
-
-        if verbose:
-            # testing something
-            other_gate_top_k_idx = gate_top_k_idx.clone()
-            ones = torch.ones_like(gate_top_k_idx)
-            other_gate_top_k_idx = other_gate_top_k_idx + ones
-            if other_gate_top_k_idx[0][0] == self.num_expert:
-                other_gate_top_k_idx = torch.zeros_like(gate_top_k_idx)
-            
-            other_fwd = _fmoe_general_global_forward(
-                moe_inp, other_gate_top_k_idx, self.expert_fn, self.num_expert, self.world_size
-            )
-
-            print(f'--- are they the same? (lower level) {torch.allclose(fwd, other_fwd)} {fwd.shape} \n {gate_top_k_idx} \n {other_gate_top_k_idx} \n original: {fwd} \n other: {other_fwd} ---')
         self.experts.record_output = False
 
         # recover deleted tensors
@@ -508,127 +350,12 @@ class FMoETransformerMLP(FMoE):
 
             moe_outp = tree.map_structure(view_func, fwd)
 
-        if self.factorised:
-            gate_score = gate_score.view(-1, 1, self.top_k + 1)
-            expert_ids = gate_top_k_idx.view(-1, 1, self.top_k + 1)
-        else:
-            gate_score = gate_score.view(-1, 1, self.top_k)
-            expert_ids = gate_top_k_idx.view(-1, 1, self.top_k)
 
+        gate_score = gate_score.view(-1, 1, self.top_k)
 
-        if record_outputs:
-                self.calculate_cosine_loss(moe_outp)
-                raw_moe_outp = moe_outp
-
-                # moe_outp shape here is (batch_positions, top_k, dim) for non-factorised
-                # or (batch_positions, top_k + 1, dim) if factorised
-                # We'll assume non-factorised for simplicity
-                batch_positions = moe_outp.shape[0]
-                dim = moe_outp.shape[-1]
-                device = moe_outp.device
-
-                # Create zero matrix of shape (batch_positions, num_expert, dim)
-                expert_out_matrix = torch.zeros(
-                    batch_positions, self.num_expert, dim, device=device
-                )
-
-                # Fill only the top-k expert positions; others remain zero
-                rows = torch.arange(batch_positions, device=device).unsqueeze(-1)  # shape (batch_positions, 1)
-                expert_out_matrix[rows, gate_top_k_idx, :] = moe_outp
-
-                # Now expert_out_matrix holds each expert's output or zero if not in top-k
-                # You can store it for logging or pass it to ot
-
-                # if self.output_matrix is None:
-                #     self.output_matrix = expert_out_matrix
-                # elif self.output_matrix.shape[0] < self.outputs_size_limit:
-                #     self.output_matrix = torch.cat((self.output_matrix, expert_out_matrix), dim=0)
-
-
-                # ignore the global expert if needed
-                if self.factorised:
-                    clients_tensor = expert_out_matrix[:, :(self.top_k-1), :self.outputs_size_limit]
-                else:
-                    clients_tensor = expert_out_matrix[:, :, :self.outputs_size_limit]
-
-                # clients_tensor shape is (batch_positions, n_experts, dim)
-                # that needs to be reshaped
-
-                clients_tensor = clients_tensor.swapaxes(-1, -2)
-                # clients_tensor shape is (batch_positions, dim, n_experts)
-
-                if torch.isnan(clients_tensor).any():
-                    raise ValueError(f"NaNs detected in clients_tensor before normalization.")
-
-                # normalize the tensor
-                clients_tensor = F.normalize(clients_tensor, p=2, dim=-1)
-
-                # calculate cosine similarity for each row
-                # clients_tensor shape is (batch_positions, dim, n_experts)
-                
-                if torch.isnan(clients_tensor).any():
-                    raise ValueError(f"NaNs detected in clients_tensor after normalization.")
-                
-                # eps = 1e-6
-
-                # rank = torch.linalg.matrix_rank(clients_tensor + eps)
-                # print(rank)
-                # if not torch.all(rank >= self.num_expert):
-                #     raise ValueError(f"Rank of clients_tensor {rank} is less than the number of experts.")
-
-                # # Adding eps for numerical stability if needed
-                # Q, _ = torch.linalg.qr(clients_tensor + eps, mode='reduced')
-                # # Q now has shape (num_experts, d, r) where r = min(d, b)
-
-                # if torch.isnan(Q).any():
-                #     raise ValueError("NaNs detected in Q matrix after QR decomposition.")
-
-                # projs = torch.matmul(Q, Q.transpose(1, 2))
-
-
-
-                eps = 1e-6
-                m, n = clients_tensor.shape[-2], clients_tensor.shape[-1]
-
-                eye = torch.eye(m, n, device=clients_tensor.device, dtype=clients_tensor.dtype)
-                A_reg = clients_tensor + eps * eye
-
-                Q, R = torch.linalg.qr(A_reg, mode="reduced")
-
-                r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
-                k = torch.min((r_diag.abs() > eps).sum())
-
-                # --- 4) Extract your orthonormal basis Q ∈ ℝ^{m×k}
-                Q = Q[:, :k]
-
-                # --- 5) NaN check
-                if torch.isnan(Q).any():
-                    raise ValueError("NaNs detected in Q after SVD‐based basis extraction.")
-
-                # --- 6) Build your projection(s) as before
-                projs = Q.matmul(Q.transpose(-2, -1))
-
-
-                # Compute the average projection across experts: shape (d, d)
-                avg_proj = torch.mean(projs, dim=0)
-                
-
-                #  ----- Frobenius loss calculation ------
-                dim = avg_proj.shape[0]
-                target = torch.eye(dim, device=avg_proj.device) / dim
-                fro_loss = F.mse_loss(avg_proj, target)
-
-                # Log and accumulate the loss as before
-                self.frobenius_loss += fro_loss
-                self.frobenius_normalise_weight += 1
-
-
-                # ----- lambda max calculation ------
-                eigvals = torch.linalg.eigvalsh(avg_proj)
-                lambda_max = eigvals[-1]
-                
-                self.loss += lambda_max
-                self.loss_normalise_weight += 1
+        self.calculate_lambda_max_loss(moe_outp, gate_top_k_idx)
+        self.calculate_frobenius_loss(moe_outp, gate_top_k_idx)
+        self.calculate_cosine_loss(moe_outp)
 
         def bmm_func(tensor):
             dim = tensor.shape[-1]
@@ -652,29 +379,8 @@ class FMoETransformerMLP(FMoE):
         assert all(
             [batch_size == moe_outp_batch_size[0] for batch_size in moe_outp_batch_size]
         ), "MoE outputs must have the same batch size"
-
-        # Store expert outputs for diversity loss if weight > 0
-        if self.diversity_loss_weight > 0:
-            # Reshape expert outputs to (num_experts, batch_size, d_model)
-            expert_outputs = moe_outp.view(-1, self.num_expert, moe_outp.size(-1))
-            expert_outputs = expert_outputs.transpose(0, 1)
-            self.expert_outputs = expert_outputs
-            
-            # Compute diversity loss
-            diversity_loss = self.compute_diversity_loss(expert_outputs)
-            
-            # Store loss for collection by the main training loop
-            if not hasattr(self, 'diversity_losses'):
-                self.diversity_losses = []
-            self.diversity_losses.append(diversity_loss)
-
-
-        # clients tensor is shape (batch_positions, dim, n_experts)
-        # raw moe_outp is shape (batch_positions, top_k, dim)
-        if return_output_matrix:
-            self.clients_tensor = clients_tensor
-            self.raw_moe_outp = raw_moe_outp
         return moe_outp
+
 
     def calculate_cosine_loss(self, moe_outp):
         '''
@@ -705,3 +411,173 @@ class FMoETransformerMLP(FMoE):
         self.cosine_loss += cosine_loss
         self.cosine_normalise_weight += 1
 
+
+    def old_calculate_lambda_max_loss(self, moe_outp, gate_top_k_idx):
+        # shapes and dims
+        batch_positions = moe_outp.shape[0]
+        dim = moe_outp.shape[-1]
+        device = moe_outp.device
+
+       
+       # adding zero vectors for padding at each forward pass
+        expert_out_matrix = torch.zeros(
+            batch_positions, self.num_expert, dim, device=device
+        )
+        rows = torch.arange(batch_positions, device=device).unsqueeze(-1) 
+        expert_out_matrix[rows, gate_top_k_idx, :] = moe_outp
+
+
+        # limiting the number of outputs to a certain size
+        clients_tensor = expert_out_matrix[:, :, :]
+
+
+        # reshaping to(batch_positions, dim, n_experts)
+        clients_tensor = clients_tensor.swapaxes(-1, -2)
+
+    
+
+        if torch.isnan(clients_tensor).any():
+            raise ValueError(f"NaNs detected in clients_tensor before normalization.")
+
+        clients_tensor = F.normalize(clients_tensor, p=2, dim=-1)
+
+        
+        if torch.isnan(clients_tensor).any():
+            raise ValueError(f"NaNs detected in clients_tensor after normalization.")
+
+        d = clients_tensor.shape[1]
+        avg_proj = torch.zeros(d, d, device=device)
+
+
+        for i in range(self.num_expert):
+            eps = 1e-6
+            A = clients_tensor[:, :, i]
+            Q, R = torch.linalg.qr(A.T, mode="reduced")
+            r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
+            k = torch.min((r_diag.abs() > eps).sum())
+            Q = Q[:, :k]
+            if torch.isnan(Q).any():
+                raise ValueError("NaNs detected in Q after SVD‐based basis extraction.")
+            projs = Q.matmul(Q.transpose(-2, -1))
+            avg_proj += projs
+
+        avg_proj /= self.num_expert
+
+        eigvals = torch.linalg.eigvalsh(avg_proj)
+        lambda_max = eigvals[-1]
+        
+        return lambda_max
+
+    def calculate_lambda_max_loss(self, moe_outp, gate_top_k_idx):       
+        # shapes and dims
+        batch_size = moe_outp.shape[0]
+        dim = moe_outp.shape[-1]
+        device = moe_outp.device
+
+       # adding zero vectors for padding at each forward pass
+        expert_out_matrix = torch.zeros(
+            batch_size, self.num_expert, dim, device=device
+        )
+        rows = torch.arange(batch_size, device=device).unsqueeze(-1) 
+        expert_out_matrix[rows, gate_top_k_idx, :] = moe_outp
+
+        clients_tensor = expert_out_matrix.swapaxes(-1, -2).contiguous()
+
+        if torch.isnan(clients_tensor).any():
+            raise ValueError(f"NaNs detected in clients_tensor before normalization.")
+
+        clients_tensor = F.normalize(clients_tensor, p=2, dim=-1)
+
+    
+        if torch.isnan(clients_tensor).any():
+            raise ValueError(f"NaNs detected in clients_tensor after normalization.")
+
+        A = clients_tensor.permute(2, 1, 0).contiguous()   
+        eps = 1e-6
+
+        Q, R = torch.linalg.qr(A, mode="reduced")
+
+            
+        r_diag = R.abs().diagonal(dim1=-2, dim2=-1)           # (E, min(d,B))
+        k      = (r_diag > eps).sum(dim=1)                    # (E,)
+        cols   = torch.arange(Q.size(-1), device=Q.device)    # (d,)
+        mask   = cols[None, None, :] < k[:, None, None]       # (E, 1, d)
+        Qm     = Q * mask                                     
+        projs  = Qm @ Qm.transpose(-2, -1) 
+        avg_proj    = projs.mean(dim=0) 
+
+        eigvals = torch.linalg.eigvalsh(avg_proj)
+        lambda_max = eigvals[-1]
+    
+        self.lambda_max_loss += lambda_max
+        self.lambda_max_normalise_weight += 1
+
+
+
+    def calculate_frobenius_loss(self, moe_outp, gate_top_k_idx):
+        # shapes and dims
+        batch_positions = moe_outp.shape[0]
+        dim = moe_outp.shape[-1]
+        device = moe_outp.device
+
+       
+       # adding zero vectors for padding at each forward pass
+        expert_out_matrix = torch.zeros(
+            batch_positions, self.num_expert, dim, device=device
+        )
+        rows = torch.arange(batch_positions, device=device).unsqueeze(-1) 
+        expert_out_matrix[rows, gate_top_k_idx, :] = moe_outp
+
+
+        # limiting the number of outputs to a certain size
+        clients_tensor = expert_out_matrix[:, :, :]
+
+
+        # reshaping to(batch_positions, dim, n_experts)
+        clients_tensor = clients_tensor.swapaxes(-1, -2)
+
+    
+
+        if torch.isnan(clients_tensor).any():
+            raise ValueError(f"NaNs detected in clients_tensor before normalization.")
+
+        clients_tensor = F.normalize(clients_tensor, p=2, dim=-1)
+
+        
+        if torch.isnan(clients_tensor).any():
+            raise ValueError(f"NaNs detected in clients_tensor after normalization.")
+
+        d = clients_tensor.shape[1]
+        projs = torch.zeros(self.num_expert, d, d, device=device)
+
+
+        for i in range(self.num_expert):
+            A = clients_tensor[:, :, i]
+            eps = 1e-6
+            m = A.shape[0]                       # = dim
+            I = torch.eye(m, device=A.device, dtype=A.dtype)
+            A_reg = A + eps * I[:, :A.shape[1]]  # broadcast so you only add eps on the leading m×m block
+            Q, R = torch.linalg.qr(A_reg.T, mode="reduced")
+            r_diag = torch.diagonal(R, dim1=-2, dim2=-1)
+            k = torch.min((r_diag.abs() > eps).sum())
+            Q = Q[:, :k]
+            if torch.isnan(Q).any():
+                raise ValueError("NaNs detected in Q after SVD‐based basis extraction.")
+            projs[i] = Q.matmul(Q.transpose(-2, -1))
+
+  
+
+        pairwise_loss = 0.0
+        num_pairs = 0
+        for i in range(self.num_expert):
+            for j in range(i + 1, self.num_expert):
+                diff = projs[i] - projs[j]
+                pairwise_loss += torch.norm(diff, p='fro')**2
+                num_pairs += 1
+
+
+        # we want to MAXIMIZE the pairwise loss, so we take the negative
+        pairwise_loss =  - (pairwise_loss / max(1, num_pairs))
+        
+        self.frobenius_loss += pairwise_loss
+        self.frobenius_normalise_weight += 1
