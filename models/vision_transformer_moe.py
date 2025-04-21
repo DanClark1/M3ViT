@@ -16,17 +16,6 @@ import numpy as np
 from collections import Counter
 from models.gate_funs.noisy_gate import NoisyGate
 from models.gate_funs.noisy_gate_vmoe import NoisyGate_VMoE
-from utils.perpca import PerPCA
-from tqdm import tqdm
-
-from sklearn.decomposition import PCA
-
-
-import os
-import matplotlib.pyplot as plt
-import torch.nn.functional as F
-
-
 
 a=[[0],[1,17,18,19,20],[2,12,13,14,15,16],[3,9,10,11],[4,5],[6,7,8,38],[21,22,23,24,25,26,39],[27,28,29,30,31,32,33,34,35,36,37]]
 def _cfg(url='', **kwargs):
@@ -38,49 +27,6 @@ def _cfg(url='', **kwargs):
         'first_conv': '', 'classifier': 'head',
         **kwargs
     }
-
-
-def perpca_reconstruction_error(clients, U, V_list):
-        """
-        Compute the overall reconstruction error for PerPCA.
-        
-        Args:
-            clients (list of torch.Tensor): Each element is a client's data matrix of shape (d, n_i).
-            U (torch.Tensor): Global PC matrix of shape (d, r1).
-            V_list (list of torch.Tensor): List of local PC matrices (one per client) of shape (d, r2_i).
-        
-        Returns:
-            total_error (float): Average reconstruction error over clients.
-        """
-        total_error = 0.0
-        clients = torch.stack(clients)
-        clients = clients.cpu()
-        U = U.cpu()
-        V_list = [torch.tensor(V, device='cpu') for V in V_list]
-        for client_data, V in zip(clients, V_list):
-            # Reconstruction for this client
-            reconstruction = U @ (U.T @ client_data) + V @ (V.T @ client_data)
-            error = torch.norm(client_data - reconstruction, p='fro') ** 2
-            total_error += error.item()
-        return total_error / len(clients)
-
-def reconstruction_error(X, U):
-        """
-        Compute the reconstruction error for standard PCA.
-        
-        Args:
-            X (torch.Tensor): Data matrix of shape (d, n) where each column is a data sample.
-            U (torch.Tensor): Principal component matrix of shape (d, k) (assumed to be orthonormal).
-        
-        Returns:
-            error (float): The reconstruction error as the Frobenius norm squared.
-        """
-        # Reconstruct the data from the top k components
-        X_hat = torch.tensor(U @ (U.T @ X), device='cpu')
-        X = torch.tensor(X, device='cpu')
-        # Compute the Frobenius norm squared of the difference
-        error = torch.norm(X - X_hat, p='fro') ** 2
-        return error.item()
 
 
 default_cfgs = {
@@ -316,7 +262,6 @@ class Block(nn.Module):
             else:
                 raise ValueError("unknow gate type of {}".format(moe_gate_type))
 
-            print('mlp')
             self.mlp = FMoETransformerMLP(num_expert=moe_experts, d_model=dim, d_gate=moe_gate_dim, d_hidden=moe_hidden_dim,
                                           world_size=world_size, top_k=moe_top_k, activation=activation, gate=moe_gate_fun,
                                           gate_return_decoupled_activation=gate_return_decoupled_activation, vmoe_noisy_std=vmoe_noisy_std, 
@@ -327,15 +272,15 @@ class Block(nn.Module):
         else:
             self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
     
-    def forward(self, x, gate_inp=None, task_id=None, task_specific_feature=None, sem=None, record_expert_outputs=False, verbose=False, return_output_matrix=False):
+    def forward(self, x, gate_inp=None, task_id=None, task_specific_feature=None, sem=None, record_expert_outputs=False):
         if self.gate_input_ahead:
             gate_inp = x
         x = x + self.drop_path(self.attn(self.norm1(x)))
         if not self.moe:
-            return x + self.drop_path(self.mlp(self.norm2(x)))
+            x = x + self.drop_path(self.mlp(self.norm2(x)))
         else:
-            moe_out = self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem, record_expert_outputs=record_expert_outputs, verbose=verbose, return_output_matrix=return_output_matrix)
-            return x + moe_out, moe_out
+            x = x + self.drop_path(self.mlp_drop(self.mlp(self.norm2(x), gate_inp, task_id, task_specific_feature, sem, record_expert_outputs=record_expert_outputs)))
+        return x
 
 class PatchEmbed(nn.Module):
     """ Image to Patch Embedding
@@ -451,7 +396,6 @@ class VisionTransformerMoE(nn.Module):
         self.sem_force = sem_force
         # print(self.hybrid_backbone is None)
         self.expert_prune = expert_prune
-        self.moe_block_index = {} # dicitonary mapping the nth moe layer to the actual layer index
         print('set expert prune as ',self.expert_prune)
         if self.hybrid_backbone is not None:
             self.patch_embed = HybridEmbed(
@@ -601,7 +545,7 @@ class VisionTransformerMoE(nn.Module):
         np.save(filename, hint)
         return torch.tensor(hint, device=sem.device) 
 
-    def forward_features(self, x, gate_inp, task_id, sem, isval=False, verbose=False, return_output_matrix=False):
+    def forward_features(self, x, gate_inp, task_id,sem, isval=False):
         B = x.shape[0]
         x = self.patch_embed(x)
         x = x.flatten(2).transpose(1, 2)
@@ -615,271 +559,22 @@ class VisionTransformerMoE(nn.Module):
             task_specific = torch.zeros(self.num_tasks,device=x.device)
             task_specific[task_id]=1.0
             task_specific_feature = self.gate_task_represent(task_specific)
-        
-        # Store intermediate features
-        intermediate_features = []
-        # intermediate_features.append(x)  # Store input features
-        
         outs = []
-        printed = False
-        moe_index = 0
+        
         for i, blk in enumerate(self.blocks):
             if blk.moe:
-                self.moe_block_index[moe_index] = i
-                moe_index += 1
-                x, intermediate_x = blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs=isval, verbose=((not printed) and verbose), return_output_matrix=return_output_matrix)
-                if not printed:
-                    printed = True
-                intermediate_features.append(intermediate_x)
+                x=blk(x, gate_inp, task_id, task_specific_feature, sem=sem, record_expert_outputs = isval)
             else:
                 x = blk(x)
-              # Store features after each block
             if i in self.out_indices:
                 outs.append(x)
-            
-        # Store the intermediate features as a class attribute
-        self.intermediate_features = intermediate_features
-        
         return tuple(outs)
 
-    def get_intermediate_features(self):
-        """Returns the stored intermediate features if they exist"""
-        if hasattr(self, 'intermediate_features'):
-            return self.intermediate_features
-        else:
-            raise AttributeError("No intermediate features found. Run a forward pass first.")
-
-    def clear_intermediate_features(self):
-        """Clears stored intermediate features to free memory"""
-        if hasattr(self, 'intermediate_features'):
-            del self.intermediate_features
-
-    def forward(self, x, gate_inp=None, task_id=None, sem=None, isval=False, verbose=False, return_output_matrix=False):
+    def forward(self, x, gate_inp=None, task_id=None,sem=None, isval=False):
         if sem is not None and (self.regu_sem or self.sem_force):
             sem = self.get_groundtruth_sem(sem)
-        out = self.forward_features(x, gate_inp, task_id=task_id, sem=sem, isval=isval, verbose=verbose, return_output_matrix=return_output_matrix)
+        out = self.forward_features(x, gate_inp, task_id = task_id,sem=sem, isval=isval)
         return out
-    
-    def compute_misalignment(self, V_list):
-        """
-        Computes the misalignment parameter (θ) from a list of local PC matrices.
-        
-        Args:
-            V_list (list of torch.Tensor): List of local PC matrices, each of shape (d, r),
-                where each matrix is orthonormal (i.e. V.T @ V = I).
-                
-        Returns:
-            theta (float): The misalignment parameter defined as θ = 1 - lambda_max,
-                where lambda_max is the largest eigenvalue of the average projection matrix.
-            lambda_max (float): The largest eigenvalue of the average projection matrix.
-        """
-        # Assume at least one local PC matrix exists.
-        d = V_list[0].shape[0]
-        device = V_list[0].device
-        N = len(V_list)
-        
-        # Compute the average projection matrix: P_avg = (1/N) * sum(V @ V.T)
-        P_avg = torch.zeros(d, d, device=device)
-        for V in V_list:
-            P = V @ V.T
-            P_avg += P
-            print(f'')
-        P_avg /= N
-
-        # Compute eigenvalues of the average projection matrix.
-        # torch.linalg.eigvalsh returns sorted eigenvalues in ascending order.
-        eigvals = torch.linalg.eigvalsh(P_avg)
-        lambda_max = eigvals[-1].item()
-        
-        # Misalignment parameter: theta = 1 - lambda_max
-        theta = 1 - lambda_max
-        
-        return theta, lambda_max
-
-    def visualize_features(self, save_dir='feature_viz', layer_indices=None, input_image=None, expert_indices=None):
-        """
-        Visualizes intermediate features as heatmaps and saves them to disk.
-        Also analyzes expert consistency and specialization
-        """
-
-        if not hasattr(self, 'intermediate_features'):
-            raise AttributeError("No intermediate features found. Run a forward pass first.")
-                
-        import datetime
-        # Create save directory if it doesn't exist
-        datetime_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        save_dir = os.path.join(save_dir, datetime_str)
-        os.makedirs(save_dir, exist_ok=True)
-        
-        # # Save input image if provided
-        # if input_image is not None:
-        #     for b in range(input_image.shape[0]):
-        #         img = input_image[b].cpu().detach()
-        #         mean = torch.tensor([0.485, 0.456, 0.406]).view(-1, 1, 1)
-        #         std = torch.tensor([0.229, 0.224, 0.225]).view(-1, 1, 1)
-        #         img = img * std + mean
-        #         img = img.clamp(0, 1)
-                
-        #         plt.figure(figsize=(10, 10))
-        #         plt.imshow(img.permute(1, 2, 0))
-        #         plt.title(f'Input Image - Sample {b}')
-        #         plt.axis('off')
-        #         plt.savefig(os.path.join(save_dir, f'input_image_sample_{b}.png'))
-        #         plt.close()
-        
-        # if layer_indices is None:
-        #     layer_indices = range(len(self.intermediate_features))
-        
-        # if expert_indices is not None:
-        #     # Create results dictionary to store component analysis
-        #     results = {
-        #         'layer_results': {},
-        #         'expert_results': {}
-        #     }
-
-        #     prev_features = None
-        #     features_list = []
-            
-        #     # Dictionary to store features for each expert
-        #     expert_features = {}
-        #     expert_datasets = {}  # Store 100xd matrices for each expert
-
-        #     for expert_idx in expert_indices:
-        #         # Set forced expert for all MoE layers
-        #         for block in self.blocks:
-        #             if hasattr(block, 'moe') and block.moe:
-        #                 block.mlp.set_forced_expert(expert_idx)
-                
-        #         # Run forward pass with forced expert multiple times to build dataset
-        #         expert_data = {idx: [] for idx in layer_indices}
-        #         with torch.no_grad():
-        #             _ = self.forward(input_image)
-                    
-        #             for idx in layer_indices:
-        #                 features = self.intermediate_features[idx].cpu().detach()
-        #                 features_list.append(features)
-        #                 # Flatten features for each sample
-        #                 flat_features = features.reshape(-1, features.shape[-1])
-        #                 expert_data[idx].append(flat_features)
-                
-        #         # Store features and datasets
-        #         expert_features[expert_idx] = {
-        #             idx: self.intermediate_features[idx].cpu().detach()
-        #             for idx in layer_indices
-        #         }
-        #         expert_datasets[expert_idx] = {
-        #             idx: torch.cat(expert_data[idx], dim=0)[:1000].T  #  transpose to dxn
-        #             for idx in layer_indices
-        #         }
-                
-        #         # Visualize features for this expert
-        #         for idx in layer_indices:
-        #             features = self.intermediate_features[idx]
-        #             B, N, D = features.shape
-                    
-        #             patch_features = features[:, 1:, :]
-        #             h = w = int(math.sqrt(N - 1))
-                    
-        #             feature_magnitudes = torch.norm(patch_features, dim=-1)
-        #             feature_magnitudes = feature_magnitudes.reshape(B, h, w)
-                    
-        #             for b in range(B):
-        #                 plt.figure(figsize=(10, 10))
-        #                 plt.imshow(feature_magnitudes[b].cpu().detach(), cmap='viridis')
-        #                 plt.colorbar()
-        #                 plt.title(f'Layer {idx} - Sample {b} - Expert {expert_idx}')
-        #                 plt.savefig(os.path.join(save_dir, f'layer_{idx}_sample_{b}_expert_{expert_idx}.png'))
-        #                 plt.close()
-
-        #     # Save results to file
-        #     with open(os.path.join(save_dir, 'component_analysis.txt'), 'w') as f:
-        #         f.write("Component Analysis Results\n")
-        #         f.write("=========================\n\n")
-                
-        #         for layer_idx in layer_indices:
-        #             layer_results = results['layer_results'][layer_idx]
-        #             f.write(f"Layer {layer_idx}:\n")
-        #             f.write(f"  Global components: {layer_results['global_components']}\n")
-        #             f.write(f"  Global reconstruction error: {layer_results['global_recon_error']:.3f}\n")
-        #             f.write("\n  Expert-specific results:\n")
-                    
-        #             for exp_idx, exp_results in layer_results['expert_results'].items():
-        #                 f.write(f"    Expert {exp_idx}:\n")
-        #                 f.write(f"      Local components: {exp_results['local_components']}\n")
-        #                 f.write(f"      Local reconstruction error: {exp_results['local_recon_error']:.3f}\n")
-        #             f.write("\n")
-
-            
-
-        # else:
-        #     # Original visualization code for normal routing
-        #     for idx in layer_indices:
-        #         features = self.intermediate_features[idx]
-        #         B, N, D = features.shape
-                
-        #         patch_features = features[:, 1:, :]
-        #         h = w = int(math.sqrt(N - 1))
-                
-        #         feature_magnitudes = torch.norm(patch_features, dim=-1)
-        #         feature_magnitudes = feature_magnitudes.reshape(B, h, w)
-                
-        #         for b in range(B):
-        #             plt.figure(figsize=(10, 10))
-        #             plt.imshow(feature_magnitudes[b].cpu().detach(), cmap='viridis')
-        #             plt.colorbar()
-        #             plt.title(f'Layer {idx} - Sample {b}')
-        #             plt.savefig(os.path.join(save_dir, f'layer_{idx}_sample_{b}.png'))
-        #             plt.close()
-
-        # print(f"Visualizations saved to {save_dir}")
-
-        # --- analysis of expert behaviour ----
-
-        # 1. expert consistency
-        n_moe_layers = 6 # hardcoded in
-
-        variance = torch.zeros((6, 16), device=input_image.device)
-
-        i = 0
-        _ = self.forward(input_image, return_output_matrix=True)
-
-        for block in self.blocks:
-
-            if block.moe:
-
-                # put this up a little (normally lower for memory use)
-                block.mlp.outputs_size_limit = 200
-
-                with torch.no_grad():
-
-                    # shape: (batch_size, top_k, dim)
-                    top_k_ouput = block.mlp.raw_moe_outp
-                    # shape: (batch_size, dim, n_experts)
-                    full_output = block.mlp.clients_tensor
-                    n_experts = full_output.shape[-1]
-
-                    for j in range(n_experts):
-                        expert_output = full_output[:, :, j]
-
-                        # remove zeros
-                        mask = ~torch.all(expert_output == 0, dim=1)
-                        expert_output = expert_output[mask]
-
-                        variance[i][j] = torch.var(expert_output, dim=0).mean()
-
-                i += 1
-                
-        print(f'Full variance matrix {variance}')
-
-        for i in range(6):
-            print(f'Layer {i} variance {variance[i]}')
-
-        # 2. expert 
-
-
-
-
-
 
 
 def _init_vit_weights(m, n: str = '', head_bias: float = 0., jax_impl: bool = False):
