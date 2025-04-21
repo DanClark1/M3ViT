@@ -85,7 +85,7 @@ class FMoETransformerMLP(FMoE):
         expert_dp_comm="none",
         expert_rank=0,
         gate=NaiveGate,
-        proj_rank=20,
+        proj_rank=5,
         world_size=1,
         top_k=2,
         vmoe_noisy_std=1,
