@@ -353,9 +353,11 @@ class FMoETransformerMLP(FMoE):
 
         gate_score = gate_score.view(-1, 1, self.top_k)
 
-        self.calculate_lambda_max_loss(moe_outp, gate_top_k_idx)
+        # self.calculate_lambda_max_loss(moe_outp, gate_top_k_idx)
         #self.calculate_frobenius_loss(moe_outp, gate_top_k_idx)
         #self.calculate_cosine_loss(moe_outp)
+        moe_outp = gram_schmidt_batch(moe_outp)
+
 
         def bmm_func(tensor):
             dim = tensor.shape[-1]
@@ -581,3 +583,45 @@ class FMoETransformerMLP(FMoE):
         
         self.frobenius_loss += pairwise_loss
         self.frobenius_normalise_weight += 1
+
+
+
+def gram_schmidt_batch(U: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
+        """
+        Perform Gram–Schmidt orthogonalization (and normalization) on a batch of
+        K vectors of dimension D.
+
+        Args:
+            U: Tensor of shape (B, K, D)
+            eps: small constant to avoid division by zero
+
+        Returns:
+            V: Tensor of shape (B, K, D) containing orthonormal vectors
+                along the K dimension for each batch.
+        """
+        B, K, D = U.shape
+        V = U.clone()
+        for i in range(K):
+            # subtract projections onto previous v's
+            if i > 0:
+                # V_prev: (B, i, D), u_i: (B, D) -> expand to (B, i, D)
+                V_prev = V[:, :i, :]                             # (B, i, D)
+                u_i    = V[:, i, :].unsqueeze(1).expand_as(V_prev)  # (B, i, D)
+
+                # compute dot products <v_j, u_i> and norms ||v_j||^2
+                dots  = torch.einsum('bid,bid->bi', V_prev, u_i)       # (B, i)
+                norms = torch.einsum('bid,bid->bi', V_prev, V_prev)    # (B, i)
+
+                # projection coefficients α_j = <v_j, u_i> / ||v_j||^2
+                coeffs = (dots / (norms + eps)).unsqueeze(-1)          # (B, i, 1)
+                # sum_j α_j v_j
+                proj   = (coeffs * V_prev).sum(dim=1)                  # (B, D)
+
+                V[:, i, :] = V[:, i, :] - proj
+
+            # normalize v_i to unit length
+            v_i = V[:, i, :]
+            norm = v_i.norm(dim=1, keepdim=True).clamp_min(eps)  # (B, 1)
+            V[:, i, :] = v_i / norm
+
+        return V
