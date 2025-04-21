@@ -393,7 +393,8 @@ class FMoETransformerMLP(FMoE):
             Q_flat = Qs[idx_flat]                          # (B*K, D, r)
             # projection: x_proj = Q (Q^T x)
             y = torch.einsum('eid,ed->ei', Q_flat.transpose(1,2), x_flat)
-            x_proj = torch.einsum('eid,ei->ed', Q_flat, y)
+            # project back: x_proj[e,d] = sum_i Q_flat[e,d,i] * y[e,i]
+            x_proj = torch.einsum('edi,ei->ed', Q_flat, y)
             moe_outp = x_proj.reshape(B, K, D)
             # accumulate chordal loss
             self.calculate_chordal_loss(Qs)
