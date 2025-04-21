@@ -622,7 +622,7 @@ def gram_schmidt_orthonormalize(U: torch.Tensor, eps: float = 1e-6) -> torch.Ten
 
 
 
-def project_cayley_subspaces(
+def project_to_unique_subspaces(
     U: torch.Tensor,
     A: torch.Tensor
 ) -> torch.Tensor:
