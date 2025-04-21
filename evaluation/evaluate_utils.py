@@ -418,7 +418,27 @@ def eval_all_results(p):
     return results
 
 
+def get_cosine_loss(model, step, coeff=1.0, detach=False):
 
+    backbone = model.module.backbone
+
+    layers = [block.mlp for block in backbone.blocks if block.moe]
+    loss = 0.0
+
+    for layer in layers:
+        if detach:
+            loss += (layer.cosine_loss / layer.cosine_normalise_weight).detach().cpu()
+        else:
+            loss += layer.cosine_loss / layer.cosine_normalise_weight
+        layer.reset_cosine_loss()
+
+    loss = loss / len(layers)
+    
+    rank = torch.distributed.get_rank()
+    if rank == 0:
+        wandb.log({"train/cosine_loss": loss.item()}, step=step, commit=False)
+
+    return loss * coeff
 
 
 def get_lambda_loss(model, step,  coeff=1.0, T=0.85, detach=False):
@@ -444,46 +464,25 @@ def get_lambda_loss(model, step,  coeff=1.0, T=0.85, detach=False):
     total_lambda_val = 0.0
 
     for layer in layers:
-        # Compute the normalized lambda value for this layer:
-        lambda_val = layer.loss / layer.loss_normalise_weight
-
+        if detach:
+            lambda_val = (layer.lambda_max_loss / layer.lambda_max_normalise_weight).detach().cpu()
+        else:
+            lambda_val = layer.lambda_max_loss / layer.lambda_max_normalise_weight
         total_lambda_val += lambda_val
-        # Reset the stored lambda loss for the next forward pass
+
         layer.reset_lambda_loss()
 
     total_lambda_val = (total_lambda_val / len(layers)).detach().cpu()
     
     # Log the loss (you could also log the individual lambda value if needed)
-    wandb.log({"lambda loss": total_lambda_val.item()}, step=step, commit=False)
-    # wandb.log({"thresholded lambda loss": loss.item()})
+    rank = torch.distributed.get_rank()
+    if rank == 0:
+        wandb.log({"train/lambda_loss": total_lambda_val.item()}, step=step, commit=False)
 
     return total_lambda_val * coeff
 
 
-
-def get_cosine_loss(model, step, coeff=1.0, detach=False):
-
-    backbone = model.module.backbone
-
-    layers = [block.mlp for block in backbone.blocks if block.moe]
-    loss = 0.0
-
-    for layer in layers:
-        if detach:
-            loss += (layer.cosine_loss / layer.cosine_normalise_weight).detach().cpu()
-        else:
-            loss += layer.cosine_loss / layer.cosine_normalise_weight
-        layer.reset_cosine_loss()
-
-    loss = loss / len(layers)
-    
-    rank = torch.distributed.get_rank()
-    wandb.log({"cosine loss": loss.item()}, step=step, commit=False)
-
-    return loss * coeff
-
-
-def get_frobenius_loss(model, step, coeff=1.0, detach=False):
+def get_frobenius_loss(model, step, coeff=100.0, detach=False):
     """
     Aggregates the Frobenius norm regularisation loss over all MoE layers in the model.
     
@@ -520,5 +519,8 @@ def get_frobenius_loss(model, step, coeff=1.0, detach=False):
     if detach:
         avg_loss = avg_loss.detach().cpu()
 
-    wandb.log({"frobenius loss": avg_loss.item()}, step=step, commit=False)
+
+    rank = torch.distributed.get_rank()
+    if rank == 0:
+        wandb.log({"frobenius loss": avg_loss.item()}, step=step, commit=False)
     return avg_loss * coeff
