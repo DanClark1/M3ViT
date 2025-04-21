@@ -261,23 +261,34 @@ class NoisyGate_VMoE(BaseGate):
 
         # calculate topk + 1 that will be needed for the noisy gates
         logits = self.softmax(logits)
-        top_logits, top_indices = logits.topk(
-            min(self.top_k + 1, self.tot_expert), dim=1
-        )
 
-        top_k_logits = top_logits[:, : self.top_k]
-        top_k_indices = top_indices[:, : self.top_k]
-        top_k_gates = top_k_logits
+        if self.top_k > 1:
+            logits_wo_last = logits[:, :-1]
+            top_vals, top_idx = logits_wo_last.topk(self.top_k-1, dim=1)
+            last_idx_tensor  = torch.full((logits.size(0),1),
+                                     self.tot_expert-1,
+                                     device=logits.device,
+                                     dtype=torch.long)
+            last_val_tensor  = logits[:, -1].unsqueeze(1)      
+            top_k_indices = torch.cat([top_idx,    last_idx_tensor],  dim=1)
+            top_k_gates   = torch.cat([top_vals,  last_val_tensor],    dim=1)         
+
+        else:
+            top_k_indices = torch.full((logits.size(0),1),
+                                   self.tot_expert-1,
+                                   device=logits.device,
+                                  dtype=torch.long)
+            top_k_gates   = logits[:, -1].unsqueeze(1)
 
         zeros = torch.zeros_like(logits, requires_grad=True)
-        gates = zeros.scatter(1, top_k_indices, top_k_logits)
+        gates = zeros.scatter(1, top_k_indices, top_k_gates)
 
         if self.training:
             if self.top_k < self.tot_expert and (not self.no_noise) and abs(noise_stddev) > 1e-6:
                 # print("calculate load loss")
                 load = (
                     self._prob_in_top_k(
-                        clean_logits, noisy_logits, noise_stddev, top_logits
+                        clean_logits, noisy_logits, noise_stddev, top_k_gates
                     )
                 ).sum(0)
             else:
