@@ -390,7 +390,7 @@ class FMoETransformerMLP(FMoE):
             moe_outp = x_proj_flat.reshape(B, K, D)
         
         #self.calculate_cosine_loss(moe_outp)
-        if self.use_chordal and False:
+        if False:
             # compute or reuse orthonormal bases Qs for each expert
             if self._cached_Qs is None:
                 # QR once per forward batch
