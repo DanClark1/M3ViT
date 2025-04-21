@@ -359,8 +359,8 @@ class FMoETransformerMLP(FMoE):
         # self.calculate_lambda_max_loss(moe_outp, gate_top_k_idx)
         #self.calculate_frobenius_loss(moe_outp, gate_top_k_idx)
         #self.calculate_cosine_loss(moe_outp)
-        #moe_outp = gram_schmidt_orthonormalize(moe_outp)
-        moe_outp = project_to_unique_subspaces(moe_outp, self.rawB)
+        moe_outp = gram_schmidt_orthonormalize(moe_outp)
+        #moe_outp = project_to_unique_subspaces(moe_outp, self.rawB)
 
 
         def bmm_func(tensor):
@@ -474,7 +474,8 @@ class FMoETransformerMLP(FMoE):
         
         return lambda_max
 
-    def calculate_lambda_max_loss(self, moe_outp, gate_top_k_idx):       
+    def calculate_lambda_max_loss(self, moe_outp, gate_top_k_idx):      
+        # (batch_positions, top_k, dim) 
         # shapes and dims
         batch_size = moe_outp.shape[0]
         dim = moe_outp.shape[-1]
