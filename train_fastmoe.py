@@ -363,7 +363,6 @@ def main():
 
         # 1. Visualise features
 
-        viz_save_dir = os.path.join(args.viz_dir, 'inference')
         viz_batch = next(iter(val_dataloader))
         viz_inputs = viz_batch['image'].cuda(non_blocking=True)
         
@@ -373,7 +372,7 @@ def main():
             
             # Then visualize with forced experts
             model.module.backbone.visualize_features(
-                save_dir=viz_save_dir,
+                save_dir='save_dir',
                 input_image=viz_inputs,
                 expert_indices=range(16)  # Visualize all 16 experts
             )
