@@ -365,14 +365,17 @@ def main():
         else:
             print("=> loading checkpoint '{}'".format(args.ckp))
             checkpoint = torch.load(args.ckp, map_location='cpu')
-        state_dict = checkpoint['state_dict']
-        # model = cvt_state_dict_(state_dict, model,args, linear_keyword, moe_dir_read)
-        msg = model.load_state_dict(state_dict, strict=False)
-        print('=================model unmatched keys:================',msg)
-        save_model_predictions(p, val_dataloader, model, args)
-        if args.distributed:
-            torch.distributed.barrier()
-        eval_stats = eval_all_results(p)
+
+        model, optimizer, start_epoch = load_for_training(model, optimizer, args.ckp, 'cuda')
+        eval_model(p, val_dataloader, model)
+        # state_dict = checkpoint['state_dict']
+        # # model = cvt_state_dict_(state_dict, model,args, linear_keyword, moe_dir_read)
+        # msg = model.load_state_dict(state_dict, strict=False)
+        # print('=================model unmatched keys:================',msg)
+        # save_model_predictions(p, val_dataloader, model, args)
+        # if args.distributed:
+        #     torch.distributed.barrier()
+        # eval_stats = eval_all_results(p)
         exit()
 
     if args.resume:

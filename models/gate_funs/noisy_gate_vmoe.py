@@ -43,6 +43,8 @@ class NoisyGate_VMoE(BaseGate):
         self.regu_sem = regu_sem
         self.regu_subimage = regu_subimage
         self.patch_size = 16
+        self.logits_record = torch.zeros(num_tasks, num_expert)
+        self.record = False
         
         if self.regu_sem:
             from losses.loss_functions import SoftMaxwithLoss
@@ -152,6 +154,13 @@ class NoisyGate_VMoE(BaseGate):
 
     def get_regu_subimage_loss(self):
         return self.regu_subimage_loss
+    
+    def logits_reset(self):
+        self.logits_record = torch.zeros(self.num_tasks, self.num_expert)
+
+        
+    def get_logits_record(self):
+        return self.logits_record.mean(dim=0)
 
 
     # def get_groundtruth_sem(self, sem):
@@ -261,6 +270,15 @@ class NoisyGate_VMoE(BaseGate):
 
         # calculate topk + 1 that will be needed for the noisy gates
         logits = self.softmax(logits)
+
+        if self.record and task_id is not None:
+            # logits: Tensor of shape [batch_size, tot_expert]
+            # Sum over the batch to get per-expert aggregate scores
+            with torch.no_grad():
+                batch_assign = logits.sum(dim=0)           # shape: [tot_expert]
+                # Accumulate into the record tensor (on CPU to save GPU memory)
+                self.logits_record[task_id] += batch_assign.cpu()
+
 
         if self.top_k > 1:
             logits_wo_last = logits[:, :-1]
