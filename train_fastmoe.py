@@ -382,7 +382,7 @@ def main():
             checkpoint = torch.load(args.ckp, map_location='cpu')
 
         model, optimizer, start_epoch = load_for_training(model, optimizer, args.ckp, 'cuda')
-        eval_model(p, val_dataloader, model)
+        eval_model(p, val_dataloader, model, step=0)
         # state_dict = checkpoint['state_dict']
         # # model = cvt_state_dict_(state_dict, model,args, linear_keyword, moe_dir_read)
         # msg = model.load_state_dict(state_dict, strict=False)
