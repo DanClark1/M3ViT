@@ -125,6 +125,8 @@ class FMoETransformerMLP(FMoE):
         self.K, self.dim = top_k, 384
         self.rawB = nn.Parameter(torch.randn(384, top_k * (384//top_k)))
 
+        self.logits_record = torch.zeros(num_tasks, num_expert)
+
         
 
         if self.sem_force:
@@ -357,6 +359,24 @@ class FMoETransformerMLP(FMoE):
 
 
         gate_score = gate_score.view(-1, 1, self.top_k)
+
+        batch_size = moe_outp.shape[0]
+        dim = moe_outp.shape[-1]
+
+        ones = torch.ones(
+            batch_size, self.top_k, device='cuda'
+        )
+        # adding zero vectors for padding at each forward pass
+        zeros = torch.zeros(
+            batch_size, self.num_expert, device='cuda'
+        )
+        rows = torch.arange(batch_size, device='cuda').unsqueeze(-1) 
+        zeros[rows, gate_top_k_idx] = ones
+
+        logits = zeros.sum(dim=0, keepdim=True)
+        self.logits_record[task_id] += logits.detach().cpu()
+
+        
 
         # self.calculate_lambda_max_loss(moe_outp, gate_top_k_idx)
         #self.calculate_frobenius_loss(moe_outp, gate_top_k_idx)
