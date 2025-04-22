@@ -259,7 +259,6 @@ def eval_model(p, val_loader, model, step):
     performance_meter = PerformanceMeter(p)
 
     model.eval()
-    model.module.moe_gate_fun.record = True
 
     for i, batch in enumerate(val_loader):
         # Forward pass
@@ -270,8 +269,6 @@ def eval_model(p, val_loader, model, step):
         # Measure performance
         performance_meter.update({t: get_output(output[t], t) for t in tasks}, targets)
 
-        print(model.module.moe_gate_fun.logits_record)
-        model.module.moe_gate_fun.logits_reset()
 
     eval_results = performance_meter.get_score(verbose = True)
     multi_task_performance = eval_results['semseg']['mIoU'] + \
