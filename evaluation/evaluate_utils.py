@@ -270,6 +270,11 @@ def eval_model(p, val_loader, model, step):
         performance_meter.update({t: get_output(output[t], t) for t in tasks}, targets)
 
     eval_results = performance_meter.get_score(verbose = True)
+    multi_task_performance = eval_results['semseg']['mIoU'] + \
+                            eval_results['human_parts']['mIoU'] + \
+                            eval_results['sal']['mIoU'] - \
+                            eval_results['normals']['mean'] - \
+                            eval_results['edge']['loss']
     if torch.distributed.get_rank() == 0:
         wandb.log({
             'val/step': step,
@@ -278,6 +283,7 @@ def eval_model(p, val_loader, model, step):
             'val/normals_mean_error': eval_results['normals']['mean'],
             'val/sal_mean_iou':       eval_results['sal']['mIoU'],
             'val/edge_loss':          eval_results['edge']['loss'],
+            'val/multi_task_performance': multi_task_performance,
             })
     return eval_results
 
