@@ -625,18 +625,32 @@ def gram_schmidt_orthonormalize(U: torch.Tensor, eps: float = 1e-6) -> torch.Ten
 
 def project_to_unique_subspaces(
     U: torch.Tensor,
+    gate_top_k_idx: torch.Tensor,
+    N: int,
     A: torch.Tensor
 ) -> torch.Tensor:
     """
     Args:
       U: (batch, K, dim)                — MoE outputs
+      gate_top_k_idx: (batch, K)        — indices of the experts
+      N: int                            — number of experts
       A: (dim, dim)                     — unconstrained parameter
     Returns:
       V: (batch, K, dim)                — each expert in its own orthogonal subspace
     """
     batch, K, dim = U.shape
-    assert dim % K == 0
-    dsub = dim // K
+    assert dim % N == 0
+    dsub = dim // N
+
+
+    # adding zero vectors for padding at each forward pass
+    expert_out_matrix = torch.zeros(
+        batch, N, dim, device='cuda'
+    )
+    rows = torch.arange(batch, device='cuda').unsqueeze(-1) 
+    expert_out_matrix[rows, gate_top_k_idx, :] = U
+    
+    U = expert_out_matrix
 
     # 1) build Cayley orthogonal matrix
     S = A - A.t()                                # skew-symmetric
@@ -647,10 +661,12 @@ def project_to_unique_subspaces(
     # 2) slice into K sub-bases
     #    Q[:, i*dsub:(i+1)*dsub] is the basis for expert i
     V = torch.zeros_like(U)
-    for i in range(K):
+    for i in range(N):
         Bi = Q[:, i*dsub:(i+1)*dsub]             # (dim, dsub)
         ui = U[:, i]                             # (batch, dim)
         coords = ui @ Bi                         # (batch, dsub)
         V[:, i]  = coords @ Bi.t()               # back to (batch, dim)
 
+    
+    V = V[rows, gate_top_k_idx, :]
     return V
