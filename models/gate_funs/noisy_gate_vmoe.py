@@ -43,7 +43,6 @@ class NoisyGate_VMoE(BaseGate):
         self.regu_sem = regu_sem
         self.regu_subimage = regu_subimage
         self.patch_size = 16
-        self.logits_record = torch.zeros(num_tasks, num_expert)
         self.record = False
         
         if self.regu_sem:
@@ -158,7 +157,7 @@ class NoisyGate_VMoE(BaseGate):
     def logits_reset(self):
         self.logits_record = torch.zeros(self.num_tasks, self.num_expert)
 
-        
+
     def get_logits_record(self):
         return self.logits_record.mean(dim=0)
 
