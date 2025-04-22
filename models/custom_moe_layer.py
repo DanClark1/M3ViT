@@ -373,7 +373,7 @@ class FMoETransformerMLP(FMoE):
         rows = torch.arange(batch_size, device='cuda').unsqueeze(-1) 
         zeros[rows, gate_top_k_idx] = ones
 
-        logits = zeros.sum(dim=0, keepdim=True)
+        logits = zeros.sum(dim=0, keepdim=False)
         self.logits_record[task_id] += logits.detach().cpu()
 
         
