@@ -269,10 +269,10 @@ def eval_model(p, val_loader, model, step):
         performance_meter.update({t: get_output(output[t], t) for t in tasks}, targets)
 
 
-    backbone = model.module.backbone
-    layers = [block.mlp for block in backbone.blocks if block.moe]
-    for layer in layers:
-        print(layer.logits_record.normalize())
+        backbone = model.module.backbone
+        layers = [block.mlp for block in backbone.blocks if block.moe]
+        for layer in layers:
+            print(layer.logits_record)
 
     eval_results = performance_meter.get_score(verbose = True)
     multi_task_performance = eval_results['semseg']['mIoU'] + \
