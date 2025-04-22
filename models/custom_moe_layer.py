@@ -360,7 +360,7 @@ class FMoETransformerMLP(FMoE):
         #self.calculate_frobenius_loss(moe_outp, gate_top_k_idx)
         #self.calculate_cosine_loss(moe_outp)
         #moe_outp = gram_schmidt_orthonormalize(moe_outp)
-        moe_outp = project_to_unique_subspaces(moe_outp, self.rawB)
+        moe_outp = project_to_unique_subspaces(moe_outp, gate_top_k_idx, self.num_expert, self.rawB)
 
 
         def bmm_func(tensor):
