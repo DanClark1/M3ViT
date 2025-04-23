@@ -361,9 +361,8 @@ class FMoETransformerMLP(FMoE):
         #self.calculate_cosine_loss(moe_outp)
         #moe_outp = gram_schmidt_orthonormalize(moe_outp)
 
-        moe_outp[:, :-1, :] = project_to_unique_subspaces(
-            moe_outp[:, :-1, :], self.rawB
-        )
+        projected_moe_outp = project_to_unique_subspaces(moe_outp[:, :-1 :], gate_top_k_idx, self.num_expert, self.rawB)
+        moe_outp = torch.cat((projected_moe_outp, moe_outp[:, -1, :]), dim=1)
 
 
         def bmm_func(tensor):
