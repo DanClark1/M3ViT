@@ -362,7 +362,7 @@ class FMoETransformerMLP(FMoE):
         #moe_outp = gram_schmidt_orthonormalize(moe_outp)
 
         moe_outp[:, :-1, :] = project_to_unique_subspaces(
-            moe_outp[:, :-1, :], gate_top_k_idx, self.num_expert, self.rawB
+            moe_outp[:, :-1, :], self.rawB
         )
 
 
