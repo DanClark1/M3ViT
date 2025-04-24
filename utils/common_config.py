@@ -244,7 +244,7 @@ def get_backbone(p, args=None):
                 else:
                     print(checkpoint.keys())
                     #state_dict = checkpoint['state_dict']
-                    state_dict = checkpoint
+                    state_dict = checkpoint[0]
                     backbone = cvt_state_dict(state_dict, backbone, p, args, linear_keyword, moe_dir_read, backbone.h, backbone.w)
 
                 print("=> loaded pre-trained model '{}'".format(args.pretrained))
