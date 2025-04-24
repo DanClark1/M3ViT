@@ -27,19 +27,19 @@ from utils.moe_utils import read_specific_group_experts
     Model getters 
 """
 def cvt_state_dict(state_dict, model, p, args, linear_keyword, moe_dir_mode=False, img_h=None, img_w=None):
-    # rename moco pre-trained keys
-    for k in list(state_dict.keys()):
-        # retain only base_encoder up to before the embedding layer
-        if not args.pos_emb_from_pretrained and k.startswith('module.pos_embed'):
-            del state_dict[k]
-        if k.startswith('module.') and (not k.startswith('module.%s' % linear_keyword)) and (not k.startswith('module.norm')):
-            if "_aux" in k:
-                # print("skip k is {}".format(k))
-                continue
-            # remove prefix
-            state_dict[k[len("module."):]] = state_dict[k]
-            # delete renamed or unused k
-            del state_dict[k]
+    # # rename moco pre-trained keys
+    # for k in list(state_dict.keys()):
+    #     # retain only base_encoder up to before the embedding layer
+    #     if not args.pos_emb_from_pretrained and k.startswith('module.pos_embed'):
+    #         del state_dict[k]
+    #     if k.startswith('module.') and (not k.startswith('module.%s' % linear_keyword)) and (not k.startswith('module.norm')):
+    #         if "_aux" in k:
+    #             # print("skip k is {}".format(k))
+    #             continue
+    #         # remove prefix
+    #         state_dict[k[len("module."):]] = state_dict[k]
+    #         # delete renamed or unused k
+    #         del state_dict[k]
 
     if args.task_one_hot and (not args.multi_gate) and (not args.regu_experts_fromtask):
         for k in list(state_dict.keys()):
@@ -244,6 +244,8 @@ def get_backbone(p, args=None):
                 else:
                     print(checkpoint.keys())
                     #state_dict = checkpoint['state_dict']
+
+                    # STATE DICT LOADED HERE!!
                     state_dict = checkpoint
                     backbone = cvt_state_dict(state_dict, backbone, p, args, linear_keyword, moe_dir_read, backbone.h, backbone.w)
 
