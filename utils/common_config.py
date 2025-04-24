@@ -92,6 +92,12 @@ def cvt_state_dict(state_dict, model, p, args, linear_keyword, moe_dir_mode=Fals
         state_dict = read_specific_group_experts(state_dict, args.rank, args.moe_experts)
     args.start_epoch = 0
     print(state_dict.keys())
+    model_keys = set(model.state_dict().keys())
+
+    state_keys = set(state_dict.keys())
+    print("  → In checkpoint only:", sorted(state_keys - model_keys))
+    print("  → In model only:      ", sorted(model_keys - state_keys))
+    print("  → Exact overlap:      ", sorted(state_keys & model_keys))
     msg = model.load_state_dict(state_dict, strict=False)
     print('=================unmatched keys:================',msg)
 
