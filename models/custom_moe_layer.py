@@ -123,7 +123,7 @@ class FMoETransformerMLP(FMoE):
         self.use_lambda = False
         self.use_cosine = False
         self.K, self.dim = top_k, 384
-        self.rawB = nn.Parameter(torch.randn(384, top_k * (384//top_k)))
+        self.rawB = nn.Paramet er(torch.randn(384, top_k * (384//top_k)))
 
         
 
