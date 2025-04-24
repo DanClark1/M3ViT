@@ -165,7 +165,32 @@ if "LOCAL_RANK" not in os.environ:
     os.environ["LOCAL_RANK"] = str(args.local_rank)
     # print(os.environ["LOCAL_RANK"])
 
+def save_checkpoint(model, optimizer, epoch, path):
+        # Only save from process with global rank 0
+        if dist.get_rank() == 0:
+            checkpoint = {
+                "epoch": epoch,
+                "model_state": model.state_dict(),  # unwrap DDP
+                "optimizer_state": optimizer.state_dict(),
+            }
+            torch.save(checkpoint, path)
+        dist.barrier()  # sync all ranks
 
+
+def load_for_training(model, optimizer, path, device):
+
+        # Wrap model first
+        dist.barrier()  # wait for rank 0 to write file
+
+        checkpoint = torch.load(path, map_location=f"{device}")
+        try:
+            model.load_state_dict(checkpoint["model_state"])
+        except:
+            model.module.load_state_dict(checkpoint["model_state"])
+        optimizer.load_state_dict(checkpoint["optimizer_state"])
+        start_epoch = checkpoint["epoch"] + 1
+
+        return model, optimizer, start_epoch
 
 
 def main():
@@ -431,16 +456,7 @@ def main():
     device = torch.device(f"cuda:{args.local_rank}")
     local_rank = torch.distributed.get_rank()
 
-    def save_checkpoint(model, optimizer, epoch, path):
-        # Only save from process with global rank 0
-        if dist.get_rank() == 0:
-            checkpoint = {
-                "epoch": epoch,
-                "model_state": model.state_dict(),  # unwrap DDP
-                "optimizer_state": optimizer.state_dict(),
-            }
-            torch.save(checkpoint, path)
-        dist.barrier()  # sync all ranks
+
 
     
 
@@ -460,20 +476,7 @@ def main():
     # save_checkpoint(model, optimizer, 0, "/app/checkpoint.pt")
 
     # # LOAD for training
-    def load_for_training(model, optimizer, path, device):
 
-        # Wrap model first
-        dist.barrier()  # wait for rank 0 to write file
-
-        checkpoint = torch.load(path, map_location=f"{device}")
-        try:
-            model.load_state_dict(checkpoint["model_state"])
-        except:
-            model.module.load_state_dict(checkpoint["model_state"])
-        optimizer.load_state_dict(checkpoint["optimizer_state"])
-        start_epoch = checkpoint["epoch"] + 1
-
-        return model, optimizer, start_epoch
 
     if args.ckp:
         model, optimizer, start_epoch = load_for_training(model, optimizer, args.ckp, device)
