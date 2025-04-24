@@ -391,10 +391,10 @@ def main():
             print("=> loading checkpoint '{}'".format(args.ckp))
             checkpoint = torch.load(args.ckp, map_location='cpu')
         model, optimizer, start_epoch = load_for_training(model, optimizer, args.ckp, 'cuda')
-        eval_model(p, val_dataloader, model, 0)
-        if args.distributed:
-            torch.distributed.barrier()
-        eval_stats = eval_all_results(p)
+        # eval_model(p, val_dataloader, model, 0)
+        # if args.distributed:
+        #     torch.distributed.barrier()
+        # eval_stats = eval_all_results(p)
         exit()
 
     if args.resume:
