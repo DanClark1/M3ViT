@@ -91,7 +91,7 @@ def cvt_state_dict(state_dict, model, p, args, linear_keyword, moe_dir_mode=Fals
         print('=========will use read_specific_group_experts================')
         state_dict = read_specific_group_experts(state_dict, args.rank, args.moe_experts)
     args.start_epoch = 0
-    print(state_dict)
+    print(state_dict.keys())
     msg = model.load_state_dict(state_dict, strict=False)
     print('=================unmatched keys:================',msg)
 
